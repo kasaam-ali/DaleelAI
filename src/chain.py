@@ -4,7 +4,8 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from retriever import load_vectorstore, retrieve_chunks
-from langchain_memory import ConversationBufferWindowMemory
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
 import os
 
 # ================================

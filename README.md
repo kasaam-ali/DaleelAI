@@ -38,18 +38,25 @@ questions — completely free.
 ## 🏗️ System Architecture
 User Query
 ↓
+
 Streamlit UI (app.py)
 ↓
+
 Query Embedding (all-MiniLM-L6-v2)
 ↓
+
 ChromaDB Similarity Search
 ↓
+
 Top 5 Relevant FBR Document Chunks
 ↓
+
 Groq LLM (Llama 3.3 70B)
 ↓
+
 Source-Cited Answer
 ↓
+
 User
 ---
 

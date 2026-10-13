@@ -1,0 +1,492 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daleelai.local/contracts/events.schema.json",
+  "title": "DaleelAI SSE events",
+  "oneOf": [
+    {
+      "$defs": {
+        "MetaData": {
+          "properties": {
+            "chat_id": {
+              "title": "Chat Id",
+              "type": "string"
+            },
+            "message_id": {
+              "title": "Message Id",
+              "type": "string"
+            },
+            "intent": {
+              "enum": [
+                "qa",
+                "notice",
+                "calculate",
+                "compare_filer",
+                "checklist",
+                "find_expert",
+                "updates",
+                "provincial",
+                "refuse",
+                "chitchat",
+                "out_of_scope"
+              ],
+              "title": "Intent",
+              "type": "string"
+            },
+            "language": {
+              "enum": [
+                "en",
+                "roman_urdu",
+                "urdu"
+              ],
+              "title": "Language",
+              "type": "string"
+            },
+            "tax_year": {
+              "title": "Tax Year",
+              "type": "string"
+            }
+          },
+          "required": [
+            "chat_id",
+            "message_id",
+            "intent",
+            "language",
+            "tax_year"
+          ],
+          "title": "MetaData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "meta",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MetaData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "MetaEvent",
+      "type": "object"
+    },
+    {
+      "$defs": {
+        "TokenData": {
+          "properties": {
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "title": "TokenData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "token",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TokenData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "TokenEvent",
+      "type": "object"
+    },
+    {
+      "$defs": {
+        "Source": {
+          "properties": {
+            "library": {
+              "enum": [
+                "verified",
+                "web"
+              ],
+              "title": "Library",
+              "type": "string"
+            },
+            "doc_id": {
+              "title": "Doc Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "section": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Section"
+            },
+            "page": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Page"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            },
+            "mirror_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Mirror Url"
+            },
+            "site": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Site"
+            },
+            "fetched_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fetched At"
+            },
+            "snippet": {
+              "title": "Snippet",
+              "type": "string"
+            },
+            "rerank_score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rerank Score"
+            }
+          },
+          "required": [
+            "library",
+            "doc_id",
+            "title",
+            "url",
+            "snippet"
+          ],
+          "title": "Source",
+          "type": "object"
+        },
+        "SourcesData": {
+          "properties": {
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/Source"
+              },
+              "title": "Sources",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sources"
+          ],
+          "title": "SourcesData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "sources",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SourcesData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "SourcesEvent",
+      "type": "object"
+    },
+    {
+      "$defs": {
+        "VerificationData": {
+          "properties": {
+            "verified": {
+              "title": "Verified",
+              "type": "boolean"
+            },
+            "unsupported": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Unsupported",
+              "type": "array"
+            },
+            "replaced": {
+              "title": "Replaced",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "verified",
+            "replaced"
+          ],
+          "title": "VerificationData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "verification",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/VerificationData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "VerificationEvent",
+      "type": "object"
+    },
+    {
+      "$defs": {
+        "ActionLink": {
+          "properties": {
+            "topic": {
+              "title": "Topic",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_ru": {
+              "title": "Label Ru",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            },
+            "authority": {
+              "enum": [
+                "FBR",
+                "SECP",
+                "SRB",
+                "PRA",
+                "KPRA",
+                "BRA"
+              ],
+              "title": "Authority",
+              "type": "string"
+            }
+          },
+          "required": [
+            "topic",
+            "label",
+            "label_ru",
+            "url",
+            "authority"
+          ],
+          "title": "ActionLink",
+          "type": "object"
+        },
+        "FinalData": {
+          "properties": {
+            "answer": {
+              "title": "Answer",
+              "type": "string"
+            },
+            "answer_source": {
+              "enum": [
+                "verified",
+                "web",
+                "none"
+              ],
+              "title": "Answer Source",
+              "type": "string"
+            },
+            "confidence": {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "title": "Confidence",
+              "type": "string"
+            },
+            "verified": {
+              "title": "Verified",
+              "type": "boolean"
+            },
+            "model": {
+              "title": "Model",
+              "type": "string"
+            },
+            "tax_year": {
+              "title": "Tax Year",
+              "type": "string"
+            },
+            "corpus_date": {
+              "title": "Corpus Date",
+              "type": "string"
+            },
+            "action_links": {
+              "items": {
+                "$ref": "#/$defs/ActionLink"
+              },
+              "title": "Action Links",
+              "type": "array"
+            },
+            "follow_ups": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Follow Ups",
+              "type": "array"
+            },
+            "cached": {
+              "title": "Cached",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "answer",
+            "answer_source",
+            "confidence",
+            "verified",
+            "model",
+            "tax_year",
+            "corpus_date",
+            "cached"
+          ],
+          "title": "FinalData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "final",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/FinalData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "FinalEvent",
+      "type": "object"
+    },
+    {
+      "$defs": {
+        "ErrorData": {
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "ErrorData",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "event": {
+          "const": "error",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ErrorData"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ],
+      "title": "ErrorEvent",
+      "type": "object"
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "done",
+          "title": "Event",
+          "type": "string"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "title": "DoneEvent",
+      "type": "object"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "note": "Shared by the browser redactor and, later, the server redactor. An unlabeled 7 or 8 digit run is a rupee amount, not an NTN.",
+  "cases": [
+    {"id": "rupee-amount", "input": "25000000", "output": "25000000"},
+    {"id": "rupee-sentence", "input": "The tax is 25000000.", "output": "The tax is 25000000."},
+    {"id": "rupee-grouped", "input": "Rs 25,000,000", "output": "Rs 25,000,000"},
+    {"id": "bare-8-digits", "input": "12345678", "output": "12345678"},
+    {"id": "cnic-dashed", "input": "CNIC 12345-1234567-1", "output": "CNIC [CNIC]"},
+    {"id": "cnic-compact", "input": "1234512345671", "output": "[CNIC]"},
+    {"id": "ntn-hyphen", "input": "1234567-8", "output": "[NTN]"},
+    {"id": "ntn-label", "input": "NTN 12345678", "output": "[NTN]"},
+    {"id": "ntn-label-hyphen", "input": "NTN No. 1234567-8", "output": "[NTN]"},
+    {"id": "registration-no", "input": "Registration No: 7654321", "output": "[NTN]"},
+    {"id": "ntn-word-not-label", "input": "NTN is 12345678", "output": "NTN is 12345678"},
+    {"id": "phone-local", "input": "03001234567", "output": "[PHONE]"},
+    {"id": "phone-dashed", "input": "0300-1234567", "output": "[PHONE]"},
+    {"id": "phone-plus92", "input": "+923001234567", "output": "[PHONE]"},
+    {"id": "phone-plus92-space", "input": "+92 300 1234567", "output": "[PHONE]"},
+    {"id": "phone-0092", "input": "00923001234567", "output": "[PHONE]"},
+    {"id": "email", "input": "Write to a.b+tax@fbr.gov.pk today", "output": "Write to [EMAIL] today"},
+    {"id": "iban", "input": "PK36SCBL0000001123456702", "output": "[ACCOUNT]"},
+    {"id": "account-label", "input": "account 12345678901234", "output": "[ACCOUNT]"},
+    {"id": "account-short", "input": "account 12345", "output": "account 12345"},
+    {"id": "name", "input": "Name: Ali Khan", "output": "[NAME]"},
+    {"id": "address", "input": "Address: House 12, Street 4", "output": "[ADDRESS]"},
+    {"id": "mixed", "input": "Ali 12345-1234567-1 NTN 1234567-8 email a@b.co", "output": "Ali [CNIC] [NTN] email [EMAIL]"}
+  ]
+}

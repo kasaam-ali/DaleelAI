@@ -28,12 +28,79 @@ def load_yaml(name: str, config_dir: Path = CONFIG_DIR) -> dict[str, Any]:
 
 class Adapters(BaseModel):
     llm: Literal["litellm", "fake"] = "litellm"
+    vector_store: Literal["qdrant", "memory"] = "qdrant"
+    embedder: Literal["fastembed", "fake"] = "fastembed"
+    reranker: Literal["fastembed", "fake"] = "fastembed"
+    classifier: Literal["onnx", "keyword"] = "onnx"
+    repository: Literal["postgres", "sqlite"] = "postgres"
+    agent_runner: Literal["langgraph", "simple"] = "langgraph"
+
+
+class QdrantCollections(BaseModel):
+    verified: str = "documents"
+    web: str = "web_pages"
+
+
+class QdrantSettings(BaseModel):
+    url: str = ""
+    api_key: str = ""
+    collections: QdrantCollections = QdrantCollections()
+
+
+class EmbeddingModels(BaseModel):
+    dense: str = "BAAI/bge-small-en-v1.5"
+    sparse: str = "Qdrant/bm25"
+    reranker: str = "Xenova/ms-marco-MiniLM-L-12-v2"
+    classifier_path: str = "models/classifier.onnx"
+
+
+class RetrievalSettings(BaseModel):
+    prefetch_k: int = 30
+    rerank_keep: int = 6
+    context_tokens: int = 6000
+    domain_boost: float = 1.2
+
+
+class SufficiencySettings(BaseModel):
+    """Rerank bands from config. The dev set has not fitted these yet."""
+
+    sufficient_at: float = 0.7
+    borderline_at: float = 0.4
+
+
+class WebFallbackSettings(BaseModel):
+    enabled: bool = True
+    rerank_keep: int = 5
+    min_rerank_score: float = 0.5
+    max_confidence: Literal["high", "medium", "low"] = "medium"
+    abstain_links: int = 3
+
+
+class BudgetSettings(BaseModel):
+    calls_target: int = 3
+    calls_cap: int = 5
+    daily_tokens: int = 400000
+
+
+class UploadSettings(BaseModel):
+    max_mb: int = 10
+    max_pages: int = 10
 
 
 class Settings(BaseModel):
     env: Literal["development", "production"] = "development"
     cors_origins: list[str] = []
     adapters: Adapters = Adapters()
+    database_url: str = ""
+    qdrant: QdrantSettings = QdrantSettings()
+    models: EmbeddingModels = EmbeddingModels()
+    retrieval: RetrievalSettings = RetrievalSettings()
+    sufficiency: SufficiencySettings = SufficiencySettings()
+    web_fallback: WebFallbackSettings = WebFallbackSettings()
+    action_links_file: str = "config/action_links.yaml"
+    budget: BudgetSettings = BudgetSettings()
+    uploads: UploadSettings = UploadSettings()
+    internal_token: str = ""
 
 
 class RetryConfig(BaseModel):

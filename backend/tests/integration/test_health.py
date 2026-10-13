@@ -15,7 +15,13 @@ def test_health_reports_ok_and_version():
     response = make_client().get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": APP_VERSION, "env": "development"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["version"] == APP_VERSION
+    assert body["env"] == "development"
+    assert body["corpus_version"] == "unindexed"
+    assert body["supported_tax_years"] == ["TY2026", "TY2027"]
+    assert "dense" in body["models"]
 
 
 def test_cors_allows_local_frontend():

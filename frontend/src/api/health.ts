@@ -5,12 +5,15 @@ export type Health = {
   status: 'ok'
   version: string
   env: string
+  corpus_version: string
+  supported_tax_years: string[]
+  models: Record<string, string>
 }
 
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
-    queryFn: () => getJson<Health>('/health'),
+    queryFn: ({ signal }) => getJson<Health>('/health', signal),
     retry: 1,
   })
 }

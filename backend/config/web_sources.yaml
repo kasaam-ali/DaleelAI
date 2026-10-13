@@ -1,0 +1,50 @@
+# Crawler allowlist. Every domain and seed URL must be checked by hand before crawl.
+# Only URLs confirmed as official in this session are listed. Empty seeds mean "do not crawl yet".
+defaults: {max_depth: 3, max_pages: 500, delay_s: 2, max_pdf_mb: 15, respect_robots: true}
+user_agent: "DaleelAI-crawler/1.0 (+https://github.com/kasaam-ali/DaleelAI)"
+sites:
+  - site: fbr.gov.pk
+    authority: FBR
+    seeds:
+      - "https://fbr.gov.pk/"
+    allow_prefixes:
+      - "https://fbr.gov.pk/"
+      - "https://www.fbr.gov.pk/"
+    # TODO: add help, FAQ, guides, and notifications paths after checking each page by hand
+  - site: iris.fbr.gov.pk
+    authority: FBR
+    seeds:
+      - "https://iris.fbr.gov.pk/"
+    allow_prefixes:
+      - "https://iris.fbr.gov.pk/"
+    # TODO: public help/guide pages only; do not crawl login or taxpayer-account pages
+  - site: secp.gov.pk
+    authority: SECP
+    seeds: []
+    allow_prefixes: []
+    # TODO: confirm official SECP homepage and company-registration / eServices guide URLs by hand
+  - site: srb.gos.pk
+    authority: SRB
+    seeds: []
+    allow_prefixes: []
+    # TODO: confirm official Sindh Revenue Board domain and registration/rates pages by hand
+  - site: e.pra.punjab.gov.pk
+    authority: PRA
+    seeds:
+      - "http://e.pra.punjab.gov.pk/"
+    allow_prefixes:
+      - "http://e.pra.punjab.gov.pk/"
+      - "https://e.pra.punjab.gov.pk/"
+    # Confirmed as PRA IRIS (Punjab Revenue Authority taxpayer portal). HTTPS not verified this session.
+  - site: kpra.gov.pk
+    authority: KPRA
+    seeds:
+      - "https://kpra.gov.pk/"
+    allow_prefixes:
+      - "https://kpra.gov.pk/"
+    # TODO: add registration and rates paths after checking each page by hand
+  - site: bra.gob.pk
+    authority: BRA
+    seeds: []
+    allow_prefixes: []
+    # TODO: confirm official Balochistan Revenue Authority domain and seed URLs by hand

@@ -1,31 +1,103 @@
-import { useHealth } from './api/health'
+import { useEffect, useState } from "react"
+import { useHealth } from "./api/health"
+import ChatPage from "./features/chat/ChatPage"
+import ProfilePanel from "./features/onboarding/ProfilePanel"
+import { t, type CopyKey } from "./i18n"
+import {
+  THEME_KEY,
+  readLanguage,
+  readProfile,
+  sanitizeProfile,
+  writeLanguage,
+  writeProfile,
+  type Profile,
+  type Theme,
+  type UiLanguage,
+} from "./lib/session"
 
-function ApiStatus() {
-  const health = useHealth()
+export default function App() {
+  const [language, setLanguage] = useState<UiLanguage>(() => readLanguage(localStorage))
+  const [profile, setProfile] = useState<Profile>(() => readProfile(localStorage))
+  const [theme, setTheme] = useState<Theme>(() =>
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+  )
+  const copy = (key: CopyKey) => t(language, key)
 
-  if (health.isPending) {
-    return <span className="text-slate-500">Checking API...</span>
+  function changeLanguage(next: UiLanguage) {
+    setLanguage(next)
+    writeLanguage(localStorage, next)
   }
-  if (health.isError) {
-    return <span className="text-red-600">API unreachable</span>
+
+  function changeProfile(patch: Partial<Profile>) {
+    setProfile((current) => sanitizeProfile({ ...current, ...patch }))
   }
+
+  useEffect(() => {
+    writeProfile(localStorage, profile)
+  }, [profile])
+
+  function changeTheme() {
+    const next = theme === "dark" ? "light" : "dark"
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    localStorage.setItem(THEME_KEY, next)
+  }
+
   return (
-    <span className="text-emerald-700">
-      API ok (v{health.data.version}, {health.data.env})
-    </span>
+    <div className="min-h-dvh bg-paper font-civic text-ink">
+      <a
+        href="#ask"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-10 focus:bg-field focus:px-3 focus:py-2"
+      >
+        {copy("skipToQuestion")}
+      </a>
+      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+        <header>
+          <h1 className="font-statute text-5xl leading-none">{copy("product")}</h1>
+          <p className="mt-3 max-w-[36ch] text-lg leading-7">{copy("lede")}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="sr-only">{copy("languageLabel")}</span>
+            <button
+              type="button"
+              aria-pressed={language === "en"}
+              onClick={() => changeLanguage("en")}
+              className={`min-h-11 px-3 text-sm ${language === "en" ? "bg-ink text-paper" : "border border-rule"}`}
+            >
+              {copy("english")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={language === "roman_urdu"}
+              onClick={() => changeLanguage("roman_urdu")}
+              className={`min-h-11 px-3 text-sm ${language === "roman_urdu" ? "bg-ink text-paper" : "border border-rule"}`}
+            >
+              {copy("romanUrdu")}
+            </button>
+            <button type="button" onClick={changeTheme} className="min-h-11 border border-rule px-3 text-sm">
+              {theme === "dark" ? copy("themeToLight") : copy("themeToDark")}
+            </button>
+          </div>
+          <ServiceStatus copy={copy} />
+        </header>
+        <ProfilePanel
+          profile={profile}
+          copy={copy}
+          onChange={changeProfile}
+        />
+        <main>
+          <ChatPage language={language} profile={profile} copy={copy} />
+        </main>
+      </div>
+    </div>
   )
 }
 
-export default function App() {
-  return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col justify-center gap-4 px-6">
-      <h1 className="text-4xl font-bold text-slate-900">DaleelAI</h1>
-      <p className="text-lg text-slate-600">
-        Tax and compliance answers for Pakistan, with sources from FBR and SECP.
-      </p>
-      <p className="text-sm">
-        <ApiStatus />
-      </p>
-    </main>
-  )
+function ServiceStatus({ copy }: { copy: (key: CopyKey) => string }) {
+  const health = useHealth()
+  const text = health.isPending
+    ? copy("serviceChecking")
+    : health.isError
+      ? copy("serviceUnreachable")
+      : copy("serviceReachable")
+  return <p className="mt-4 text-sm text-muted">{text}</p>
 }

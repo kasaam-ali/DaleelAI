@@ -23,5 +23,9 @@ def test_committed_config_files_are_valid():
     models = load_models_config()
 
     assert settings.adapters.llm in ("litellm", "fake")
+    assert settings.adapters.vector_store in ("qdrant", "memory")
+    assert settings.qdrant.collections.verified == "documents"
+    assert settings.sufficiency.sufficient_at >= settings.sufficiency.borderline_at
+    assert settings.sufficiency.sufficient_at == 0.7
     assert set(models.roles) == {"reasoning", "fast", "vision", "judge"}
     assert all(models.roles.values())

@@ -7,9 +7,10 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | Phase | State |
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
-| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Qdrant `documents` indexing is running (resumed from 1,867 of 18,600 points). Other scans not OCR'd. |
-| 2 Agentic RAG and API | Not started. Next chat starts here (PLAN section 13, Phase 2). |
-| 3-9 | Not started |
+| 1 Data and retrieval | Catalog and download done. 32 active docs chunked and indexed. Qdrant `documents` has 18,600 points, 0 failures. Other scans not OCR'd. |
+| 2 Agentic RAG and API | In progress. Borderline grade, retry rewrite, live adapters, and a LangGraph wrapper are in. The running image was not rebuilt, so that container still uses the plain `run_qa` fallback until the image is rebuilt. |
+| 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Not deployed. |
+| 4-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -17,10 +18,77 @@ Deferred on purpose:
 - Full-corpus PDF extraction and chunking (Phase 1 step 3): stopped on 2026-10-13. Tesseract sat at 100% CPU on one scanned page for over an hour. Digital Acts already extracted (Income Tax Ordinance, Sales Tax Act, Federal Excise Act, Customs Act, Income Tax Rules) stay in `data/extracted/`. Resume later with OCR off, or OCR only the few scanned pages.
 
 ### Next
-1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Qdrant indexing is running in the backend container. Leave it alone if `data/index_qdrant.log` is still growing. If it stopped, resume with `docker compose exec -T backend python scripts/index_qdrant.py`. It skips points already stored. Do not delete the collection.
-3. Next chat: Phase 2 from PLAN section 13. Router, LangGraph RAG, SSE chat, call budget. Do not rebuild containers or touch Postgres.
-4. Still open from Phase 1, not this chat: reranker comparison, `web_pages`, action links, eval set v1. Other scanned documents were not OCR'd.
+1. Indexing finished. Collection `documents` has 18,600 points and the log says failed 0. Do not delete the collection. Do not resume the indexer unless the chunks change.
+2. Rebuild the backend image so `langgraph` and `psycopg` are in the running container. Until then, chat uses `run_qa` and parent text falls back to the chunk. Do not send a chat question until that image is up: a live question loads embedding models in the same container.
+3. Still open: real token streaming, confidence fitted on the dev set, reranker comparison, `web_pages`, eval set v1. Other scanned documents were not OCR'd.
+4. Phase 3 chat UI is on the host. Do not send a question to the running backend until indexing finishes. Railway and Vercel deploy are still open. `POST /api/v1/feedback` is not on the server yet, so the buttons report that feedback could not be saved.
+
+## 2026-10-14: Qdrant index finished
+
+### Built
+The resumed indexer finished. `data/index_qdrant.log` ends with `indexed 15247 points this run, failed 0, collection count 18600`. Companies Act 2017 and the remaining small documents were included. `sro_80_2023` was already stored, so it was skipped. The collection was not deleted.
+
+### Learned
+A long document can sit several minutes between log lines, because progress prints every 2,000 chunks. The process was still at full CPU during those gaps.
+
+## 2026-10-14: Chat page, PII redaction, onboarding
+
+### Built
+Browser redaction in `frontend/src/lib/pii.ts` covers CNIC, labeled NTN, phone, email, IBAN, and labeled account numbers. `25000000` stays. Shared cases live in `contracts/pii_cases.json`. The three profile questions and an anonymous session id sit in localStorage and go out with each chat request (`X-Session-Id`). The chat page streams `POST /api/v1/chat` and shows the library stamp, confidence, verified state, citations, official links, and feedback. English and Roman Urdu strings are JSON. Rupee amounts from 1 lakh up get a lakh or crore hint.
+
+### Broke
+Nothing in the indexer. The feedback route does not exist yet, so a click there fails in the open.
+
+### Learned
+A grouped amount like `Rs 1,800,000 (18 lakh)` can be matched as a shorter prefix (`1,800,00`) if the hint check is only a lookahead. The annotator now keeps an existing parenthesis and skips a second hint. `+` is not a word character, so a phone pattern needs a lookbehind or it misses a number at the start of the text.
+
+Host checks: 36 unit tests passed, oxlint clean, `tsc -b` clean, production build succeeded. No container was rebuilt or restarted.
+
+## 2026-10-14: Borderline grade, live adapters, LangGraph wrapper
+
+### Built
+Borderline band uses `sufficiency.sufficient_at` 0.7 and `borderline_at` 0.4 from `settings.yaml`. Those numbers are config knobs. SPECS does not fit them on a dev set yet. In that band, one fast call grades the context. If it says no, one fast call writes a broader query and searches the verified library again. A second borderline result is not graded again. Then the web library is searched with those same queries. No web LLM rewrite.
+
+`LiveQa` is attached when the vector store adapter is `qdrant`. It does not open Qdrant, load FastEmbed, or connect to Postgres until the first question. Search is hybrid dense plus BM25 with server-side RRF, filtered by tax year. It does not create or delete collections. A missing `web_pages` collection returns no hits. Postgres parent lookup is a SELECT. A missing driver or table returns no rows, and expansion keeps the chunk text.
+
+`langgraph` and `psycopg[binary]` are in `backend/pyproject.toml`, and `uv.lock` was updated. The running image was not rebuilt. `run_qa_graph` uses a StateGraph with the nine QA nodes when the package imports, and calls `run_qa` when it does not. The graph test passed in a throwaway container after `uv sync`. The indexer container was not restarted.
+
+### Broke
+Nothing in the indexer. One-off tests do not include the packages until a rebuild, so the suite there skips the installed-graph test.
+
+### Learned
+The dev image used by `docker compose run` did not have FastEmbed or the Qdrant client. The indexing container does, because that process has been embedding. A rebuild is what puts the new lock into a fresh image. Loading those models a second time inside the indexing container is a memory risk.
+
+Tests: `ruff check`, `ruff format --check`, and pytest in a one-off container. 127 passed, 1 skipped (langgraph absent). With langgraph installed in a separate throwaway container, the graph test passed.
+
+## 2026-10-14: Backend started, indexing resumed
+
+### Built
+`daleelai-backend-1` was exited (code 1, file watcher out of memory). Started that same container again. Health returned ok. The indexer was started detached and appended to `data/index_qdrant.log`. It skipped 3,353 points already in `documents`, including the whole Income Tax Ordinance, then kept upserting. The collection was not deleted.
+
+### Learned
+The earlier log line of 2,059 was stale. Qdrant had 3,353 points when the container died. Resume reads Qdrant, not the log.
+
+## 2026-10-14: Phase 2 router through SSE
+
+### Built
+Quoted `${QDRANT_URL}` and `${QDRANT_API_KEY}` in `backend/config/settings.yaml`. Inside `{...}` the bare `${...}` is invalid YAML, so the backend could not load settings.
+
+Router (`backend/app/agents/router.py`): one `fast` call, temperature 0, JSON checked with `RouterOutput`. Urdu script forces `language: urdu`. If every provider fails, keyword lists pick the intent. Bad JSON is an error, not a silent keyword route.
+
+Retrieval helpers, no network: synonym expansion (whole word, max 6 terms), reciprocal rank fusion with k=60 (SPECS does not set k) plus a 1.2 domain boost, action links (max 3, empty URLs omitted), parent-section expansion on a 6,000-token budget (4 characters per token until a real tokenizer is wired), web sufficiency floor 0.5. Verified sufficiency takes its two thresholds as arguments.
+
+`run_qa` runs the node order without LangGraph: verified library, else web library, else the v1 abstain sentence. Generate is one reasoning call. Verify is one judge call. More than half unsupported replaces the draft. Web answers are never `verified`. Call budget cap is 5. LLM cache and answer cache use sha256 keys from SPECS section 4. The LLM cache key is role + messages + params, because the gateway picks the model inside the call.
+
+`POST /api/v1/chat` streams SSE. `meta` is first and `done` is last. With no QA runner the answer abstains and does not call Qdrant. Confidence is a stand-in: medium for an answer, low for abstain. It is not the dev-set logistic model. Contracts were exported. The contracts CI job now runs the check inside the backend env.
+
+Tests in a one-off container (`docker compose run --rm --no-deps`). The exited backend service was not started. Unit tests: 102 passed. Chat stream tests passed after that.
+
+### Broke
+Indexing was already stopped before this session. `daleelai-backend-1` had exited with code 1. The last log line is a file-watcher out-of-memory error. The collection was not deleted and the container was not started.
+
+### Learned
+The keyword route only sees the current message. History rewrite needs the model. Chitchat is only a short greeting, so "hi what does section 149 say" stays `qa`. A cache hit can skip the router only when the request already names the tax year. LangGraph is not in `pyproject.toml`, and the serving image would need a rebuild before that import works.
 
 ## 2026-10-13: Index script and Phase 2 handoff
 

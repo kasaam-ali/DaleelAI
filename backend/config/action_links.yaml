@@ -1,0 +1,53 @@
+# Curated official action links. Only confirmed official URLs are filled in.
+# A later CI job (links_check.yml) should require HTTP 200 on every non-empty url.
+- topic: ntn_registration
+  domains: [income_tax]
+  keywords: [ntn, "national tax number", registration]
+  label: Register for NTN on IRIS
+  label_ru: IRIS par NTN registration karein
+  url: "https://iris.fbr.gov.pk/"
+  authority: FBR
+- topic: return_filing
+  domains: [income_tax]
+  keywords: [return, filing, "return file"]
+  label: File your return on IRIS
+  label_ru: IRIS par return file karein
+  url: "https://iris.fbr.gov.pk/"
+  authority: FBR
+- topic: active_taxpayer_list
+  keywords: [filer, atl, "active taxpayer"]
+  label: Check filer status (ATL)
+  label_ru: Filer status check karein (ATL)
+  url: "https://iris.fbr.gov.pk/"
+  authority: FBR
+- topic: company_registration
+  domains: [corporate_secp]
+  keywords: [secp, company, incorporation]
+  label: Register a company with SECP
+  label_ru: SECP par company register karein
+  url: ""  # TODO: confirm official SECP eServices registration URL by hand
+  authority: SECP
+- topic: provincial_sales_tax_sindh
+  keywords: [srb, sindh, "sales tax on services"]
+  label: Sindh Revenue Board
+  label_ru: Sindh Revenue Board
+  url: ""  # TODO: confirm official SRB URL by hand
+  authority: SRB
+- topic: provincial_sales_tax_punjab
+  keywords: [pra, punjab, "sales tax on services"]
+  label: Punjab Revenue Authority
+  label_ru: Punjab Revenue Authority
+  url: "http://e.pra.punjab.gov.pk/"
+  authority: PRA
+- topic: provincial_sales_tax_kpk
+  keywords: [kpra, "khyber pakhtunkhwa", "sales tax on services"]
+  label: Khyber Pakhtunkhwa Revenue Authority
+  label_ru: Khyber Pakhtunkhwa Revenue Authority
+  url: "https://kpra.gov.pk/"
+  authority: KPRA
+- topic: provincial_sales_tax_balochistan
+  keywords: [bra, balochistan, "sales tax on services"]
+  label: Balochistan Revenue Authority
+  label_ru: Balochistan Revenue Authority
+  url: ""  # TODO: confirm official BRA URL by hand
+  authority: BRA

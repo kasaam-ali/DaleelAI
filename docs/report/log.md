@@ -7,7 +7,7 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | Phase | State |
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
-| 1 Data and retrieval | Catalog and download done. Full-corpus extraction skipped (OCR hung). |
+| 1 Data and retrieval | Catalog and download done. 32 active docs extracted. Finance Act 2026 scanned pages OCR'd and rechunked (531 chunks). Other scans not OCR'd. Qdrant not started. |
 | 2-9 | Not started |
 
 Deferred on purpose:
@@ -17,9 +17,19 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Skipped for now: full extraction, section chunking, and dedupe. Code is on branch `phase1-extract` (`pipeline/extract.py`, `pipeline/chunk.py`) but the corpus run was stopped.
+2. Finance Act 2026 scanned pages are OCR'd and rechunked. Footnote and table-header chunker fixes, then sample chunks of the Income Tax Ordinance and Sales Tax Rules, are next. Other scanned documents stay as they are until asked.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Finance Act 2026 scanned pages
+
+### Built
+Targeted OCR of Finance Act 2026 pages 77-255. The trial on pages 77-81 was not saved, so those five pages were included. 179 pages, 0 failures, 1.38 seconds per page, 251 seconds total. Each successful page is marked source "ocr". The old 20-character gate would have skipped these pages, because the gazette banner is about 60 characters. `--ocr-scanned` uses the 150-character scanned class instead.
+
+Rechunk of this document only: 531 chunks (was 177). The extra 354 chunks are the OCR pages. 256 pages used, 0 dropped, 0 exact duplicates, 1 near duplicate. Section numbers are still empty: this Act is schedule and amendment text, not "149. Salary." headings, so each parent is still one page.
+
+### Next
+Chunker footnote and table-header fixes are not started. Other scanned documents (Finance Act 2025, both Income Tax Rules, Federal Excise Rules, SRO 1515) were not OCR'd. Qdrant indexing is not started.
 
 ## 2026-10-13: Page classification
 

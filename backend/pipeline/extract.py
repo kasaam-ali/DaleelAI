@@ -5,7 +5,9 @@ Run inside the backend container:
         [--doc DOC_ID] [--only-missing] [--ocr] [--dpi 200] [--force]
 
 OCR is off unless --ocr is set. With --ocr, Tesseract runs only on pages whose text
-layer has fewer than 20 characters and that contain an image. Blank pages are skipped.
+layer has fewer than 20 characters and that contain an image. --ocr-scanned instead
+reads an existing extraction and OCRs pages in a range whose text is under 150
+characters and that contain an image. Blank pages are skipped.
 Each OCR page has a 30 second timeout; a timeout or error marks that page ocr_failed
 and the run continues. A partial file is written as each page finishes, so a rerun
 skips pages already saved. Rate cards (doc_type "guide") still use pymupdf4llm.
@@ -13,6 +15,7 @@ skips pages already saved. Rate cards (doc_type "guide") still use pymupdf4llm.
 
 import argparse
 import json
+import random
 import sys
 import time
 from collections.abc import Callable
@@ -29,6 +32,7 @@ OCR_MIN_CHARS = 20
 CLASS_MIN_CHARS = 150
 OCR_TIMEOUT_S = 30
 DEFAULT_DPI = 200
+OCR_BUDGET_S = 45 * 60
 EXTRACT_VERSION = 1
 
 REPORT_KEYS = (
@@ -47,6 +51,7 @@ class Page:
     method: str  # text | markdown | ocr | ocr_failed | empty
     ocr_confidence: float | None = None
     page_class: str = ""  # digital | scanned | blank, from the text layer before OCR
+    source: str = ""  # "ocr" when the stored text came from Tesseract
 
 
 def page_kind(text: str, has_image: bool) -> str:
@@ -207,6 +212,7 @@ def extract_pdf(
                                 method="ocr",
                                 ocr_confidence=conf,
                                 page_class=kind,
+                                source="ocr",
                             )
                         except Exception as exc:
                             print(f"ocr_failed {label} page {page_no}: {exc}", flush=True)
@@ -274,14 +280,57 @@ def load_partial(entry: CatalogEntry, path: Path) -> dict[int, Page]:
         return {}
     done: dict[int, Page] = {}
     for raw in cached.get("pages", []):
-        done[raw["page"]] = Page(
-            page=raw["page"],
-            text=raw.get("text", ""),
-            method=raw.get("method", "text"),
-            ocr_confidence=raw.get("ocr_confidence"),
-            page_class=raw.get("page_class", ""),
-        )
+        done[raw["page"]] = _page_from_raw(raw)
     return done
+
+
+def apply_ocr_success(page: Page, text: str, confidence: float | None) -> Page:
+    return Page(
+        page=page.page,
+        text=text,
+        method="ocr",
+        ocr_confidence=confidence,
+        page_class=page.page_class or "scanned",
+        source="ocr",
+    )
+
+
+def apply_ocr_failure(page: Page) -> Page:
+    return Page(
+        page=page.page,
+        text=page.text,
+        method="ocr_failed",
+        ocr_confidence=None,
+        page_class=page.page_class or "scanned",
+        source="",
+    )
+
+
+def projected_over_budget(elapsed: float, finished: int, remaining: int, budget_s: float) -> bool:
+    """True when the finished pages imply the rest would pass the time budget.
+
+    The first four pages are too few to judge the rate. Elapsed time past the
+    budget still stops the run immediately.
+    """
+    if remaining < 1:
+        return False
+    if elapsed > budget_s:
+        return True
+    if finished < 5:
+        return False
+    average = elapsed / finished
+    return elapsed + average * remaining > budget_s
+
+
+def _page_from_raw(raw: dict) -> Page:
+    return Page(
+        page=raw["page"],
+        text=raw.get("text", ""),
+        method=raw.get("method", "text"),
+        ocr_confidence=raw.get("ocr_confidence"),
+        page_class=raw.get("page_class", ""),
+        source=raw.get("source", ""),
+    )
 
 
 def save(entry: CatalogEntry, pages: list[Page], out: Path) -> None:
@@ -344,6 +393,171 @@ def _zero_report() -> dict[str, int]:
     return {key: 0 for key in REPORT_KEYS}
 
 
+def scanned_page_numbers(
+    pages: list[Page], images: dict[int, bool], start: int, end: int
+) -> list[int]:
+    """Pages in the range that are scanned and do not already have an OCR result."""
+    found: list[int] = []
+    for page in pages:
+        if page.page < start or page.page > end:
+            continue
+        if page.source == "ocr" or page.method in {"ocr", "ocr_failed"}:
+            continue
+        kind = page.page_class or page_kind(page.text, images.get(page.page, False))
+        if kind == "scanned":
+            found.append(page.page)
+    return found
+
+
+def _read_ocr_partial(entry: CatalogEntry, path: Path) -> tuple[dict[int, Page], dict[int, float]]:
+    """Load an OCR resume file. A partial from a different job is refused."""
+    if not path.exists():
+        return {}, {}
+    cached = json.loads(path.read_text(encoding="utf-8"))
+    if cached.get("purpose") != "ocr-scanned":
+        raise ValueError(f"{path.name} is not an OCR resume file")
+    if cached.get("sha256") != entry.sha256 or cached.get("version") != EXTRACT_VERSION:
+        return {}, {}
+    done = {raw["page"]: _page_from_raw(raw) for raw in cached.get("pages", [])}
+    seconds = {int(number): float(value) for number, value in cached.get("seconds", {}).items()}
+    return done, seconds
+
+
+def _write_ocr_partial(
+    path: Path,
+    entry: CatalogEntry,
+    pages: dict[int, Page],
+    seconds: dict[int, float],
+) -> None:
+    ordered = [pages[number] for number in sorted(pages)]
+    atomic_write(
+        path,
+        {
+            "doc_id": entry.doc_id,
+            "sha256": entry.sha256,
+            "version": EXTRACT_VERSION,
+            "purpose": "ocr-scanned",
+            "pages": [asdict(page) for page in ordered],
+            "seconds": {str(number): seconds[number] for number in sorted(seconds)},
+        },
+    )
+
+
+def ocr_scanned_range(
+    entry: CatalogEntry,
+    *,
+    start: int,
+    end: int,
+    dpi: int = DEFAULT_DPI,
+    budget_s: float = OCR_BUDGET_S,
+    data_dir: Path = DATA_DIR,
+) -> dict:
+    """OCR scanned pages in a page range and merge them into the saved extraction.
+
+    A page is scanned when its stored text is under 150 characters and the PDF
+    page has an image. The 20-character OCR gate is not used here. Successful
+    text is marked source "ocr". A timeout marks ocr_failed and the run continues.
+    """
+    out = output_path(entry, data_dir)
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    if saved.get("sha256") != entry.sha256:
+        raise ValueError(f"{entry.doc_id}: extraction is stale")
+    by_no = {raw["page"]: _page_from_raw(raw) for raw in saved.get("pages", [])}
+    part = partial_path(out)
+    resumed, seconds = _read_ocr_partial(entry, part)
+    by_no.update(resumed)
+
+    pdf_path = entry.path(data_dir)
+    images: dict[int, bool] = {}
+    with pymupdf.open(pdf_path) as doc:
+        for number in range(start, end + 1):
+            if 1 <= number <= doc.page_count:
+                images[number] = page_has_image(doc[number - 1])
+    ordered = [by_no[number] for number in sorted(by_no)]
+    targets = scanned_page_numbers(ordered, images, start, end)
+    print(
+        f"{entry.doc_id}: {len(targets)} scanned pages to OCR in {start}-{end}, "
+        f"{len(resumed)} already in the resume file",
+        flush=True,
+    )
+
+    finished = 0
+    failed = 0
+    started = time.monotonic()
+    stopped = False
+    for index, number in enumerate(targets):
+        elapsed = time.monotonic() - started
+        remaining = len(targets) - index
+        if projected_over_budget(elapsed, finished, remaining, budget_s):
+            stopped = True
+            print(
+                f"stopping {entry.doc_id}: projected time exceeds {budget_s:.0f}s "
+                f"after {finished} pages",
+                flush=True,
+            )
+            break
+        current = by_no[number]
+        current = Page(
+            page=current.page,
+            text=current.text,
+            method=current.method,
+            ocr_confidence=current.ocr_confidence,
+            page_class="scanned",
+            source=current.source,
+        )
+        t0 = time.monotonic()
+        try:
+            text, confidence = ocr_page(pdf_path, number, dpi)
+            updated = apply_ocr_success(current, text, confidence)
+        except Exception as exc:
+            print(f"ocr_failed {entry.doc_id} page {number}: {exc}", flush=True)
+            updated = apply_ocr_failure(current)
+            failed += 1
+        by_no[number] = updated
+        resumed[number] = updated
+        seconds[number] = round(time.monotonic() - t0, 2)
+        finished += 1
+        _write_ocr_partial(part, entry, resumed, seconds)
+        save(entry, [by_no[n] for n in sorted(by_no)], out)
+        if finished % 25 == 0:
+            elapsed = time.monotonic() - started
+            average = elapsed / finished
+            print(
+                f"{entry.doc_id} page {number}  ocr={finished - failed} failed={failed} "
+                f"elapsed={elapsed:.0f}s avg={average:.1f}s left={len(targets) - index - 1}",
+                flush=True,
+            )
+
+    if finished or resumed:
+        save(entry, [by_no[n] for n in sorted(by_no)], out)
+    if not stopped:
+        part.unlink(missing_ok=True)
+
+    in_range = [page for page in by_no.values() if start <= page.page <= end]
+    ocr_pages = [page for page in in_range if page.source == "ocr"]
+    failed_pages = [page for page in in_range if page.method == "ocr_failed"]
+    timed = [seconds[page.page] for page in in_range if page.page in seconds]
+    average = round(sum(timed) / len(timed), 2) if timed else 0.0
+    sample_pages = ocr_pages if len(ocr_pages) <= 5 else random.sample(ocr_pages, 5)
+    samples = [
+        {
+            "page": page.page,
+            "confidence": page.ocr_confidence,
+            "text": page.text[:300],
+        }
+        for page in sorted(sample_pages, key=lambda page: page.page)
+    ]
+    return {
+        "status": "stopped" if stopped else "saved",
+        "ocr_pages": len(ocr_pages),
+        "ocr_failed_pages": len(failed_pages),
+        "attempted": finished,
+        "average_seconds": average,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
+        "samples": samples,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--doc", action="append", help="only this doc_id (repeatable)")
@@ -360,6 +574,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="classify saved text against PDF images; do not write or run OCR",
     )
+    parser.add_argument(
+        "--ocr-scanned",
+        action="store_true",
+        help="OCR saved pages whose text is under 150 characters and that contain an image",
+    )
+    parser.add_argument("--from-page", type=int, help="first page for --ocr-scanned")
+    parser.add_argument("--to-page", type=int, help="last page for --ocr-scanned")
     args = parser.parse_args(argv)
 
     entries = [entry for entry in read_catalog(CATALOG_PATH) if entry.searchable]
@@ -389,7 +610,37 @@ def main(argv: list[str] | None = None) -> int:
                 f"{counts['scanned_ranges']}",
                 flush=True,
             )
-        return 0
+            return 0
+
+    if args.ocr_scanned:
+        if len(entries) != 1 or args.from_page is None or args.to_page is None:
+            print("need exactly one --doc plus --from-page and --to-page", flush=True)
+            return 2
+        if args.from_page < 1 or args.to_page < args.from_page:
+            print("page range is invalid", flush=True)
+            return 2
+        try:
+            stats = ocr_scanned_range(
+                entries[0],
+                start=args.from_page,
+                end=args.to_page,
+                dpi=args.dpi,
+            )
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            print(f"failed {entries[0].doc_id}: {exc}", flush=True)
+            return 1
+        print(
+            f"{entries[0].doc_id} {stats['status']}: ocr={stats['ocr_pages']} "
+            f"ocr_failed={stats['ocr_failed_pages']} avg={stats['average_seconds']}s "
+            f"elapsed={stats['elapsed_seconds']}s",
+            flush=True,
+        )
+        for sample in stats["samples"]:
+            print(
+                f"--- page {sample['page']} conf {sample['confidence']} ---\n{sample['text']}",
+                flush=True,
+            )
+        return 2 if stats["status"] == "stopped" else 0
 
     rows: list[dict] = []
     for entry in entries:

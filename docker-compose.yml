@@ -10,8 +10,10 @@ services:
     environment:
       DATABASE_URL: postgresql://daleel:daleel@postgres:5432/daleel
       QDRANT_URL: http://qdrant:6333
+      DATA_DIR: /data
     volumes:
       - ./backend:/app
+      - ./data:/data
     depends_on:
       postgres:
         condition: service_healthy

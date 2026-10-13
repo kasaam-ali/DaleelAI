@@ -127,9 +127,9 @@ Details of each node are in SPECS section 6.
 
 ## 9. Data pipeline
 
-- **Catalog** (`backend/pipeline/catalog.csv`): one row per document with title, type, domain, jurisdiction, effective dates, `superseded_by`, source URL, sha256. Citations use the title, never the file name.
+- **Catalog** (`backend/pipeline/catalog.csv`): one row per document version with title, type, domain, amended-up-to date, the tax years it answers for, status, `superseded_by`, source URL, sha256. Citations use the title, never the file name.
 - **Reproducible:** PDFs are not committed. `download.py` fetches them from the catalog and checks hashes.
-- **Cleanup:** keep only the latest consolidated version of each Act and Rules (older ones are tagged superseded and excluded by default). Add Finance Act 2025, Finance Act 2026, Companies Act 2017, SECP registration guides.
+- **One version per tax year:** each Act and set of Rules keeps exactly one active version per supported tax year: the latest consolidation for TY2027, and the last consolidation before 1 July 2026 for TY2026. Older consolidations, amendment ordinances already folded into the Acts, closed amnesty schemes and duplicates stay in the catalog with a status but are not indexed. Also added: Finance Acts 2025 and 2026, the FBR withholding tax rate cards, and the FBR circulars explaining Finance Act 2026. Still to add: Companies Act 2017 (SECP blocks scripted downloads, so it is saved by hand) and SECP registration guides.
 - **Extraction:** pymupdf4llm for digital PDFs; the v1 OCR path for scanned pages.
 - **Chunking:** section-aware, about 1,000 characters with 150 overlap inside long sections, full parent section stored for expansion.
 - **Contextual header** on every chunk: `<doc title> > <part/chapter> > <section>`; used for embedding and BM25, not shown to users.

@@ -1,0 +1,4 @@
+env: development              # development | production
+cors_origins: ["http://localhost:5173"]
+adapters:
+  llm: litellm                # litellm | fake

@@ -1,0 +1,7 @@
+# Models per role, in fallback order. A model whose provider has no API key is skipped.
+roles:
+  reasoning: [groq/llama-3.3-70b-versatile, gemini/gemini-2.5-flash]
+  fast:      [groq/llama-3.1-8b-instant, gemini/gemini-2.5-flash-lite]
+  vision:    [gemini/gemini-2.5-flash]
+  judge:     [gemini/gemini-2.5-flash, groq/llama-3.3-70b-versatile]   # prefer a provider different from reasoning
+retry: {attempts: 1, cooldown_s: 60, timeout_s: 45}

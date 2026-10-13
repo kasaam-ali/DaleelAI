@@ -42,7 +42,7 @@ v1 is tagged `v1.0` in git and stays runnable; it is the baseline in the evaluat
 | Frontend | Vite + React + TypeScript + Tailwind + shadcn/ui + TanStack Query, deployed on Vercel |
 | Backend | FastAPI (Python 3.12) in Docker, deployed on Railway |
 | Agents | LangGraph |
-| LLMs | Free/cheap providers with automatic fallback (Groq, Gemini, OpenRouter, Z.ai) through LiteLLM Router |
+| LLMs | Free/cheap providers (Groq, Gemini, OpenRouter, Z.ai) called through LiteLLM, with our own ordered fallback and per-model cooldown in the gateway (simpler to test and log than LiteLLM Router) |
 | Vector store | Qdrant (Docker locally, Qdrant Cloud free tier in prod), dense + sparse hybrid |
 | Database | Postgres (Docker locally, Railway in prod) |
 | Embeddings / reranker | FastEmbed (ONNX). No torch in the serving image |
@@ -198,7 +198,7 @@ Phases run in order. A phase is finished only when its "Done when" check passes.
 
 1. Make sure this folder is a clone of `github.com/kasaam-ali/DaleelAI` (not a copy). Keep `data/` and `.env` local.
 2. Add a `.gitignore` (saved as UTF-8) covering `.env`, `myenv/`, `venv/`, `chroma_db/`, `data/`, `qdrant_storage/`, model caches, `node_modules/`.
-3. Local toolchain: Python 3.12 for the backend (same as the Docker image, managed with `uv`), Node 22 LTS for the frontend (current Vite needs Node 20.19+).
+3. Local toolchain: Python 3.12 for the backend (same as the Docker image, managed with `uv`), Node 24 LTS for the frontend (current Vite needs Node 20.19+). On the dev laptop the backend runs inside Docker, because Windows Smart App Control blocks newly released native Python wheels.
 4. Scan git history for secrets: `git log -p --all | Select-String "gsk_"`. Rotate the Groq key if anything shows up.
 5. Tag the baseline: `git tag v1.0`, `git push origin v1.0`.
 6. Create the monorepo skeleton (`backend/`, `frontend/`, `scrapers/`, `contracts/`, `docs/`) as in SPECS section 11.

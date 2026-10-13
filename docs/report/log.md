@@ -6,13 +6,42 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 
 | Phase | State |
 |---|---|
-| 0 Setup | Code done (merged in PR #1). Left: ADRs for this phase |
-| 1 Data and retrieval | In progress: catalog and download done (step 1 of 6) |
+| 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
+| 1 Data and retrieval | Catalog and download done. Full-corpus extraction skipped (OCR hung). |
 | 2-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
 - User survey (Google Form): skipped for now. Until it runs, the eval set uses written and synthetic questions only, and the test split is frozen only after the survey questions are added.
+- Full-corpus PDF extraction and chunking (Phase 1 step 3): stopped on 2026-10-13. Tesseract sat at 100% CPU on one scanned page for over an hour. Digital Acts already extracted (Income Tax Ordinance, Sales Tax Act, Federal Excise Act, Customs Act, Income Tax Rules) stay in `data/extracted/`. Resume later with OCR off, or OCR only the few scanned pages.
+
+### Next
+1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
+2. Skipped for now: full extraction, section chunking, and dedupe. Code is on branch `phase1-extract` (`pipeline/extract.py`, `pipeline/chunk.py`) but the corpus run was stopped.
+3. Index into Qdrant only after extraction is resumed.
+4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Page classification
+
+### Learned
+Audit threshold galat tha, scanned pages miss hue. A page with under 20 characters was counted empty, so a scanned gazette page that still had a 60-character banner looked fine. The report now classes each page before OCR: digital when the text layer has at least 150 characters, scanned when it is shorter and the page has an image, blank when it is shorter and has no image. `python -m pipeline.extract --classify` prints the counts and scanned ranges without writing `data/` or calling Tesseract.
+
+### Next
+Targeted OCR is not started. Finance Act 2026 pages 77-255 are scanned. Finance Act 2025, both Income Tax Rules versions, the latest Federal Excise Rules, and SRO 1515(I)/2021 are also above 5 percent scanned.
+
+## 2026-10-13: Phase 0 skeleton fill-in
+
+### Built
+- Filled remaining v2 layout that was still missing: `backend/config/web_sources.yaml`, `action_links.yaml`, full `settings.yaml`, `app/api/v1/` placeholder, `core/services/`, `agents/`, `ml/`, `eval/`, Protocol stubs, fake adapters, scrapers stubs, `contracts/`, `scripts/export_contract.py`, `docs/adr/`.
+- `/health` now returns liveness plus stub corpus/model versions. Frontend Chat page is a disabled placeholder.
+- Official URLs only where confirmed this session (FBR, IRIS, KPRA, PRA IRIS). SECP / SRB / BRA left as TODO with empty URLs. No fake live links.
+- Node: `frontend/package.json` `engines.node` is `>=20.19.0` (Vite 8). This machine currently has Node 24.20.0, so the frontend typechecks on the host. If a laptop is still on Node 20.11, use the compose `node:24-alpine` service.
+
+### Skipped (do later)
+- Git fetch/push/pull, reset/rebase/merge, `v1.0` tag, `git rm --cached` PDFs, history secret scan, filter/gc. Local git state left as-is.
+
+### Next
+- `docker compose up` (or backend checks inside Docker). Then continue Phase 1 extraction/index. Git join when it is no longer hanging.
 
 ## 2026-10-13: Phase 1, catalog and download
 
@@ -30,10 +59,7 @@ Deferred on purpose:
 - Sales Tax Special Procedures and Withholding Rules have no consolidation newer than 2015; later changes are only in SROs.
 
 ### Next
-1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Extraction (pymupdf4llm + v1 OCR path), section-aware chunking, contextual headers, dedupe.
-3. Index into Qdrant (dense + BM25), reranker comparison.
-4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+See the deferred note above. Full extraction is skipped until OCR is limited to scanned pages only.
 
 ## 2026-10-13: Phase 0
 

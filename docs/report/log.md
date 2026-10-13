@@ -7,7 +7,7 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | Phase | State |
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
-| 1 Data and retrieval | Catalog and download done. 32 active docs extracted. Finance Act 2026 scanned pages OCR'd and rechunked (531 chunks). Other scans not OCR'd. Qdrant not started. |
+| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Finance Act 2026 scanned pages OCR'd. Other scans not OCR'd. Qdrant not started. |
 | 2-9 | Not started |
 
 Deferred on purpose:
@@ -17,9 +17,17 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Contents headings no longer label the Ordinance body. Sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026) were rewritten. Other documents are still not chunked. Qdrant is not started.
+2. All 32 active documents are chunked (18,600 chunks). Qdrant indexing is next, when asked. Other scanned documents were not OCR'd.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: All active documents chunked
+
+### Built
+Chunked the other 30 active documents with the same chunker. 32 files in `data/chunks/`, 18,600 chunks in 43 seconds. Nothing failed. Qdrant was not started.
+
+### Learned
+Income Tax Rules updated to 15 September 2026 dropped 242 pages that had no usable text. Finance Act 2025, which is almost entirely scanned and was not OCR'd, produced 2 chunks.
 
 ## 2026-10-13: Contents headings no longer stick
 

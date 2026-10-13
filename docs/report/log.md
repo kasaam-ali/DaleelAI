@@ -30,7 +30,7 @@ Deferred on purpose:
 - Sales Tax Special Procedures and Withholding Rules have no consolidation newer than 2015; later changes are only in SROs.
 
 ### Next
-1. Save the Companies Act 2017 (updated 18.08.2022) from the SECP page in the catalog notes as `data/raw/companies_act_2017.pdf`, set its row to `active`, run `python -m pipeline.download --pin`.
+1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
 2. Extraction (pymupdf4llm + v1 OCR path), section-aware chunking, contextual headers, dedupe.
 3. Index into Qdrant (dense + BM25), reranker comparison.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.

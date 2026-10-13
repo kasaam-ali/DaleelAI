@@ -17,9 +17,17 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026) are saved. The Ordinance path is wrong: the contents list sets Fifteenth Schedule and later sections stay inside it. Next, when asked: fix that schedule scope, then the other documents. Qdrant is not started.
+2. Contents headings no longer label the Ordinance body. Sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026) were rewritten. Other documents are still not chunked. Qdrant is not started.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Contents headings no longer stick
+
+### Built
+A contents entry is a heading followed by a page number. Those schedule, part and chapter lines are ignored. A new chapter also clears the previous part. Section 4 of the Income Tax Ordinance is now "Chapter II Charge Of Tax", not the Fifteenth Schedule. The two sample chunk files were rewritten: Ordinance 2,638 chunks, Sales Tax Rules 747 chunks.
+
+### Learned
+The contents page lists every schedule before the Ordinance text. Leaving the last of those set made the whole Act look like the Fifteenth Schedule.
 
 ## 2026-10-13: Sample chunks, two documents
 

@@ -84,6 +84,44 @@ def test_sentences_starting_with_part_are_not_headings():
     )
 
 
+def test_contents_list_does_not_put_the_body_inside_a_schedule(tmp_path):
+    dash = "\u2014"
+    text = f"""195A. Early contents heading.{dash} Kept so the contents are not front matter.
+FIFTEENTH SCHEDULE
+819
+THRESHOLD FOR ECONOMIC TRANSACTIONS
+819
+4. Tax on taxable income.{dash}(1) Income tax shall be imposed for each tax year.
+THE FIRST SCHEDULE
+PART I
+RATES OF TAX
+(See Chapter II)
+1. Rates for individuals.{dash}The rates are given in the table below.
+"""
+    row = write_extracted(tmp_path, [text])
+    payload, _ = process(row, tmp_path)
+    by_section = {c["section"]: c for c in payload["chunks"]}
+    assert "Fifteenth" not in by_section["4"]["header"]
+    assert by_section["4"]["header"].endswith("Section 4 Tax on taxable income")
+    assert "The First Schedule" in by_section["1"]["header"]
+
+
+def test_a_new_chapter_does_not_keep_the_previous_part(tmp_path):
+    dash = "\u2014"
+    text = f"""1. Opening.{dash}(1) This Ordinance starts here.
+PART IV
+AGREEMENTS
+CHAPTER IX
+MINIMUM TAX
+113. Minimum tax on the income of certain persons.{dash}(1) This section shall apply.
+"""
+    row = write_extracted(tmp_path, [text])
+    payload, _ = process(row, tmp_path)
+    header = next(c["header"] for c in payload["chunks"] if c["section"] == "113")
+    assert "Chapter Ix Minimum Tax" in header or "Chapter IX Minimum Tax" in header
+    assert "Part IV" not in header
+
+
 def test_process_builds_sections_with_paths_and_drops_the_toc(tmp_path):
     row = write_extracted(tmp_path, [TOC, *BODY_PAGES])
     payload, report = process(row, tmp_path)

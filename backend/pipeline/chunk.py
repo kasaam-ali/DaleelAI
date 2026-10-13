@@ -275,12 +275,27 @@ def clean_title(title: str) -> str:
     return re.sub(r"\s+", " ", title).strip(" .-\u2013\u2014")
 
 
+def is_contents_heading(text: str, start: int, line: str) -> bool:
+    """A contents line names a heading and then gives a page number, not the provision text."""
+    if re.search(r"\d{2,4}\s*$", line.strip()):
+        return True
+    following = [ln.strip() for ln in text[start:].splitlines() if ln.strip()][:8]
+    for ln in following:
+        if re.search(r"[.:][ \t]*[-\u2013\u2014]", ln):
+            return False
+        if re.fullmatch(r"\d{2,4}", ln):
+            return True
+    return False
+
+
 def find_headings(text: str) -> list[Heading]:
     headings = [
         Heading(m.start(), "section", m["num"], clean_title(m["title"]))
         for m in SECTION_RE.finditer(text)
     ]
     for m in STRUCTURE_RE.finditer(text):
+        if is_contents_heading(text, m.end(), m.group(0)):
+            continue
         rest = m["rest"].strip(" .-\u2013\u2014")
         if rest and not rest.isupper():
             continue  # a sentence that starts with "Part", not a heading
@@ -289,6 +304,8 @@ def find_headings(text: str) -> list[Heading]:
             rest = following if following.isupper() and len(following) < 120 else ""
         headings.append(Heading(m.start(), m["kind"].lower(), m["num"], clean_title(rest)))
     for m in SCHEDULE_RE.finditer(text):
+        if is_contents_heading(text, m.end(), m.group(0)):
+            continue
         ordinal = ORDINALS.index(m["ord"]) + 1
         headings.append(Heading(m.start(), "schedule", str(ordinal), clean_title(m.group(0))))
     return sorted(headings, key=lambda h: h.start)
@@ -335,6 +352,8 @@ def build_sections(
         elif h.kind in {"part", "chapter"}:
             if h.kind == "part":
                 structure.pop("chapter", None)
+            else:
+                structure.pop("part", None)
             name = f"{h.kind.title()} {h.num}" + (f" {h.title.title()}" if h.title else "")
             structure[h.kind] = name
             if schedule is None:

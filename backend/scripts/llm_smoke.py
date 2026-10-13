@@ -17,7 +17,7 @@ async def main() -> None:
     gateway = LiteLLMGateway(config)
     for role in config.roles:
         try:
-            result = await gateway.complete(role, PROMPT, max_tokens=5)
+            result = await gateway.complete(role, PROMPT)
         except AllProvidersUnavailable as error:
             print(f"{role:<10} FAILED  {'; '.join(error.errors)}")
             continue

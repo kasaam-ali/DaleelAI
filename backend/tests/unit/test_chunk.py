@@ -1,0 +1,143 @@
+import json
+
+from pipeline.chunk import (
+    CHUNK_CHARS,
+    Chunk,
+    Report,
+    dedupe,
+    find_headings,
+    join_labels,
+    process,
+    split_text,
+    strip_boilerplate,
+)
+from tests.unit.test_catalog import entry
+
+DASH = "\u2014"
+TOC = "TABLE OF CONTENTS\n" + "\n".join(f"{n}.\nHeading number {n}\n{n + 3}" for n in range(1, 120))
+BODY_PAGES = [
+    f"""Income Tax Ordinance, 2001
+PART I
+PRELIMINARY
+1. Short title and commencement.{DASH}(1) This Ordinance may be called the Income Tax Ordinance.
+(2) It extends to the whole of Pakistan.
+12""",
+    f"""Income Tax Ordinance, 2001
+2. Definitions.{DASH}In this Ordinance,
+(a)
+"person" includes an individual;
+PART II
+CHARGE OF TAX
+4. Tax on taxable income.{DASH}(1) Income tax shall be imposed for each tax year.
+13""",
+    f"""Income Tax Ordinance, 2001
+Part of the income is exempt as described below.
+FIRST SCHEDULE
+1. Rates for individuals.{DASH}The rates are given in the table below.
+14""",
+]
+
+
+def write_extracted(tmp_path, pages: list[str]):
+    row = entry(sha256="a" * 64)
+    payload = {
+        "doc_id": row.doc_id,
+        "sha256": row.sha256,
+        "version": 1,
+        "pages": [
+            {"page": i + 1, "text": t, "method": "text", "ocr_confidence": None}
+            for i, t in enumerate(pages)
+        ],
+    }
+    (tmp_path / "extracted").mkdir()
+    (tmp_path / "extracted" / f"{row.doc_id}.json").write_text(json.dumps(payload), "utf-8")
+    return row
+
+
+def test_strip_boilerplate_drops_running_headers_and_page_numbers():
+    words = "alpha beta gamma delta epsilon zeta eta theta iota kappa".split()
+    bodies = [[f"{w} clause {k}" for k in "abcdef"] for w in words]
+    pages = [["Income Tax Ordinance, 2001", *body, str(i)] for i, body in enumerate(bodies)]
+    assert strip_boilerplate(pages) == bodies
+
+
+def test_join_labels_reattaches_clause_labels():
+    assert join_labels(["(a)", '"person" includes;', "(ii)", "next"]) == [
+        '(a) "person" includes;',
+        "(ii) next",
+    ]
+
+
+def test_table_of_contents_entries_are_not_section_headings():
+    headings = find_headings("149.\nSalary\n212\n149. Salary.\u2014(1) Any salary")
+    assert [(h.kind, h.num, h.title) for h in headings] == [("section", "149", "Salary")]
+
+
+def test_ocr_comma_after_number_still_counts_as_a_heading():
+    assert find_headings("5, Appointment of members.\u2014 For the purposes")[0].num == "5"
+
+
+def test_sentences_starting_with_part_are_not_headings():
+    assert find_headings("Part of the income is exempt.\nPART II\nCHARGE OF TAX")[0].title == (
+        "CHARGE OF TAX"
+    )
+
+
+def test_process_builds_sections_with_paths_and_drops_the_toc(tmp_path):
+    row = write_extracted(tmp_path, [TOC, *BODY_PAGES])
+    payload, report = process(row, tmp_path)
+
+    ids = [s["parent_id"].split(":", 1)[1] for s in payload["sections"]]
+    assert ids == ["s1", "s2", "s4", "sch1", "sch1:s1"]
+    assert report.front_matter_dropped > 0
+    assert not any("TABLE OF CONTENTS" in c["text"] for c in payload["chunks"])
+
+    by_parent = {c["parent_id"].split(":", 1)[1]: c for c in payload["chunks"]}
+    assert by_parent["s4"]["header"] == (
+        "Income Tax Ordinance, 2001 > Part II Charge Of Tax > Section 4 Tax on taxable income"
+    )
+    assert by_parent["s1"]["page_start"] == 2
+    assert by_parent["s4"]["doc_id"] == row.doc_id
+    assert by_parent["s4"]["doc_title"] == row.title
+    assert by_parent["s4"]["amended_upto"] == "2026-06-30"
+    assert by_parent["s4"]["tax_years"] == ["TY2027"]
+    assert by_parent["s4"]["jurisdiction"] == "federal"
+    assert by_parent["s4"]["section"] == "4"
+    assert by_parent["s2"]["text"].count('(a) "person"') == 1
+    assert "Income Tax Ordinance, 2001\n" not in by_parent["s2"]["text"]
+    assert by_parent["sch1:s1"]["header"].startswith("Income Tax Ordinance, 2001 > First Schedule")
+
+
+def test_documents_without_headings_get_one_parent_per_page(tmp_path):
+    row = write_extracted(tmp_path, ["Circular text one " * 10, "Circular text two " * 10])
+    payload, _ = process(row, tmp_path)
+    assert [s["section_title"] for s in payload["sections"]] == ["Page 1", "Page 2"]
+
+
+def test_split_text_respects_size_and_overlaps():
+    text = " ".join(f"word{i}." for i in range(800))
+    pieces = split_text(text, CHUNK_CHARS, 150)
+    assert all(len(p) <= CHUNK_CHARS for p in pieces)
+    assert pieces[1].split()[0] in pieces[0]
+
+
+def test_split_tables_repeat_their_header_row(tmp_path):
+    rows = "\n".join(f"|151 Profit on debt case {n}|{n}.00%|{2 * n}.00%|" for n in range(60))
+    table = f"|**Section**|**ATL Rates**|**Non-ATL Rates**|\n|---|---|---|\n{rows}"
+    row = write_extracted(tmp_path, [table])
+    payload, _ = process(row, tmp_path)
+    assert len(payload["chunks"]) > 1
+    assert all(c["text"].startswith("|**Section**|") for c in payload["chunks"])
+
+
+def test_dedupe_removes_exact_and_near_duplicates():
+    base = " ".join(f"token{i}" for i in range(200))
+    chunks = [
+        Chunk("a", "p", "1", "t", "h", 1, 1, base),
+        Chunk("b", "p", "1", "t", "h", 1, 1, base.upper()),
+        Chunk("c", "p", "1", "t", "h", 1, 1, base + " extra"),
+        Chunk("d", "p", "1", "t", "h", 1, 1, "something else entirely " * 20),
+    ]
+    report = Report()
+    assert [c.chunk_id for c in dedupe(chunks, report)] == ["a", "d"]
+    assert (report.exact_duplicates, report.near_duplicates) == (1, 1)

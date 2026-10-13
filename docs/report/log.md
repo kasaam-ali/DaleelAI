@@ -7,8 +7,9 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | Phase | State |
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
-| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Qdrant `documents` started (about 1,867 points). Other scans not OCR'd. |
-| 2-9 | Not started |
+| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Qdrant `documents` indexing is running (resumed from 1,867 of 18,600 points). Other scans not OCR'd. |
+| 2 Agentic RAG and API | Not started. Next chat starts here (PLAN section 13, Phase 2). |
+| 3-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -17,9 +18,21 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Qdrant collection `documents` exists. About 1,867 of 18,600 chunks are indexed. The full run is about 6 points a second, so roughly 45 minutes. It was stopped at the 10 minute limit. Resume with `python -m pipeline.index`. Other scanned documents were not OCR'd.
-3. Index into Qdrant only after extraction is resumed.
-4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+2. Qdrant indexing is running in the backend container. Leave it alone if `data/index_qdrant.log` is still growing. If it stopped, resume with `docker compose exec -T backend python scripts/index_qdrant.py`. It skips points already stored. Do not delete the collection.
+3. Next chat: Phase 2 from PLAN section 13. Router, LangGraph RAG, SSE chat, call budget. Do not rebuild containers or touch Postgres.
+4. Still open from Phase 1, not this chat: reranker comparison, `web_pages`, action links, eval set v1. Other scanned documents were not OCR'd.
+
+## 2026-10-13: Index script and Phase 2 handoff
+
+### Built
+`scripts/index_qdrant.py` (the container copy is `backend/scripts/index_qdrant.py`) skips chunk ids already in Qdrant, upserts in batches of 64, and prints progress every 2,000 chunks. The run was started detached. It resumed from 1,867 points. Corpus version `9a59fef60e481ac3`. The collection was not deleted.
+
+Command: `docker compose exec -T backend python scripts/index_qdrant.py`
+
+Live log (gitignored): `data/index_qdrant.log`
+
+### Next chat
+Start Phase 2 (PLAN section 13): router with structured output and keyword fallback; LangGraph RAG (rewrite, retrieve, rerank, expand, sufficiency, web fallback, generate, verify, action links); SSE chat and contract export; call budget, LLM cache, answer cache. Retrieval quality depends on the index finishing. Check the log before calling Qdrant for answers.
 
 ## 2026-10-13: Qdrant index started
 
@@ -27,7 +40,7 @@ Deferred on purpose:
 `pipeline/index.py` upserts active chunks into Qdrant collection `documents`: dense `BAAI/bge-small-en-v1.5` (384, cosine) and sparse `Qdrant/bm25`. The embedded string is the header plus the text. Payload matches the spec, including `work_id`, `tax_years` and `corpus_version`. A rerun uses the same point ids.
 
 ### Learned
-Embedding on this machine is about 6 chunks a second at full CPU. The full 18,600 chunks would take about 45 minutes, so the run was stopped with 1,867 points saved. The collection was not deleted.
+Embedding on this machine is about 6 chunks a second at full CPU. The full 18,600 chunks would take about 45 minutes, so the run was stopped with 1,867 points saved. The collection was not deleted. The standalone script now skips those points instead of embedding them again.
 
 ## 2026-10-13: All active documents chunked
 

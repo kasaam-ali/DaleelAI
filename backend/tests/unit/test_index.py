@@ -2,7 +2,9 @@ from pipeline.chunk import CHUNK_VERSION
 from pipeline.index import (
     DENSE_MODEL,
     SPARSE_MODEL,
+    chunks_to_index,
     corpus_version,
+    crossed_progress,
     embed_input,
     payload_for,
     point_id,
@@ -48,3 +50,20 @@ def test_payload_uses_catalog_fields_and_keeps_the_raw_text():
     assert len(payload["corpus_version"]) == 16
     assert version == corpus_version([row])
     assert DENSE_MODEL in f"{CHUNK_VERSION}|{DENSE_MODEL}|{SPARSE_MODEL}"
+
+
+def test_resume_skips_points_already_stored():
+    chunks = [
+        {"chunk_id": "keep-me", "header": "h", "text": "a"},
+        {"chunk_id": "have-me", "header": "h", "text": "b"},
+    ]
+    done = {point_id("have-me")}
+    pending = chunks_to_index(chunks, done)
+    assert [chunk["chunk_id"] for chunk in pending] == ["keep-me"]
+
+
+def test_progress_prints_every_2000_chunks():
+    assert not crossed_progress(0, 64)
+    assert not crossed_progress(1984, 1999)
+    assert crossed_progress(1984, 2048)
+    assert crossed_progress(0, 4000)

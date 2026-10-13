@@ -1,12 +1,12 @@
 """Index chunk files into the Qdrant `documents` collection.
 
 Run inside the backend container:
-    docker compose exec backend python -m pipeline.index [--doc DOC_ID]
+    python scripts/index_qdrant.py
 
 Dense vectors are BAAI/bge-small-en-v1.5 and sparse vectors are Qdrant/bm25.
 The embedded string is the contextual header plus the chunk text. The payload
-text stays the raw chunk. Only active catalog rows are indexed. A rerun
-upserts the same point ids, so it can resume.
+text stays the raw chunk. Only active catalog rows are indexed. Points already
+in the collection are skipped, then new chunks are upserted in batches.
 """
 
 import argparse
@@ -25,6 +25,7 @@ SPARSE_MODEL = "Qdrant/bm25"
 DENSE_SIZE = 384
 COLLECTION = "documents"
 BATCH = 64
+PROGRESS_EVERY = 2000
 PAYLOAD_INDEXES = ("doc_id", "work_id", "domain", "doc_type", "tax_years")
 
 
@@ -142,22 +143,72 @@ def _points(chunks: list[dict], entry: CatalogEntry, version: str, dense, sparse
     return points
 
 
+def chunks_to_index(chunks: list[dict], done: set[str]) -> list[dict]:
+    return [chunk for chunk in chunks if point_id(chunk["chunk_id"]) not in done]
+
+
+def crossed_progress(before: int, after: int, every: int = PROGRESS_EVERY) -> bool:
+    return after // every != before // every
+
+
+def stored_point_ids(client) -> set[str]:
+    found: set[str] = set()
+    offset = None
+    while True:
+        points, offset = client.scroll(
+            collection_name=COLLECTION,
+            limit=1000,
+            offset=offset,
+            with_payload=False,
+            with_vectors=False,
+        )
+        found.update(str(point.id) for point in points)
+        if offset is None or not points:
+            break
+    return found
+
+
 def index_entries(entries: list[CatalogEntry], client, dense, sparse, version: str, data_dir: Path):
+    done = stored_point_ids(client)
+    print(f"resume: {len(done)} points already in {COLLECTION}", flush=True)
     rows = []
+    visited = 0
+    upserted = 0
+
+    def report(doc_id: str) -> None:
+        print(
+            f"progress {visited} chunks visited, {upserted} upserted this run, "
+            f"{len(done)} points known, last {doc_id}",
+            flush=True,
+        )
+
     for entry in entries:
         started = time.monotonic()
         try:
             chunks = load_chunks(entry, data_dir)
-            for offset in range(0, len(chunks), BATCH):
-                batch = chunks[offset : offset + BATCH]
+            pending = chunks_to_index(chunks, done)
+            skipped = len(chunks) - len(pending)
+            before = visited
+            visited += skipped
+            if crossed_progress(before, visited):
+                report(entry.doc_id)
+            for offset in range(0, len(pending), BATCH):
+                batch = pending[offset : offset + BATCH]
                 client.upsert(
                     collection_name=COLLECTION,
                     points=_points(batch, entry, version, dense, sparse),
                 )
+                done.update(point_id(chunk["chunk_id"]) for chunk in batch)
+                upserted += len(batch)
+                before = visited
+                visited += len(batch)
+                if crossed_progress(before, visited):
+                    report(entry.doc_id)
             rows.append(
                 {
                     "doc_id": entry.doc_id,
-                    "points": len(chunks),
+                    "points": len(pending),
+                    "skipped": skipped,
                     "seconds": round(time.monotonic() - started, 1),
                     "status": "indexed",
                 }
@@ -165,11 +216,17 @@ def index_entries(entries: list[CatalogEntry], client, dense, sparse, version: s
         except Exception as exc:
             print(f"failed {entry.doc_id}: {exc}", flush=True)
             rows.append(
-                {"doc_id": entry.doc_id, "points": 0, "seconds": 0, "status": f"failed: {exc}"}
+                {
+                    "doc_id": entry.doc_id,
+                    "points": 0,
+                    "skipped": 0,
+                    "seconds": 0,
+                    "status": f"failed: {exc}",
+                }
             )
         print(
-            f"{entry.doc_id} {rows[-1]['status']} points={rows[-1]['points']} "
-            f"in {rows[-1]['seconds']}s",
+            f"{entry.doc_id} {rows[-1]['status']} new={rows[-1]['points']} "
+            f"skipped={rows[-1]['skipped']} in {rows[-1]['seconds']}s",
             flush=True,
         )
     return rows

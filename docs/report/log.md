@@ -17,9 +17,17 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Chunker footnote and rate-card header fixes are in. Next, when asked: sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026), five each, then wait. Other scanned documents stay as they are. Qdrant is not started.
+2. Sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026) are saved. The Ordinance path is wrong: the contents list sets Fifteenth Schedule and later sections stay inside it. Next, when asked: fix that schedule scope, then the other documents. Qdrant is not started.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Sample chunks, two documents
+
+### Built
+Chunk files saved for the Income Tax Ordinance amended to 30 June 2026 (2,724 chunks, 665 sections) and the Sales Tax Rules updated to 31 July 2026 (707 chunks, 320 sections). No other document was chunked.
+
+### Learned
+The Ordinance contents page lists the Fifteenth Schedule before section 4. The chunker never leaves a schedule, so section 4, section 12, section 149 and section 113 are all labeled as inside the Fifteenth Schedule. Sales Tax Rules 12B and 14 are labeled correctly.
 
 ## 2026-10-13: Chunker headings and rate-card headers
 

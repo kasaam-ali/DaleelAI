@@ -5,6 +5,7 @@ from pipeline.chunk import (
     Chunk,
     Report,
     dedupe,
+    detach_footnote_prefixes,
     find_headings,
     join_labels,
     process,
@@ -141,3 +142,64 @@ def test_dedupe_removes_exact_and_near_duplicates():
     report = Report()
     assert [c.chunk_id for c in dedupe(chunks, report)] == ["a", "d"]
     assert (report.exact_duplicates, report.near_duplicates) == (1, 1)
+
+
+def test_footnote_prefix_comes_off_the_rule_heading():
+    lines = [
+        "8612B. Restoration as an active taxpayer.--A non-active taxpayer may be restored.",
+        "13.",
+        "Application. \u2013The provisions of this Chapter shall apply.",
+        "14.",
+        "87[Filing of returns.\u2014 (1) Every person registered under the Act shall file.",
+        "150H. Scrutiny of records. \u2014 An officer may examine the record.",
+        "86",
+        "Rule 12B inserted by Notification No. S.R.O. 494(I)/2015, dated 30th June, 2015.",
+        "87",
+        "Rule 14 substituted by Notification No. S.R.O. 530(I)/2008, dated 11th June, 2008.",
+        "15",
+        "A footnote that must not eat the real rule 150H.",
+    ]
+    headings = find_headings("\n".join(detach_footnote_prefixes(lines)))
+    assert [(h.num, h.title) for h in headings if h.kind == "section"] == [
+        ("12B", "Restoration as an active taxpayer"),
+        ("13", "Application"),
+        ("14", "Filing of returns"),
+        ("150H", "Scrutiny of records"),
+    ]
+    assert find_headings("9.\nKnown properties of the defaulter:--") == []
+    appeal = "150ZR.\nPrescribed form of appeal to the Commissioner (Appeals): \u2013 An appeal"
+    assert find_headings(appeal)[0].num == "150ZR"
+
+
+def test_broken_rate_card_header_is_repaired_and_repeated(tmp_path):
+    header = (
+        "|**Section**|**Ancillary Information-A**|**Ancillary Information-B**|"
+        "**ATL Rates**|**Non-ATL Rates**<br>**L**|**ate Filer**|"
+        "**Rates**<br>**Reference for Rates**|"
+    )
+    sep = "|---|---|---|---|---|---|---|"
+    rows = [
+        (
+            f"|148 Imports|Goods falling in Part-{n} of the Twelfth Schedule|"
+            f"|{rate}|{other}||Part-II of the First Schedule read with rule {n}|"
+        )
+        for n, rate, other in (
+            (1, "1.00%", "2.00%"),
+            (2, "2.00%", "4.00%"),
+            (3, "3.50%", "7.00%"),
+            (4, "5.50%", "11.00%"),
+            (5, "6.00%", "12.00%"),
+            (6, "4.00%", "8.00%"),
+            (7, "1.00%", "2.00%"),
+        )
+    ]
+    row = write_extracted(tmp_path, ["\n".join([header, sep, *rows])])
+    payload, _ = process(row, tmp_path)
+    assert len(payload["chunks"]) > 1
+    fixed = (
+        "|**Section**|**Ancillary Information-A**|**Ancillary Information-B**|"
+        "**ATL Rates**|**Non-ATL Rates**|**Late Filer Rates**|**Reference for Rates**|"
+    )
+    assert all(c["text"].startswith(fixed) for c in payload["chunks"])
+    joined = "\n".join(c["text"] for c in payload["chunks"])
+    assert "1.00%" in joined and "2.00%" in joined

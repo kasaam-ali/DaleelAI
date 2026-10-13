@@ -17,9 +17,19 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. Finance Act 2026 scanned pages are OCR'd and rechunked. Footnote and table-header chunker fixes, then sample chunks of the Income Tax Ordinance and Sales Tax Rules, are next. Other scanned documents stay as they are until asked.
+2. Chunker footnote and rate-card header fixes are in. Next, when asked: sample chunks of the Income Tax Ordinance (30 June 2026) and Sales Tax Rules (31 July 2026), five each, then wait. Other scanned documents stay as they are. Qdrant is not started.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Chunker headings and rate-card headers
+
+### Built
+A footnote glued to a rule is removed only when that number is a footnote on the same page. `8612B.` becomes rule 12B, and `87[Filing of returns` becomes rule 14. A real rule such as 150H is left as it is. A rule number on its own line is joined to the title on the next line.
+
+The withholding rate card header is repaired where the column names were split across cells (`Non-ATL Rates` / `Late Filer` / `Reference`). Split table chunks repeat that header. Sales Tax Rules, 31 July 2026, now has 310 section headings (was 73) and every chunk carries a section number.
+
+### Learned
+The TY2026 rate card's late-filer cell is empty on the section 148 rows in the PDF itself. Later pages still merge some columns, so those rows were not relabeled.
 
 ## 2026-10-13: Finance Act 2026 scanned pages
 

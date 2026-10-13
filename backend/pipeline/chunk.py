@@ -36,13 +36,14 @@ ORDINALS = (
 ).split()
 
 SECTION_RE = re.compile(
-    r"^[ \t]*(?:\d{1,3}\s*\[\s*)?(?P<num>\d{1,3}[A-Z]{0,4})[.,][ \t]+"
-    r"(?P<title>[A-Z\[(\"'][^\n]{1,250}?(?:\n[^\n]{1,200}?)?)[ \t]*[.:][ \t]*[-\u2013\u2014]+",
+    r"^[ \t]*(?:\d{1,3}\s*\[\s*)?(?P<num>\d{1,3}[A-Z]{0,4})[.,](?:[ \t]*\n[ \t]*|[ \t]+)"
+    r"(?P<title>[A-Z\[(\"'][^\n]{1,250}?(?:\n[^\n]{1,200}?)?)"
+    r"[ \t]*(?:\.[ \t]*[-\u2013\u2014]+|:[ \t]+[\u2013\u2014]+)",
     re.MULTILINE,
 )
 STRUCTURE_RE = re.compile(
     r"^[ \t]*(?P<kind>PART|CHAPTER)[ \t]*[-\u2013\u2014]?[ \t]*"
-    r"(?P<num>[IVXLC]+[A-Z]?|\d{1,2}[A-Z]?)\b[ \t]*(?P<rest>[^\n]*)",
+    r"(?P<num>[IVXLC]+(?:-[A-Z])?|\d{1,2}[A-Z]?)\b[ \t]*(?P<rest>[^\n]*)",
     re.MULTILINE,
 )
 SCHEDULE_RE = re.compile(
@@ -145,6 +146,99 @@ def strip_boilerplate(pages: list[list[str]]) -> list[list[str]]:
     return cleaned
 
 
+GLUED_RULE_LINE = re.compile(r"^([ \t]*)(\d+[A-Z]{0,4})([.,].*)$")
+GLUED_BRACKET_LINE = re.compile(r"^([ \t]*)(\d{1,3})\[([A-Z].*)$")
+TITLE_DASH_RE = re.compile(r"[.:][ \t]*[-\u2013\u2014]{1,2}")
+RULE_ID_RE = re.compile(r"\d{1,3}[A-Z]{0,4}")
+
+# pymupdf4llm wraps these column names across cell borders. Each pair keeps the same cell count.
+RATE_HEADER_REPAIRS = (
+    (
+        "**Non-ATL Rates**<br>**L**|**ate Filer**|**Rates**<br>**Reference for Rates**",
+        "**Non-ATL Rates**|**Late Filer Rates**|**Reference for Rates**",
+    ),
+    (
+        "**Late Filer Rate**|**s**<br>**Reference for Rates**",
+        "**Late Filer Rates**|**Reference for Rates**",
+    ),
+    (
+        "**Non-ATL Rates**<br>**Late Fi**|**ler Rates**<br>**Reference for Rates**",
+        "**Non-ATL Rates**|**Late Filer Rates**<br>**Reference for Rates**",
+    ),
+    (
+        "**Non-ATL Rates**<br>**Late F**|**iler Rates**<br>**Reference for Rates**",
+        "**Non-ATL Rates**|**Late Filer Rates**<br>**Reference for Rates**",
+    ),
+    (
+        "**Late Filer Rat**|**es**<br>**Reference for Rates**",
+        "**Late Filer Rates**|**Reference for Rates**",
+    ),
+    (
+        "**Late Filer Rates**|<br>**Reference for Rates**",
+        "**Late Filer Rates**|**Reference for Rates**",
+    ),
+)
+
+
+def footnote_ids(lines: list[str]) -> set[str]:
+    return {line.strip() for line in lines if re.fullmatch(r"\d{1,3}", line.strip())}
+
+
+def unglue_rule_token(token: str, notes: set[str]) -> str:
+    """8612B is footnote 86 plus rule 12B. 150H is a real rule and stays whole."""
+    if RULE_ID_RE.fullmatch(token):
+        return token
+    for size in (3, 2, 1):
+        if len(token) <= size:
+            continue
+        prefix, rest = token[:size], token[size:]
+        if prefix in notes and RULE_ID_RE.fullmatch(rest):
+            return rest
+    return token
+
+
+def detach_footnote_prefixes(lines: list[str]) -> list[str]:
+    """Pull a page footnote off a rule number or a bracketed heading."""
+    notes = footnote_ids(lines)
+    if not notes:
+        return lines
+    out: list[str] = []
+    for line in lines:
+        rule = GLUED_RULE_LINE.match(line)
+        if rule:
+            token = unglue_rule_token(rule.group(2), notes)
+            if token != rule.group(2):
+                out.append(f"{rule.group(1)}{token}{rule.group(3)}")
+                continue
+        bracket = GLUED_BRACKET_LINE.match(line)
+        if bracket and bracket.group(2) in notes:
+            rest = bracket.group(3)
+            if re.match(r"(CHAPTER|PART)\b", rest):
+                out.append(f"{bracket.group(1)}{rest}")
+                continue
+            if TITLE_DASH_RE.search(rest[:120]):
+                out.append(f"{bracket.group(1)}[{rest}")
+                continue
+        out.append(line)
+    return out
+
+
+def repair_rate_header_line(line: str) -> str:
+    for broken, fixed in RATE_HEADER_REPAIRS:
+        if broken in line:
+            line = line.replace(broken, fixed)
+    return line
+
+
+def repair_table_headers(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        if line.startswith("|") and "Section" in line and "ATL" in line:
+            line = repair_rate_header_line(line)
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def join_labels(lines: list[str]) -> list[str]:
     """Put clause labels like "(a)" back on the same line as their text."""
     out: list[str] = []
@@ -176,6 +270,7 @@ class Heading:
 
 
 def clean_title(title: str) -> str:
+    title = title.lstrip("[")
     title = FOOTNOTE_MARK_RE.sub("", title)
     return re.sub(r"\s+", " ", title).strip(" .-\u2013\u2014")
 
@@ -483,10 +578,11 @@ def process(entry: CatalogEntry, data_dir: Path = DATA_DIR) -> tuple[dict, Repor
     report = Report()
     raw = load_pages(entry, data_dir, report)
     cleaned = strip_boilerplate([text.splitlines() for _, text, _ in raw])
+    cleaned = [detach_footnote_prefixes(lines) for lines in cleaned]
     page_numbers = [page for page, _, _ in raw]
     ocr_pages = {page for page, _, is_ocr in raw if is_ocr}
 
-    texts = ["\n".join(join_labels(lines)) for lines in cleaned]
+    texts = [repair_table_headers("\n".join(join_labels(lines))) for lines in cleaned]
     offsets, position = [], 0
     for t in texts:
         offsets.append(position)

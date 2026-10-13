@@ -7,7 +7,7 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | Phase | State |
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
-| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Finance Act 2026 scanned pages OCR'd. Other scans not OCR'd. Qdrant not started. |
+| 1 Data and retrieval | Catalog and download done. 32 active docs extracted and chunked (18,600 chunks). Qdrant `documents` started (about 1,867 points). Other scans not OCR'd. |
 | 2-9 | Not started |
 
 Deferred on purpose:
@@ -17,9 +17,17 @@ Deferred on purpose:
 
 ### Next
 1. Done: Companies Act 2017 (updated 18.08.2022, 418 pages) saved by hand as `data/raw/The-Company-Act-2017-updated-18.8.2022.pdf`, now active and pinned. 32 active documents, none pending.
-2. All 32 active documents are chunked (18,600 chunks). Qdrant indexing is next, when asked. Other scanned documents were not OCR'd.
+2. Qdrant collection `documents` exists. About 1,867 of 18,600 chunks are indexed. The full run is about 6 points a second, so roughly 45 minutes. It was stopped at the 10 minute limit. Resume with `python -m pipeline.index`. Other scanned documents were not OCR'd.
 3. Index into Qdrant only after extraction is resumed.
 4. Web library first crawl, action links, eval set v1, v1.0 baseline numbers.
+
+## 2026-10-13: Qdrant index started
+
+### Built
+`pipeline/index.py` upserts active chunks into Qdrant collection `documents`: dense `BAAI/bge-small-en-v1.5` (384, cosine) and sparse `Qdrant/bm25`. The embedded string is the header plus the text. Payload matches the spec, including `work_id`, `tax_years` and `corpus_version`. A rerun uses the same point ids.
+
+### Learned
+Embedding on this machine is about 6 chunks a second at full CPU. The full 18,600 chunks would take about 45 minutes, so the run was stopped with 1,867 points saved. The collection was not deleted.
 
 ## 2026-10-13: All active documents chunked
 

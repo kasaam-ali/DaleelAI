@@ -83,12 +83,12 @@ SSE events (schemas in `contracts/events.schema.json`):
 ```json
 {
   "library": "verified",
-  "doc_id": "ito_2001",
-  "title": "Income Tax Ordinance 2001",
+  "doc_id": "ito_2001@2026-06-30",
+  "title": "Income Tax Ordinance, 2001 (amended up to 30 June 2026)",
   "section": "149",
   "page": 212,
-  "url": "https://.../ito_2001.pdf#page=212",
-  "mirror_url": "https://.../mirror/ito_2001.pdf#page=212",
+  "url": "https://download1.fbr.gov.pk/Docs/...pdf#page=212",
+  "mirror_url": "https://.../mirror/ito_2001@2026-06-30.pdf#page=212",
   "site": null,
   "fetched_at": null,
   "snippet": "first 300 chars of the raw chunk",
@@ -474,7 +474,7 @@ CREATE TABLE answer_cache (
 );
 
 CREATE TABLE sections (
-  parent_id TEXT PRIMARY KEY,         -- e.g. ito_2001:s149
+  parent_id TEXT PRIMARY KEY,         -- e.g. ito_2001@2026-06-30:s149
   doc_id TEXT NOT NULL,
   section TEXT,
   section_title TEXT,
@@ -508,32 +508,33 @@ Point payload:
 
 ```json
 {
-  "chunk_id": "ito_2001:s149:c2",
-  "doc_id": "ito_2001",
-  "doc_title": "Income Tax Ordinance 2001",
+  "chunk_id": "ito_2001@2026-06-30:s149:c2",
+  "doc_id": "ito_2001@2026-06-30",
+  "work_id": "ito_2001",
+  "doc_title": "Income Tax Ordinance, 2001 (amended up to 30 June 2026)",
   "doc_type": "act",
   "domain": "income_tax",
   "jurisdiction": "federal",
   "section": "149",
   "section_title": "Salary",
-  "parent_id": "ito_2001:s149",
+  "parent_id": "ito_2001@2026-06-30:s149",
   "page_start": 212,
   "page_end": 213,
   "header": "Income Tax Ordinance 2001 > Part V > Section 149 Salary",
   "text": "raw chunk text shown to users",
-  "effective_from": "2001-07-01",
-  "effective_to": null,
-  "superseded": false,
+  "tax_years": ["TY2027"],
   "source_url": "https://...",
   "corpus_version": "..."
 }
 ```
 
-Payload indexes: `doc_id`, `domain`, `doc_type`, `superseded`, `effective_from`, `effective_to`.
+Payload indexes: `doc_id`, `work_id`, `domain`, `doc_type`, `tax_years`.
+
+**Versions and tax years.** The catalog (`backend/pipeline/catalog.csv`) has one row per document version. `doc_id` names one version (`ito_2001@2026-06-30`) and `work_id` names the law (`ito_2001`). Each `active` row lists the tax years it answers for, and a law has exactly one active version per tax year (the catalog tests enforce this). For example, TY2026 uses the Income Tax Ordinance as amended up to 20 February 2026, and TY2027 uses the version amended up to 30 June 2026. Only `active` rows are indexed. Other statuses are `pending` (wanted, file not obtained yet), `superseded` (older consolidation), `incorporated` (amendment ordinance already folded into a consolidated Act), `expired` (closed scheme) and `excluded` (duplicate, translation or out of scope).
 
 Parent sections are stored in the Postgres `sections` table (section 4), keyed by `parent_id`. They are only ever looked up by key, so they do not need a vector store, and keeping them out of Qdrant leaves more room in the Qdrant Cloud free tier (1 GB).
 
-Hybrid query: Query API with two `prefetch` branches (dense top 30, bm25 top 30) and `fusion: rrf`, filter `superseded = false` and validity overlapping the requested tax year. Run once for the original query and once for the rewritten one, fuse both result lists with RRF again in Python, then apply the domain boost (section 6.3).
+Hybrid query: Query API with two `prefetch` branches (dense top 30, bm25 top 30) and `fusion: rrf`, filter `tax_years` contains the requested tax year (TY2027 when none is given). Run once for the original query and once for the rewritten one, fuse both result lists with RRF again in Python, then apply the domain boost (section 6.3).
 
 Collection `web_pages` (web library): same vector config as `documents`. Point payload:
 
@@ -899,9 +900,11 @@ Eval item format (`eval/datasets/*.jsonl`):
 ```json
 {"id": "q001", "question": "...", "language": "roman_urdu", "tax_year": "TY2027", "domain": "income_tax",
  "answerable": true, "expected_source": "verified",
- "gold": [{"doc_id": "ito_2001", "section": "149", "page": 212}],
+ "gold": [{"work_id": "ito_2001", "section": "149"}],
  "reference_answer": "...", "category": "normal", "provenance": "real"}
 ```
+
+Gold items name the law (`work_id`) and section, not a version or page, so they stay valid when FBR publishes a new consolidation. The item's `tax_year` decides which version a hit must come from.
 
 For web-only questions, `expected_source` is `"web"` and `gold` holds URLs: `[{"url": "https://fbr.gov.pk/..."}]`. Unanswerable questions use `"none"`.
 

@@ -66,6 +66,7 @@ async def _invoke_graph(
     web_keep: int = 5,
     domain_boost: float = 1.2,
     token_budget: int = 6000,
+    on_delta=None,
 ) -> RagResult:
     from langgraph.graph import END, START, StateGraph
 
@@ -84,6 +85,7 @@ async def _invoke_graph(
         "model": "none",
         "verified": False,
         "replaced": False,
+        "confidence": None,
         "result": None,
     }
 
@@ -176,6 +178,7 @@ async def _invoke_graph(
             blocks=box["blocks"],
             mode=box["mode"],
             budget=budget,
+            on_delta=on_delta,
         )
         box["draft"] = generated.text
         box["model"] = generated.model
@@ -196,6 +199,7 @@ async def _invoke_graph(
         box["draft"] = checked.answer
         box["verified"] = checked.verified
         box["replaced"] = checked.replaced
+        box["confidence"] = checked.confidence
         return {}
 
     async def links(_state):
@@ -211,6 +215,7 @@ async def _invoke_graph(
             box["replaced"],
             box["model"],
             box["ranked"],
+            confidence=box.get("confidence"),
         )
         return {}
 

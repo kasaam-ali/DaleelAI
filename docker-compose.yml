@@ -11,9 +11,12 @@ services:
       DATABASE_URL: postgresql://daleel:daleel@postgres:5432/daleel
       QDRANT_URL: http://qdrant:6333
       DATA_DIR: /data
+      FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ./backend:/app
       - ./data:/data
+      - ./contracts:/contracts:ro
+      - model_cache:/cache/fastembed
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,3 +60,4 @@ volumes:
   postgres_data:
   qdrant_data:
   frontend_node_modules:
+  model_cache:

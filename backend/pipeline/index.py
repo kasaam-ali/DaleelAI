@@ -95,9 +95,7 @@ def ensure_collection(client) -> None:
             vectors_config={
                 "dense": models.VectorParams(size=DENSE_SIZE, distance=models.Distance.COSINE)
             },
-            sparse_vectors_config={
-                "bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)
-            },
+            sparse_vectors_config={"bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)},
         )
     for field in PAYLOAD_INDEXES:
         try:

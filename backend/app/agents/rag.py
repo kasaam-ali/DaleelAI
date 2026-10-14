@@ -36,6 +36,7 @@ class RagResult(BaseModel):
     verified: bool
     replaced: bool
     model: str
+    confidence: Literal["high", "medium", "low"] | None = None
     action_links: list[ActionLink] = Field(default_factory=list)
     sources: list[RankedHit] = Field(default_factory=list)
 
@@ -59,6 +60,7 @@ async def run_qa(
     web_keep: int = 5,
     domain_boost: float = 1.2,
     token_budget: int = 6000,
+    on_delta=None,
 ) -> RagResult:
     """Verified library first. A borderline score gets one grade and at most one broader rewrite."""
     rules = link_rules or []
@@ -93,7 +95,15 @@ async def run_qa(
     )
     if band == "sufficient":
         return await _answer(
-            llm, request, ranked, "verified", sections, rules, budget, token_budget=token_budget
+            llm,
+            request,
+            ranked,
+            "verified",
+            sections,
+            rules,
+            budget,
+            token_budget=token_budget,
+            on_delta=on_delta,
         )
     web_ranked: list[tuple[RankedHit, float]] = []
     if web_enabled:
@@ -111,7 +121,15 @@ async def run_qa(
         top = web_ranked[0][1] if web_ranked else None
         if web_is_sufficient(top, minimum=web_minimum):
             return await _answer(
-                llm, request, web_ranked, "web", sections, rules, budget, token_budget=token_budget
+                llm,
+                request,
+                web_ranked,
+                "web",
+                sections,
+                rules,
+                budget,
+                token_budget=token_budget,
+                on_delta=on_delta,
             )
     return _abstain(request, rules, web_ranked)
 
@@ -226,6 +244,7 @@ async def _answer(
     budget: CallBudget,
     *,
     token_budget: int,
+    on_delta=None,
 ) -> RagResult:
     if budget.remaining() < 2:
         return _abstain(request, rules, ranked if mode == "web" else [])
@@ -239,6 +258,7 @@ async def _answer(
         blocks=blocks,
         mode=mode,
         budget=budget,
+        on_delta=on_delta,
     )
     checked = await verify_answer(
         llm,
@@ -256,10 +276,13 @@ async def _answer(
         checked.replaced,
         generated.model,
         ranked,
+        confidence=checked.confidence,
     )
 
 
-def _result(request, rules, mode, answer, verified, replaced, model, ranked) -> RagResult:
+def _result(
+    request, rules, mode, answer, verified, replaced, model, ranked, confidence=None
+) -> RagResult:
     hits = [hit for hit, _score in ranked]
     return RagResult(
         answer=answer,
@@ -267,6 +290,7 @@ def _result(request, rules, mode, answer, verified, replaced, model, ranked) -> 
         verified=verified,
         replaced=replaced,
         model=model,
+        confidence=confidence,
         action_links=_links(request, rules),
         sources=hits[:6],
     )

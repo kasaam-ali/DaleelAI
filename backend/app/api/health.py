@@ -24,7 +24,7 @@ def health(request: Request) -> HealthResponse:
         status="ok",
         version=APP_VERSION,
         env=settings.env,
-        corpus_version="unindexed",
+        corpus_version=request.app.state.container.corpus_version,
         supported_tax_years=["TY2026", "TY2027"],
         models={
             "dense": settings.models.dense,

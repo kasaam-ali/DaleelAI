@@ -1,10 +1,13 @@
 """SSE chat. Retrieval is injected. With no QA runner the answer abstains."""
 
+import asyncio
+import inspect
 import json
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.agents.rag import RagResult
 from app.agents.router import RouterParseError, RouterRequest, route
@@ -17,6 +20,7 @@ from app.api.v1.schemas import (
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
 from app.core.ports import LLMPort
+from app.core.privacy.pii import redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.sufficiency import ABSTAIN_SENTENCE
@@ -31,6 +35,7 @@ _REFUSAL = (
 _NOT_READY = "That tool is not available yet."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
 _OUT_OF_SCOPE = "That is outside tax and compliance. Ask about FBR or SECP and I can help."
+log = logging.getLogger(__name__)
 
 
 def current_tax_year(today: date) -> str:
@@ -57,15 +62,23 @@ async def iter_chat_events(
     cache: MemoryCache | None = None,
     link_rules: list[ActionLinkRule] | None = None,
     calls_cap: int = 5,
+    session_id: str | None = None,
+    store=None,
 ) -> AsyncIterator[dict[str, Any]]:
+    body = body.model_copy(update={"message": redact_pii(body.message)})
     rules_path = CONFIG_DIR / "action_links.yaml"
     rules = link_rules if link_rules is not None else load_action_links(rules_path)
     tax_year = body.tax_year or current_tax_year(today)
     profile = body.profile.model_dump() if body.profile else None
+    chat_id = _uuid_or_new(body.chat_id)
+    message_id = str(uuid4())
+    session = _uuid_or_none(session_id)
     key = answer_cache_key(body.message, profile, tax_year, corpus_version)
     cached = _cached(cache, key)
     if cached is not None:
-        for event in _replay(cached, tax_year):
+        async for event in _yield_cached(
+            store, session, chat_id, message_id, body.message, cached, tax_year
+        ):
             yield event
         return
 
@@ -94,15 +107,71 @@ async def iter_chat_events(
         key = answer_cache_key(body.message, profile, tax_year, corpus_version)
         cached = _cached(cache, key)
         if cached is not None:
-            for event in _replay(cached, tax_year):
+            async for event in _yield_cached(
+                store, session, chat_id, message_id, body.message, cached, tax_year
+            ):
                 yield event
             return
 
-    yield _meta(routed.intent, language, tax_year)
+    yield _meta(routed.intent, language, tax_year, chat_id, message_id)
+    stored_sources: list[dict[str, Any]] = []
     if routed.intent == "qa":
-        try:
-            result = await _qa_result(body, qa, routed, tax_year, corpus_date, budget)
-        except Exception:
+        result = None
+        failure: Exception | None = None
+        emitted = 0
+        streamed: list[str] = []
+        if _accepts_on_delta(qa):
+            pieces: asyncio.Queue[str | None] = asyncio.Queue()
+
+            async def on_delta(text: str) -> None:
+                if text:
+                    await pieces.put(text)
+
+            async def produce() -> None:
+                nonlocal result, failure
+                try:
+                    result = await _qa_result(
+                        body, qa, routed, tax_year, corpus_date, budget, on_delta=on_delta
+                    )
+                except Exception as exc:
+                    failure = exc
+                finally:
+                    await pieces.put(None)
+
+            task = asyncio.create_task(produce())
+            while True:
+                piece = await pieces.get()
+                if piece is None:
+                    break
+                emitted += 1
+                streamed.append(piece)
+                yield {"event": "token", "data": {"text": piece}}
+            await task
+        else:
+            try:
+                result = await _qa_result(body, qa, routed, tax_year, corpus_date, budget)
+            except Exception as exc:
+                failure = exc
+        if failure is not None or result is None:
+            if streamed:
+                draft = "".join(streamed)
+                yield {
+                    "event": "verification",
+                    "data": {"verified": False, "unsupported": [], "replaced": False},
+                }
+                final = _final(
+                    draft,
+                    "verified",
+                    False,
+                    "none",
+                    tax_year,
+                    corpus_date,
+                    [],
+                    confidence="low",
+                )
+                yield {"event": "final", "data": final}
+                yield {"event": "done", "data": {}}
+                return
             yield {
                 "event": "error",
                 "data": {
@@ -112,12 +181,13 @@ async def iter_chat_events(
             }
             yield {"event": "done", "data": {}}
             return
+        if emitted == 0:
+            yield {"event": "token", "data": {"text": result.answer}}
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
             library = "web"
-        sources = [_source(hit, library) for hit in result.sources]
-        yield {"event": "token", "data": {"text": result.answer}}
-        yield {"event": "sources", "data": {"sources": sources}}
+        stored_sources = [_source(hit, library) for hit in result.sources]
+        yield {"event": "sources", "data": {"sources": stored_sources}}
         yield {
             "event": "verification",
             "data": {
@@ -134,6 +204,7 @@ async def iter_chat_events(
             tax_year,
             corpus_date,
             result.action_links,
+            confidence=result.confidence,
         )
     else:
         answer = _short_reply(routed.intent, routed.authority)
@@ -143,6 +214,17 @@ async def iter_chat_events(
     payload = {"intent": routed.intent, "language": language, "final": final}
     if cache is not None:
         cache.put(key, payload)
+    await _save_turn(
+        store,
+        session_id=session,
+        chat_id=chat_id,
+        message_id=message_id,
+        user_text=body.message,
+        intent=routed.intent,
+        language=language,
+        final=final,
+        sources=stored_sources,
+    )
     yield {"event": "final", "data": final}
     yield {"event": "done", "data": {}}
 
@@ -158,24 +240,107 @@ def _cached(cache: MemoryCache | None, key: str) -> dict[str, Any] | None:
     return cache.get(key)
 
 
-def _replay(cached: dict[str, Any], tax_year: str) -> list[dict[str, Any]]:
+def _replay(
+    cached: dict[str, Any], tax_year: str, chat_id: str, message_id: str
+) -> list[dict[str, Any]]:
     final = FinalData.model_validate(cached["final"]).model_copy(update={"cached": True})
     return [
-        _meta(cached["intent"], cached["language"], tax_year),
+        _meta(cached["intent"], cached["language"], tax_year, chat_id, message_id),
         {"event": "final", "data": final.model_dump()},
         {"event": "done", "data": {}},
     ]
 
 
-def _meta(intent: str, language: str, tax_year: str) -> dict[str, Any]:
+async def _yield_cached(store, session, chat_id, message_id, user_text, cached, tax_year):
+    events = _replay(cached, tax_year, chat_id, message_id)
+    await _save_turn(
+        store,
+        session_id=session,
+        chat_id=chat_id,
+        message_id=message_id,
+        user_text=user_text,
+        intent=cached["intent"],
+        language=cached["language"],
+        final=events[1]["data"],
+        sources=[],
+    )
+    for event in events:
+        yield event
+
+
+def _meta(
+    intent: str, language: str, tax_year: str, chat_id: str, message_id: str
+) -> dict[str, Any]:
     data = MetaData(
-        chat_id=str(uuid4()),
-        message_id=str(uuid4()),
+        chat_id=chat_id,
+        message_id=message_id,
         intent=intent,  # type: ignore[arg-type]
         language=language,  # type: ignore[arg-type]
         tax_year=tax_year,
     )
     return {"event": "meta", "data": data.model_dump()}
+
+
+def _accepts_on_delta(qa) -> bool:
+    if qa is None:
+        return False
+    try:
+        params = inspect.signature(qa).parameters
+    except (TypeError, ValueError):
+        return False
+    return "on_delta" in params
+
+
+def _uuid_or_new(value: str | None) -> str:
+    parsed = _uuid_or_none(value)
+    return parsed or str(uuid4())
+
+
+def _uuid_or_none(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return str(UUID(value))
+    except (ValueError, TypeError):
+        return None
+
+
+async def _save_turn(
+    store,
+    *,
+    session_id: str | None,
+    chat_id: str,
+    message_id: str,
+    user_text: str,
+    intent: str,
+    language: str,
+    final: dict[str, Any],
+    sources: list[dict[str, Any]],
+) -> None:
+    if store is None or session_id is None:
+        return
+
+    def write() -> None:
+        store.save_turn(
+            session_id=session_id,
+            chat_id=chat_id,
+            message_id=message_id,
+            user_text=user_text,
+            assistant_text=final["answer"],
+            intent=intent,
+            language=language,
+            tax_year=final["tax_year"],
+            answer_source=final["answer_source"],
+            confidence=final["confidence"],
+            verified=bool(final["verified"]),
+            model=final["model"],
+            sources=sources,
+        )
+
+    try:
+        await asyncio.to_thread(write)
+    except Exception:
+        log.warning("chat turn was not saved", exc_info=True)
 
 
 async def _qa_result(
@@ -185,6 +350,7 @@ async def _qa_result(
     tax_year: str,
     corpus_date: str,
     budget: CallBudget,
+    on_delta=None,
 ) -> RagResult:
     if qa is None:
         return RagResult(
@@ -194,14 +360,19 @@ async def _qa_result(
             replaced=False,
             model="none",
         )
+    if on_delta is not None:
+        return await qa(body, routed, tax_year, corpus_date, budget, on_delta=on_delta)
     return await qa(body, routed, tax_year, corpus_date, budget)
 
 
-def _final(answer, answer_source, verified, model, tax_year, corpus_date, links) -> dict[str, Any]:
+def _final(
+    answer, answer_source, verified, model, tax_year, corpus_date, links, confidence=None
+) -> dict[str, Any]:
+    level = confidence or stand_in_confidence(answer_source)
     return FinalData(
         answer=answer,
         answer_source=answer_source,
-        confidence=stand_in_confidence(answer_source),  # type: ignore[arg-type]
+        confidence=level,  # type: ignore[arg-type]
         verified=verified,
         model=model,
         tax_year=tax_year,

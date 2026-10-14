@@ -1,0 +1,66 @@
+"""Tables the live chat path writes. Created if missing. Nothing is dropped."""
+
+SCHEMA = (
+    """
+    CREATE TABLE IF NOT EXISTS sessions (
+      id UUID PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chats (
+      id UUID PRIMARY KEY,
+      session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS messages (
+      id UUID PRIMARY KEY,
+      chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      intent TEXT,
+      language TEXT,
+      tax_year TEXT,
+      sources JSONB,
+      answer_source TEXT,
+      confidence TEXT,
+      verified BOOLEAN,
+      model TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS messages_chat_id_created_at_idx ON messages (chat_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS feedback (
+      id UUID PRIMARY KEY,
+      message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      rating TEXT NOT NULL CHECK (rating IN ('up', 'down')),
+      reason TEXT,
+      comment TEXT,
+      share_conversation BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sections (
+      parent_id TEXT PRIMARY KEY,
+      doc_id TEXT NOT NULL,
+      section TEXT,
+      section_title TEXT,
+      page_start INT,
+      page_end INT,
+      text TEXT NOT NULL,
+      corpus_version TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS sections_doc_id_idx ON sections (doc_id)",
+    """
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+    """,
+)

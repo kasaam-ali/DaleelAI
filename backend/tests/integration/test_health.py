@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from app.container import build_container
 from app.main import create_app
 from app.settings import Adapters, Settings
-from app.version import APP_VERSION
+from app.version import APP_VERSION, INDEXED_CORPUS_VERSION
 
 
 def make_client() -> TestClient:
@@ -19,7 +19,7 @@ def test_health_reports_ok_and_version():
     assert body["status"] == "ok"
     assert body["version"] == APP_VERSION
     assert body["env"] == "development"
-    assert body["corpus_version"] == "unindexed"
+    assert body["corpus_version"] == INDEXED_CORPUS_VERSION
     assert body["supported_tax_years"] == ["TY2026", "TY2027"]
     assert "dense" in body["models"]
 

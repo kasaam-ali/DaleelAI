@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.schemas import ChatRequest
@@ -10,7 +10,11 @@ router = APIRouter()
 
 
 @router.post("/chat")
-async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
+async def chat(
+    body: ChatRequest,
+    request: Request,
+    x_session_id: str | None = Header(default=None),
+) -> StreamingResponse:
     container = request.app.state.container
 
     async def body_stream() -> AsyncIterator[str]:
@@ -23,6 +27,8 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
             qa=container.qa,
             cache=container.answer_cache,
             calls_cap=container.settings.budget.calls_cap,
+            session_id=x_session_id,
+            store=container.feedback,
         ):
             yield format_sse(event)
 

@@ -76,6 +76,69 @@ class LiteLLMGateway:
 
         raise AllProvidersUnavailable(role, errors)
 
+    async def stream(
+        self,
+        role: Role,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        info: dict | None = None,
+    ):
+        """Yield text pieces as the provider sends them. One failed model falls through."""
+        candidates = self._config.roles.get(role)
+        if not candidates:
+            raise ValueError(f"No models configured for role '{role}'")
+
+        errors: list[str] = []
+        for index, model in enumerate(candidates):
+            if not _has_api_key(model):
+                errors.append(f"{model}: no API key")
+                continue
+            if self._clock() < self._cooldown_until.get(model, 0.0):
+                errors.append(f"{model}: cooling down")
+                continue
+
+            collected: list[str] = []
+            try:
+                response = await litellm.acompletion(
+                    model=model,
+                    messages=[message.model_dump() for message in messages],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=self._config.retry.timeout_s,
+                    num_retries=self._config.retry.attempts,
+                    stream=True,
+                )
+                async for chunk in response:
+                    text = _delta_text(chunk)
+                    if text:
+                        collected.append(text)
+            except Exception as exc:
+                self._cooldown_until[model] = self._clock() + self._config.retry.cooldown_s
+                reason = _describe_error(exc)
+                log.warning("LLM stream failed for %s (%s): %s", model, role, reason)
+                errors.append(f"{model}: {reason}")
+                continue
+            if info is not None:
+                info["model"] = model
+                info["fallback"] = index > 0
+            self.last_model = model
+            for text in collected:
+                yield text
+            return
+
+        raise AllProvidersUnavailable(role, errors)
+
+
+def _delta_text(chunk) -> str:
+    choices = getattr(chunk, "choices", None) or []
+    if not choices:
+        return ""
+    delta = getattr(choices[0], "delta", None)
+    content = getattr(delta, "content", None) if delta is not None else None
+    return content if isinstance(content, str) else ""
+
 
 def _describe_error(exc: Exception) -> str:
     status = getattr(exc, "status_code", None)

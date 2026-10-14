@@ -159,7 +159,128 @@ def test_qa_failure_emits_error_then_done():
     assert events[1][1]["code"] == "qa_failed"
 
 
+def test_save_turn_writes_the_final_answer():
+    import asyncio
+
+    from app.core.services.chat import _save_turn
+
+    class Store:
+        def __init__(self):
+            self.saved = None
+
+        def save_turn(self, **kwargs):
+            self.saved = kwargs
+
+    store = Store()
+    final = {
+        "answer": "Call 051-111-772-772.",
+        "answer_source": "verified",
+        "confidence": "medium",
+        "verified": False,
+        "model": "fake/model",
+        "tax_year": "TY2027",
+    }
+    asyncio.run(
+        _save_turn(
+            store,
+            session_id="11111111-1111-1111-1111-111111111111",
+            chat_id="22222222-2222-2222-2222-222222222222",
+            message_id="33333333-3333-3333-3333-333333333333",
+            user_text="helpline",
+            intent="qa",
+            language="en",
+            final=final,
+            sources=[],
+        )
+    )
+
+    assert store.saved["assistant_text"] == "Call 051-111-772-772."
+    assert store.saved["message_id"] == "33333333-3333-3333-3333-333333333333"
+    assert "final" not in store.saved
+
+
 def test_empty_message_is_rejected():
     response = make_client(ScriptedLLM(router_payload())).post("/api/v1/chat", json={"message": ""})
 
     assert response.status_code == 422
+
+
+def test_streaming_qa_emits_each_delta():
+    llm = ScriptedLLM(router_payload())
+
+    async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None):
+        await on_delta("Salary ")
+        await on_delta("is taxed.")
+        return RagResult(
+            answer="Salary is taxed.",
+            answer_source="verified",
+            verified=True,
+            replaced=False,
+            model="fake/model",
+        )
+
+    response = make_client(llm, qa=qa).post(
+        "/api/v1/chat",
+        json={"message": "What is section 149?", "tax_year": "TY2027"},
+    )
+
+    events = parse_sse(response.text)
+    assert [name for name, _data in events] == [
+        "meta",
+        "token",
+        "token",
+        "sources",
+        "verification",
+        "final",
+        "done",
+    ]
+    assert events[1][1]["text"] == "Salary "
+    assert events[2][1]["text"] == "is taxed."
+
+
+def test_chat_redacts_cnic_before_the_model():
+    llm = ScriptedLLM(router_payload(intent="chitchat", search_query=""))
+    seen: list = []
+
+    async def complete(role, messages, **kwargs):
+        seen.append(messages)
+        payload = router_payload(intent="chitchat", search_query="")
+        return LLMResult(
+            text=json.dumps(payload),
+            model="fake/fast",
+            fallback=False,
+            latency_ms=1,
+        )
+
+    llm.complete = complete  # type: ignore[method-assign]
+    response = make_client(llm).post(
+        "/api/v1/chat",
+        json={"message": "My CNIC is 12345-1234567-1"},
+    )
+
+    assert response.status_code == 200
+    dumped = json.dumps([message.model_dump() for message in seen[0]])
+    assert "[CNIC]" in dumped
+    assert "12345-1234567-1" not in dumped
+
+
+def test_streamed_draft_finishes_when_verification_fails():
+    llm = ScriptedLLM(router_payload())
+
+    async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None):
+        await on_delta("Salary is taxed.")
+        raise RuntimeError("every judge is down")
+
+    response = make_client(llm, qa=qa).post(
+        "/api/v1/chat",
+        json={"message": "What is section 149?", "tax_year": "TY2027"},
+    )
+
+    events = parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert "error" not in names
+    assert names == ["meta", "token", "verification", "final", "done"]
+    assert events[2][1]["verified"] is False
+    assert events[3][1]["verified"] is False
+    assert events[3][1]["confidence"] == "low"
+    assert events[3][1]["answer"] == "Salary is taxed."

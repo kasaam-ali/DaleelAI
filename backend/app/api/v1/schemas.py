@@ -108,6 +108,18 @@ class FinalData(BaseModel):
     cached: bool
 
 
+class FeedbackRequest(BaseModel):
+    message_id: str
+    rating: Literal["up", "down"]
+    reason: Literal["wrong", "incomplete", "outdated", "other"] | None = None
+    comment: str | None = Field(default=None, max_length=1000)
+    share_conversation: bool = False
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+
+
 class ErrorData(BaseModel):
     code: str
     message: str

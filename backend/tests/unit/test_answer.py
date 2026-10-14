@@ -26,6 +26,35 @@ def blocks() -> list[ContextBlock]:
     return [ContextBlock(parent_id="s149", text="Section 149 taxes salary.")]
 
 
+async def test_generate_streams_deltas():
+    class StreamingLLM:
+        async def stream(self, role, messages, **kwargs):
+            kwargs["info"]["model"] = "fake/stream"
+            kwargs["info"]["fallback"] = False
+            yield "Sal"
+            yield "ary."
+
+    seen: list[str] = []
+
+    async def on_delta(text: str) -> None:
+        seen.append(text)
+
+    result = await generate_answer(
+        StreamingLLM(),
+        question="What is the salary tax?",
+        language="en",
+        tax_year="TY2027",
+        corpus_date="2026-06-30",
+        blocks=blocks(),
+        mode="verified",
+        on_delta=on_delta,
+    )
+
+    assert seen == ["Sal", "ary."]
+    assert result.text == "Salary."
+    assert result.model == "fake/stream"
+
+
 async def test_generate_uses_reasoning_and_states_the_year():
     llm = ScriptedLLM("Salary is taxed under section 149. [1]")
 
@@ -125,6 +154,24 @@ async def test_one_unsupported_sentence_is_kept_and_web_is_never_verified():
     assert checked.verified is False
     assert checked.answer == draft
     assert checked.unsupported[0]["sentence"] == "The rate is 90 percent."
+
+
+async def test_verify_keeps_the_draft_when_every_judge_is_down():
+    class DownLLM:
+        async def complete(self, role, messages, **kwargs):
+            raise AllProvidersUnavailable("judge", ["all down"])
+
+    checked = await verify_answer(
+        DownLLM(),
+        draft="Salary is taxed.",
+        blocks=blocks(),
+        mode="verified",
+    )
+
+    assert checked.verified is False
+    assert checked.replaced is False
+    assert checked.answer == "Salary is taxed."
+    assert checked.confidence == "low"
 
 
 def test_budget_cap_blocks_the_sixth_call():

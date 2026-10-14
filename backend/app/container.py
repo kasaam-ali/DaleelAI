@@ -8,6 +8,7 @@ from app.adapters.llm_litellm import LiteLLMGateway
 from app.core.cache import MemoryCache
 from app.core.ports import LLMPort
 from app.settings import Settings, load_models_config, load_settings
+from app.version import CORPUS_DATE, INDEXED_CORPUS_VERSION
 
 QaRunner = Callable[..., Awaitable[Any]]
 
@@ -18,6 +19,7 @@ class Container:
     llm: LLMPort
     qa: QaRunner | None = None
     answer_cache: MemoryCache | None = None
+    feedback: Any = None
     corpus_version: str = "unindexed"
     corpus_date: str = "unindexed"
     today: Callable[[], date] = date.today
@@ -34,4 +36,17 @@ def build_container(settings: Settings | None = None) -> Container:
         from app.adapters.live_qa import LiveQa
 
         qa = LiveQa(settings, llm)
-    return Container(settings=settings, llm=llm, qa=qa, answer_cache=MemoryCache())
+    feedback = None
+    if settings.database_url:
+        from app.adapters.postgres_store import PostgresStore
+
+        feedback = PostgresStore(settings.database_url)
+    return Container(
+        settings=settings,
+        llm=llm,
+        qa=qa,
+        answer_cache=MemoryCache(),
+        feedback=feedback,
+        corpus_version=INDEXED_CORPUS_VERSION,
+        corpus_date=CORPUS_DATE,
+    )

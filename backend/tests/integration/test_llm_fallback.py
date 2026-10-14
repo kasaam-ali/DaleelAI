@@ -126,3 +126,42 @@ async def test_all_providers_failing_raises(calls):
 async def test_unknown_role_raises(calls):
     with pytest.raises(ValueError):
         await make_gateway().complete("vision", MESSAGES)
+
+
+async def test_stream_yields_provider_deltas(monkeypatch):
+    async def fake_acompletion(model, **kwargs):
+        assert kwargs["stream"] is True
+
+        async def chunks():
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="Hel"))])
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="lo"))])
+
+        return chunks()
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    info: dict = {}
+    parts = [piece async for piece in make_gateway().stream("reasoning", MESSAGES, info=info)]
+
+    assert parts == ["Hel", "lo"]
+    assert info["model"] == "groq/big"
+
+
+async def test_stream_drops_a_partial_model_and_uses_the_next(monkeypatch):
+    async def fake_acompletion(model, **kwargs):
+        async def chunks():
+            if model.startswith("groq/"):
+                piece = SimpleNamespace(delta=SimpleNamespace(content="Hel"))
+                yield SimpleNamespace(choices=[piece])
+                raise RuntimeError("dropped")
+            piece = SimpleNamespace(delta=SimpleNamespace(content="lo"))
+            yield SimpleNamespace(choices=[piece])
+
+        return chunks()
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    info: dict = {}
+    parts = [piece async for piece in make_gateway().stream("reasoning", MESSAGES, info=info)]
+
+    assert parts == ["lo"]
+    assert info["model"] == "gemini/flash"
+    assert info["fallback"] is True

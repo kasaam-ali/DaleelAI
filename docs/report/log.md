@@ -8,8 +8,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 |---|---|
 | 0 Setup | Skeleton completed on disk (health, compose, CI, config placeholders). Git join / tag / history scan skipped for now |
 | 1 Data and retrieval | Catalog and download done. 32 active docs chunked and indexed. Qdrant `documents` has 18,600 points, 0 failures. Other scans not OCR'd. |
-| 2 Agentic RAG and API | In progress. Borderline grade, retry rewrite, live adapters, and a LangGraph wrapper are in. The running image was not rebuilt, so that container still uses the plain `run_qa` fallback until the image is rebuilt. |
-| 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Not deployed. |
+| 2 Agentic RAG and API | In progress. The backend image was rebuilt with `langgraph` and `psycopg`. `/health` reports corpus `9a59fef60e481ac3`. Parent sections are in Postgres (6,080 rows). `web_pages` has a 24-point seed. Token streaming, server PII redaction, and `POST /api/v1/feedback` are in. Confidence fitting, reranker comparison, and eval set v1 are still open. |
+| 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Feedback can be saved. Not deployed. |
 | 4-9 | Not started |
 
 Deferred on purpose:
@@ -18,10 +18,43 @@ Deferred on purpose:
 - Full-corpus PDF extraction and chunking (Phase 1 step 3): stopped on 2026-10-13. Tesseract sat at 100% CPU on one scanned page for over an hour. Digital Acts already extracted (Income Tax Ordinance, Sales Tax Act, Federal Excise Act, Customs Act, Income Tax Rules) stay in `data/extracted/`. Resume later with OCR off, or OCR only the few scanned pages.
 
 ### Next
-1. Indexing finished. Collection `documents` has 18,600 points and the log says failed 0. Do not delete the collection. Do not resume the indexer unless the chunks change.
-2. Rebuild the backend image so `langgraph` and `psycopg` are in the running container. Until then, chat uses `run_qa` and parent text falls back to the chunk. Do not send a chat question until that image is up: a live question loads embedding models in the same container.
-3. Still open: real token streaming, confidence fitted on the dev set, reranker comparison, `web_pages`, eval set v1. Other scanned documents were not OCR'd.
-4. Phase 3 chat UI is on the host. Do not send a question to the running backend until indexing finishes. Railway and Vercel deploy are still open. `POST /api/v1/feedback` is not on the server yet, so the buttons report that feedback could not be saved.
+1. Collection `documents` still has 18,600 points. Do not delete it. Do not resume the documents indexer unless the chunks change.
+2. Still open: confidence fitted on the dev set, reranker comparison, eval set v1, and a real crawl of the web allowlist. The `web_pages` collection is only the four-page seed (24 points). IRIS fell back to a short paragraph because the live page text was under 400 characters.
+3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
+4. Gemini Flash order is `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-2.5-flash`. On 2026-10-14, 3.6 returned 503 and 3.8 answered. If every judge is down after draft tokens, the stream now ends with `verified: false`, confidence low, `final`, and `done`.
+
+## 2026-10-14: Judge failure keeps the draft
+
+### Built
+`verify_answer` catches `AllProvidersUnavailable`. The draft stays, `verified` is false, and confidence is low. The chat stream still emits `verification`, `final`, and `done` when tokens were already sent. A failure before any token still emits `error` then `done`.
+
+### Learned
+A 503 on the judge means the check did not finish. The draft the user already saw should close as an unverified answer, not as a failed search.
+
+## 2026-10-14: Gemini Flash 3.8 then 3.6
+
+### Built
+Replaced `gemini-3.5-flash` and `gemini-3.5-flash-lite` in `backend/config/models.yaml`. Each Gemini slot is now `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-2.5-flash` where a third fallback already existed. Groq and OpenRouter stay in the same places.
+
+### Learned
+Both 3.6 and 3.8 are offered by the Gemini API. A judge probe got HTTP 503 from 3.6, then `gemini-3.8-flash` replied `ok` with fallback true. 3.8 is first so a live call does not wait on that 503.
+
+## 2026-10-14: Backend rebuild, sections, feedback, web seed
+
+### Built
+Rebuilt the backend image with `docker compose up -d --build backend`. Postgres and Qdrant were not recreated and no volume was wiped. `/health` now reports corpus version `9a59fef60e481ac3`. `scripts/load_sections.py` loaded 6,080 parent sections from the chunk files into Postgres in 3.8 seconds, 0 failures. It does not touch Qdrant.
+
+`POST /api/v1/feedback` stores a rating in Postgres. The server redactor in `app/core/privacy/pii.py` matches `contracts/pii_cases.json`. Chat redacts the question before the model sees it, and a saved turn stores `CNIC [CNIC]`. `contracts/openapi.json` was exported again.
+
+`scripts/index_web_pages.py` wrote 24 points into Qdrant `web_pages` only. FBR, KPRA, and PRA were fetched. IRIS used the short fallback paragraph. `documents` stayed at 18,600 before and after. Draft tokens stream on `POST /api/v1/chat`. A model that dies mid-stream is discarded and the next model is tried, so a partial draft is not mixed with the fallback.
+
+### Broke
+The first save of a live turn passed the final event object into `save_turn` and Postgres rejected it. The helper now writes the answer fields. A later live question streamed tokens and then ended on an `error` event after `gemini-3.5-flash` returned 503 for the judge. A direct judge probe still answered from `gemini-2.5-flash`.
+
+### Learned
+The file watcher reloads the API when tests change, which drops the in-memory answer cache and loads the embedding models again on the next question. `ruff format` also wanted `pipeline/index.py` on one line. That file had not been edited for behavior.
+
+Checks: `ruff check`, `ruff format --check`, and pytest in the new container. 164 passed. Smoke: `/health` 200 with corpus `9a59fef60e481ac3`. One chat returned `meta`, token events, `sources`, `verification`, `final`, `done`. Feedback POST returned 201. Sections 6,080. `documents` 18,600. `web_pages` 24.
 
 ## 2026-10-14: Qdrant index finished
 
@@ -42,7 +75,7 @@ Nothing in the indexer. The feedback route does not exist yet, so a click there 
 ### Learned
 A grouped amount like `Rs 1,800,000 (18 lakh)` can be matched as a shorter prefix (`1,800,00`) if the hint check is only a lookahead. The annotator now keeps an existing parenthesis and skips a second hint. `+` is not a word character, so a phone pattern needs a lookbehind or it misses a number at the start of the text.
 
-Host checks: 36 unit tests passed, oxlint clean, `tsc -b` clean, production build succeeded. No container was rebuilt or restarted.
+Host checks: 37 unit tests passed, oxlint clean, `tsc -b` clean, production build succeeded. Changing one profile field no longer clears the other two. A health check that does not answer within 5 seconds shows that the tax service is unreachable. No container was rebuilt or restarted.
 
 ## 2026-10-14: Borderline grade, live adapters, LangGraph wrapper
 

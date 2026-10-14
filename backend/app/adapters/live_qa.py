@@ -23,7 +23,7 @@ class LiveQa:
         self.sections = PostgresSections(settings.database_url)
         self._rules = None
 
-    async def __call__(self, body, routed, tax_year: str, corpus_date: str, budget):
+    async def __call__(self, body, routed, tax_year: str, corpus_date: str, budget, on_delta=None):
         if self._rules is None:
             self._rules = load_action_links(CONFIG_DIR / "action_links.yaml")
         request = RagRequest(
@@ -54,4 +54,5 @@ class LiveQa:
             domain_boost=retrieval.domain_boost,
             token_budget=retrieval.context_tokens,
             runner=self.settings.adapters.agent_runner,
+            on_delta=on_delta,
         )

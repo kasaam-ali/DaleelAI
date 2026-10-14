@@ -2,12 +2,13 @@
 
 import json
 import re
+from collections.abc import Awaitable, Callable
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.budget import CallBudget
-from app.core.ports import ChatMessage, LLMPort, LLMResult
+from app.core.ports import AllProvidersUnavailable, ChatMessage, LLMPort, LLMResult
 from app.core.retrieval.expand import ContextBlock
 from app.core.retrieval.sufficiency import ABSTAIN_SENTENCE
 
@@ -35,6 +36,7 @@ class Verification(BaseModel):
     unsupported: list[dict[str, int | str]] = Field(default_factory=list)
     replaced: bool
     answer: str
+    confidence: Literal["high", "medium", "low"] | None = None
 
 
 async def generate_answer(
@@ -47,6 +49,7 @@ async def generate_answer(
     blocks: list[ContextBlock],
     mode: LibraryMode,
     budget: CallBudget | None = None,
+    on_delta: Callable[[str], Awaitable[None]] | None = None,
 ) -> LLMResult:
     """One reasoning call. No context means the abstain sentence and no call."""
     if not blocks:
@@ -58,17 +61,36 @@ async def generate_answer(
         )
     if budget is not None:
         budget.charge()
-    return await llm.complete(
-        "reasoning",
-        _generate_messages(
-            question=question,
-            language=language,
-            tax_year=tax_year,
-            corpus_date=corpus_date,
-            blocks=blocks,
-            mode=mode,
-        ),
-        temperature=0.0,
+    messages = _generate_messages(
+        question=question,
+        language=language,
+        tax_year=tax_year,
+        corpus_date=corpus_date,
+        blocks=blocks,
+        mode=mode,
+    )
+    stream = getattr(llm, "stream", None)
+    if on_delta is not None and stream is not None:
+        return await _stream_answer(llm, stream, messages, on_delta)
+    result = await llm.complete("reasoning", messages, temperature=0.0)
+    if on_delta is not None and result.text:
+        await on_delta(result.text)
+    return result
+
+
+async def _stream_answer(llm, stream, messages, on_delta) -> LLMResult:
+    info: dict[str, str | bool] = {}
+    parts: list[str] = []
+    async for piece in stream("reasoning", messages, temperature=0.0, info=info):
+        if not piece:
+            continue
+        parts.append(piece)
+        await on_delta(piece)
+    return LLMResult(
+        text="".join(parts),
+        model=str(info.get("model") or getattr(llm, "last_model", "stream")),
+        fallback=bool(info.get("fallback", False)),
+        latency_ms=0,
     )
 
 
@@ -86,12 +108,20 @@ async def verify_answer(
         return Verification(verified=False, replaced=False, answer=draft)
     if budget is not None:
         budget.charge()
-    result = await llm.complete(
-        "judge",
-        _judge_messages(sentences, blocks),
-        temperature=0.0,
-        max_tokens=800,
-    )
+    try:
+        result = await llm.complete(
+            "judge",
+            _judge_messages(sentences, blocks),
+            temperature=0.0,
+            max_tokens=800,
+        )
+    except AllProvidersUnavailable:
+        return Verification(
+            verified=False,
+            replaced=False,
+            answer=draft,
+            confidence="low",
+        )
     labels = _parse_labels(result.text, sentences)
     unsupported = _unsupported_spans(draft, labels)
     replaced = len(unsupported) * 2 > len(labels)

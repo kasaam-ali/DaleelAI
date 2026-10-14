@@ -1,0 +1,35 @@
+{
+  "id": "ntn_aop_company",
+  "title": "NTN for an AOP or company",
+  "title_ru": "AOP ya company ka NTN",
+  "description": "Registration for an association of persons or a company.",
+  "questions": [
+    {
+      "id": "entity",
+      "prompt": "Which entity is registering?",
+      "prompt_ru": "Kaun si entity register ho rahi hai?",
+      "options": ["aop", "company"]
+    },
+    {
+      "id": "province",
+      "prompt": "Where is the office?",
+      "prompt_ru": "Daftar kahan hai?",
+      "options": ["punjab", "sindh", "other"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "section",
+      "title": "Read section 181",
+      "detail": "An AOP or company registers under section 181 of the Income Tax Ordinance, 2001. Use the entity name on the formation papers.",
+      "sources": ["Income Tax Ordinance, 2001, section 181"]
+    },
+    {
+      "id": "iris",
+      "title": "File the registration on IRIS",
+      "detail": "The federal application is on IRIS. Provincial offices do not replace that step.",
+      "sources": ["Income Tax Ordinance, 2001, section 181"],
+      "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
+    }
+  ]
+}

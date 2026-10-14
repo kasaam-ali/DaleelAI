@@ -209,9 +209,20 @@ async def iter_chat_events(
     elif routed.intent in {"calculate", "compare_filer"}:
         from app.core.tax_engine import chat_tool
 
-        card_type, card, answer = chat_tool(
-            routed.intent, body.message, tax_year, routed.params
-        )
+        card_type, card, answer = chat_tool(routed.intent, body.message, tax_year, routed.params)
+        if card_type is not None and card is not None:
+            yield {"event": "tool_result", "data": {"card": {"type": card_type, "data": card}}}
+        yield {"event": "token", "data": {"text": answer}}
+        final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
+    elif routed.intent in {"notice", "checklist"}:
+        if routed.intent == "notice":
+            from app.core.services.notice import notice_prompt
+
+            card_type, card, answer = notice_prompt()
+        else:
+            from app.core.services.checklists import checklist_from_chat
+
+            card_type, card, answer = checklist_from_chat(body.message, language, store, session)
         if card_type is not None and card is not None:
             yield {"event": "tool_result", "data": {"card": {"type": card_type, "data": card}}}
         yield {"event": "token", "data": {"text": answer}}

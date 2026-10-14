@@ -123,6 +123,103 @@ class PostgresStore:
             conn.commit()
         return str(feedback_id)
 
+    def find_sections(self, section: str) -> list[dict[str, Any]]:
+        self.ensure()
+        root = section.split("(", 1)[0]
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT section, COALESCE(section_title, ''), left(text, 400)
+                    FROM sections
+                    WHERE section = %s OR section = %s
+                    LIMIT 3
+                    """,
+                    (section, root),
+                )
+                rows = cur.fetchall()
+        return [{"section": row[0] or section, "title": row[1], "text": row[2]} for row in rows]
+
+    def save_checklist(
+        self,
+        *,
+        session_id: str,
+        template_id: str,
+        answers: dict[str, Any],
+        steps: list[dict[str, Any]],
+    ) -> str:
+        self.ensure()
+        checklist_id = uuid.uuid4()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                self._ensure_session(cur, session_id)
+                cur.execute(
+                    """
+                    INSERT INTO checklists (id, session_id, template_id, answers, steps)
+                    VALUES (%s, %s, %s, %s::jsonb, %s::jsonb)
+                    """,
+                    (
+                        checklist_id,
+                        _uuid(session_id),
+                        template_id,
+                        json.dumps(answers),
+                        json.dumps(steps),
+                    ),
+                )
+            conn.commit()
+        return str(checklist_id)
+
+    def update_checklist_step(
+        self,
+        *,
+        session_id: str,
+        checklist_id: str,
+        step_id: str,
+        done: bool,
+    ) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT template_id, answers, steps
+                    FROM checklists
+                    WHERE id = %s AND session_id = %s
+                    """,
+                    (_uuid(checklist_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                steps = row[2]
+                if isinstance(steps, str):
+                    steps = json.loads(steps)
+                answers = row[1]
+                if isinstance(answers, str):
+                    answers = json.loads(answers)
+                found = False
+                for step in steps:
+                    if step.get("id") == step_id:
+                        step["done"] = done
+                        found = True
+                if not found:
+                    return None
+                cur.execute(
+                    """
+                    UPDATE checklists
+                    SET steps = %s::jsonb, updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (json.dumps(steps), _uuid(checklist_id)),
+                )
+            conn.commit()
+        return {
+            "id": checklist_id,
+            "template_id": row[0],
+            "answers": answers,
+            "steps": steps,
+        }
+
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:
         cur.execute("SELECT id FROM messages WHERE id = %s", (_uuid(message_id),))
         if cur.fetchone():

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
 import { useHealth } from "./api/health"
 import CalculatorPage from "./features/calculator/CalculatorPage"
+import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
 import FilerPage from "./features/filer/FilerPage"
+import NoticePage from "./features/notice/NoticePage"
 import ProfilePanel from "./features/onboarding/ProfilePanel"
 import { t, type CopyKey } from "./i18n"
 import {
@@ -23,7 +25,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
-  const [view, setView] = useState<"chat" | "calculator" | "filer">("chat")
+  const [view, setView] = useState<"chat" | "calculator" | "filer" | "notice" | "checklist">("chat")
   const copy = (key: CopyKey) => t(language, key)
 
   function changeLanguage(next: UiLanguage) {
@@ -79,7 +81,15 @@ export default function App() {
             <button type="button" onClick={changeTheme} className="min-h-11 border border-rule px-3 text-sm">
               {theme === "dark" ? copy("themeToLight") : copy("themeToDark")}
             </button>
-            {(["chat", "calculator", "filer"] as const).map((item) => (
+            {(
+              [
+                ["chat", "navChat"],
+                ["calculator", "navCalculator"],
+                ["filer", "navFiler"],
+                ["notice", "navNotice"],
+                ["checklist", "navChecklist"],
+              ] as const
+            ).map(([item, label]) => (
               <button
                 key={item}
                 type="button"
@@ -87,7 +97,7 @@ export default function App() {
                 onClick={() => setView(item)}
                 className={`min-h-11 px-3 text-sm ${view === item ? "bg-ink text-paper" : "border border-rule"}`}
               >
-                {copy(item === "chat" ? "navChat" : item === "calculator" ? "navCalculator" : "navFiler")}
+                {copy(label)}
               </button>
             ))}
           </div>
@@ -104,6 +114,8 @@ export default function App() {
           </div>
           {view === "calculator" ? <CalculatorPage copy={copy} /> : null}
           {view === "filer" ? <FilerPage copy={copy} /> : null}
+          {view === "notice" ? <NoticePage copy={copy} language={language} /> : null}
+          {view === "checklist" ? <ChecklistsPage copy={copy} language={language} /> : null}
         </main>
       </div>
     </div>

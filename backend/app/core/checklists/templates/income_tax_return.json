@@ -1,0 +1,41 @@
+{
+  "id": "income_tax_return",
+  "title": "File an income tax return",
+  "title_ru": "Income tax return file karein",
+  "description": "A return under section 114, filed on IRIS.",
+  "questions": [
+    {
+      "id": "work",
+      "prompt": "What is the main income?",
+      "prompt_ru": "Aamdani kis cheez se hai?",
+      "options": ["salary", "freelance", "business"]
+    },
+    {
+      "id": "filer",
+      "prompt": "Are you on the Active Taxpayers List?",
+      "prompt_ru": "Kya aap Active Taxpayers List par hain?",
+      "options": ["filer", "non_filer"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "section",
+      "title": "Read who must file",
+      "detail": "Section 114 of the Income Tax Ordinance, 2001 says who files a return of income.",
+      "sources": ["Income Tax Ordinance, 2001, section 114"]
+    },
+    {
+      "id": "wealth",
+      "title": "Prepare the wealth statement if it applies",
+      "detail": "Section 116 covers the wealth statement that is filed with many returns.",
+      "sources": ["Income Tax Ordinance, 2001, section 116"]
+    },
+    {
+      "id": "iris",
+      "title": "File on IRIS",
+      "detail": "Submit the return on IRIS before the date notified for that tax year.",
+      "sources": ["Income Tax Ordinance, 2001, section 114"],
+      "link": {"label": "File your return on IRIS", "url": "https://iris.fbr.gov.pk/"}
+    }
+  ]
+}

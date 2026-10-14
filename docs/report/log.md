@@ -11,7 +11,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | 2 Agentic RAG and API | In progress. The backend image was rebuilt with `langgraph` and `psycopg`. `/health` reports corpus `9a59fef60e481ac3`. Parent sections are in Postgres (6,080 rows). `web_pages` has a 24-point seed. Token streaming, server PII redaction, and `POST /api/v1/feedback` are in. Confidence fitting, reranker comparison, and eval set v1 are still open. |
 | 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Feedback can be saved. Not deployed. |
 | 4 Tax tools | Built. TY2026 and TY2027 rules, the calculator, the filer comparison, the labeling guidelines, and the four-key LLM fallback are in. Slab-boundary tests passed. |
-| 5-9 | Not started |
+| 5 Notice and checklists | Built. Notice uploads are read in memory, personal numbers are redacted before any model call, and the five checklists save progress for the session. |
+| 6-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -23,7 +24,18 @@ Deferred on purpose:
 2. Still open: confidence fitted on the dev set, reranker comparison, eval set v1, and a real crawl of the web allowlist. The `web_pages` collection is only the four-page seed (24 points). IRIS fell back to a short paragraph because the live page text was under 400 characters.
 3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
 4. Every LLM role tries Groq, then `GEMINI_API_KEY` (3.8 then 2.5), then the same Gemini models on `GEMINI_API_KEY_2`, then OpenRouter. If every judge is down after draft tokens, the stream ends with `verified: false`, confidence low, `final`, and `done`.
-5. The classifier is not trained. `backend/ml/labeling_guidelines.md` is only the labeling rules. The Docker frontend on port 5173 did not pick up the new pages (its file watcher missed the writes). The same pages were checked on `http://127.0.0.1:5174/`.
+5. The classifier is not trained. `backend/ml/labeling_guidelines.md` is only the labeling rules.
+
+## 2026-10-14: Notice explainer and checklists
+
+### Built
+A PDF or image notice is checked for type, size, and page count, read with PyMuPDF (Tesseract only if the page has almost no text), and the personal numbers are replaced before any model call. The page image is masked in memory and never written to disk. Eighteen synthetic notices are in `backend/tests/fixtures/notices.json`. The five checklists are NTN, AOP or company NTN, sales tax, SECP, and an income tax return. A freelance NTN answer adds a PSEB step with no invented URL. Progress is stored in Postgres when the database is configured, and the page also keeps it in localStorage.
+
+### Broke
+FastAPI file upload needs `python-multipart`. It was missing from the image, so the route could not load until it was installed in the running container and added to the lockfile.
+
+### Learned
+PyMuPDF's markdown export puts a whole notice on one line. The name redactor used to read up to 80 characters with no newline, which swallowed the demanded amount. It now stops before the next field label.
 
 ## 2026-10-14: Four API keys in the LLM fallback
 

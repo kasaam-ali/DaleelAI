@@ -1,0 +1,34 @@
+{
+  "id": "secp_company_incorporation",
+  "title": "Incorporate a company",
+  "title_ru": "Company incorporate karein",
+  "description": "SECP company incorporation. No link is shown until the official address is confirmed.",
+  "questions": [
+    {
+      "id": "kind",
+      "prompt": "What kind of company?",
+      "prompt_ru": "Company kis qisam ki hai?",
+      "options": ["private", "single_member"]
+    },
+    {
+      "id": "name_reserved",
+      "prompt": "Is the name already reserved?",
+      "prompt_ru": "Kya naam reserve ho chuka hai?",
+      "options": ["yes", "no"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "act",
+      "title": "Read the Companies Act provision",
+      "detail": "Incorporation is under the Companies Act, 2017. Reserve the name before the incorporation forms if it is not reserved yet.",
+      "sources": ["Companies Act, 2017"]
+    },
+    {
+      "id": "secp",
+      "title": "File on SECP eServices",
+      "detail": "Use the official SECP eServices portal. This build does not show a URL because the registration address is not confirmed here.",
+      "sources": ["Companies Act, 2017"]
+    }
+  ]
+}

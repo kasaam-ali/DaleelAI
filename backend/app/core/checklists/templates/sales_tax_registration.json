@@ -1,0 +1,35 @@
+{
+  "id": "sales_tax_registration",
+  "title": "Sales tax registration",
+  "title_ru": "Sales tax registration",
+  "description": "Federal sales tax on goods, and a note when the supply is services.",
+  "questions": [
+    {
+      "id": "supply",
+      "prompt": "What do you supply?",
+      "prompt_ru": "Aap kya supply karte hain?",
+      "options": ["goods", "services"]
+    },
+    {
+      "id": "province",
+      "prompt": "Which province?",
+      "prompt_ru": "Kaun sa province?",
+      "options": ["punjab", "sindh", "other"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "section",
+      "title": "Check which law applies",
+      "detail": "Sales tax on goods is under the Sales Tax Act, 1990, section 14. Sales tax on services is provincial.",
+      "sources": ["Sales Tax Act, 1990, section 14"]
+    },
+    {
+      "id": "iris",
+      "title": "Federal registration on IRIS",
+      "detail": "Goods registration starts on IRIS. A services answer adds the provincial step after this one.",
+      "sources": ["Sales Tax Act, 1990, section 14"],
+      "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
+    }
+  ]
+}

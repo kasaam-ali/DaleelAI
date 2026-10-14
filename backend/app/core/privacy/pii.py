@@ -25,14 +25,69 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         ),
         "[ACCOUNT]",
     ),
-    (re.compile(r"\b(?:Name|Taxpayer)\s*:\s*[^,\n]{2,80}", re.IGNORECASE), "[NAME]"),
-    (re.compile(r"\bAddress\s*:\s*[^\n]{2,120}", re.IGNORECASE), "[ADDRESS]"),
+    (
+        re.compile(
+            r"\b(?:Name|Taxpayer)\s*:\s*"
+            r"(?:(?!\b(?:CNIC|NTN|Phone|Email|Office|Amount|Deadline|Address)\b)[^,\n]){2,80}",
+            re.IGNORECASE,
+        ),
+        "[NAME]",
+    ),
+    (
+        re.compile(
+            r"\bAddress\s*:\s*"
+            r"(?:(?!\b(?:CNIC|NTN|Phone|Email|Name|Office|Amount|Deadline)\b)[^\n]){2,120}",
+            re.IGNORECASE,
+        ),
+        "[ADDRESS]",
+    ),
 ]
 
 
 def redact_pii(text: str) -> str:
     """An unlabeled 7 or 8 digit run stays. It is a rupee amount, not an NTN."""
+    return redact_report(text)[0]
+
+
+_BUCKETS = {
+    "[CNIC]": "cnic",
+    "[NTN]": "ntn",
+    "[PHONE]": "phone",
+    "[EMAIL]": "email",
+    "[NAME]": "name",
+    "[ADDRESS]": "name",
+}
+
+
+def redact_report(text: str) -> tuple[str, dict[str, int]]:
+    """Redact and count. Address hits are counted with names."""
+    counts = {"cnic": 0, "ntn": 0, "phone": 0, "email": 0, "name": 0}
     out = text
     for pattern, placeholder in _PATTERNS:
+        found = list(pattern.finditer(out))
+        bucket = _BUCKETS.get(placeholder)
+        if bucket is not None:
+            counts[bucket] += len(found)
         out = pattern.sub(placeholder, out)
-    return out
+    return out, counts
+
+
+def outbound_pii(text: str) -> str | None:
+    """CNIC, hyphen or labeled NTN, phone, or email still present. Placeholders are clean."""
+    for pattern, placeholder in _PATTERNS:
+        if placeholder not in {"[CNIC]", "[NTN]", "[PHONE]", "[EMAIL]"}:
+            continue
+        match = pattern.search(text)
+        if match is not None:
+            return match.group(0)
+    return None
+
+
+def pii_secrets(text: str) -> list[str]:
+    """Raw values to black out on a page. Placeholders are not secrets."""
+    found: list[str] = []
+    for pattern, placeholder in _PATTERNS:
+        if placeholder not in {"[CNIC]", "[NTN]", "[PHONE]", "[EMAIL]"}:
+            continue
+        found.extend(match.group(0) for match in pattern.finditer(text))
+    return found

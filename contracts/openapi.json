@@ -284,10 +284,219 @@
           }
         }
       }
+    },
+    "/api/v1/notice/explain": {
+      "post": {
+        "summary": "Explain Notice",
+        "operationId": "explain_notice_api_v1_notice_explain_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_explain_notice_api_v1_notice_explain_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/checklists/templates": {
+      "get": {
+        "summary": "Templates",
+        "operationId": "templates_api_v1_checklists_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChecklistTemplate"
+                  },
+                  "type": "array",
+                  "title": "Response Templates Api V1 Checklists Templates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/checklists": {
+      "post": {
+        "summary": "Create Checklist",
+        "operationId": "create_checklist_api_v1_checklists_post",
+        "parameters": [
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChecklistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecklistResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/checklists/{checklist_id}/steps/{step_id}": {
+      "patch": {
+        "summary": "Patch Step",
+        "operationId": "patch_step_api_v1_checklists__checklist_id__steps__step_id__patch",
+        "parameters": [
+          {
+            "name": "checklist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Checklist Id"
+            }
+          },
+          {
+            "name": "step_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Step Id"
+            }
+          },
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChecklistStepPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecklistResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_explain_notice_api_v1_notice_explain_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "en"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_explain_notice_api_v1_notice_explain_post"
+      },
       "BreakdownLine": {
         "properties": {
           "label": {
@@ -476,6 +685,216 @@
           "message"
         ],
         "title": "ChatRequest"
+      },
+      "ChecklistQuestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "prompt_ru": {
+            "type": "string",
+            "title": "Prompt Ru"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "prompt",
+          "prompt_ru",
+          "options"
+        ],
+        "title": "ChecklistQuestion"
+      },
+      "ChecklistRequest": {
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "title": "Template Id"
+          },
+          "answers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Answers"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "roman_urdu",
+              "urdu"
+            ],
+            "title": "Language",
+            "default": "en"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template_id"
+        ],
+        "title": "ChecklistRequest"
+      },
+      "ChecklistResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "template_id": {
+            "type": "string",
+            "title": "Template Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "template_id",
+          "title",
+          "steps",
+          "progress"
+        ],
+        "title": "ChecklistResponse"
+      },
+      "ChecklistStep": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChecklistStepLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "detail",
+          "sources",
+          "done"
+        ],
+        "title": "ChecklistStep"
+      },
+      "ChecklistStepLink": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "url"
+        ],
+        "title": "ChecklistStepLink"
+      },
+      "ChecklistStepPatch": {
+        "properties": {
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "done"
+        ],
+        "title": "ChecklistStepPatch"
+      },
+      "ChecklistTemplate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "title_ru": {
+            "type": "string",
+            "title": "Title Ru"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistQuestion"
+            },
+            "type": "array",
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "title_ru",
+          "description",
+          "questions"
+        ],
+        "title": "ChecklistTemplate"
       },
       "FeedbackRequest": {
         "properties": {
@@ -798,6 +1217,234 @@
           "models"
         ],
         "title": "HealthResponse"
+      },
+      "NoticeActionLink": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "label_ru": {
+            "type": "string",
+            "title": "Label Ru"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "authority": {
+            "type": "string",
+            "enum": [
+              "FBR",
+              "SECP",
+              "SRB",
+              "PRA",
+              "KPRA",
+              "BRA"
+            ],
+            "title": "Authority"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic",
+          "label",
+          "label_ru",
+          "url",
+          "authority"
+        ],
+        "title": "NoticeActionLink"
+      },
+      "NoticeExplanation": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "why_received": {
+            "type": "string",
+            "title": "Why Received"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Severity"
+          },
+          "recommend_expert": {
+            "type": "boolean",
+            "title": "Recommend Expert"
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "why_received",
+          "next_steps",
+          "severity",
+          "recommend_expert"
+        ],
+        "title": "NoticeExplanation"
+      },
+      "NoticeResponse": {
+        "properties": {
+          "notice_type": {
+            "type": "string",
+            "title": "Notice Type"
+          },
+          "law": {
+            "type": "string",
+            "title": "Law"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "tax_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Year"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "issuing_office": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuing Office"
+          },
+          "explanation": {
+            "$ref": "#/components/schemas/NoticeExplanation"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "redactions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Redactions"
+          },
+          "ocr_used": {
+            "type": "boolean",
+            "title": "Ocr Used"
+          },
+          "action_links": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeActionLink"
+            },
+            "type": "array",
+            "title": "Action Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notice_type",
+          "law",
+          "explanation",
+          "sources",
+          "redactions",
+          "ocr_used",
+          "action_links"
+        ],
+        "title": "NoticeResponse"
+      },
+      "NoticeSource": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "snippet"
+        ],
+        "title": "NoticeSource"
       },
       "Profile": {
         "properties": {

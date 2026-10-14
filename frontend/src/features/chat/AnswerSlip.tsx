@@ -228,7 +228,24 @@ function ToolCard({
   const lines = Array.isArray(data.breakdown) ? (data.breakdown as Record<string, unknown>[]) : []
   return (
     <div className="mt-4 border border-rule bg-field px-3 py-3">
-      <p className="text-sm font-medium">{copy(card.type === "filer_comparison" ? "filerTitle" : "calcTitle")}</p>
+      <p className="text-sm font-medium">
+        {copy(
+          card.type === "filer_comparison"
+            ? "filerTitle"
+            : card.type === "notice"
+              ? "noticeTitle"
+              : card.type === "checklist"
+                ? "checklistTitle"
+                : "calcTitle",
+        )}
+      </p>
+      {typeof data.message === "string" ? <p className="mt-2 text-sm">{data.message}</p> : null}
+      {typeof data.title === "string" ? <p className="mt-2">{data.title}</p> : null}
+      {typeof data.progress === "number" ? (
+        <p className="text-sm text-muted">
+          {copy("checklistProgress")} {Math.round(data.progress * 100)}%
+        </p>
+      ) : null}
       {typeof data.total_tax === "number" ? (
         <p className="mt-2 text-lg">{formatPkr(data.total_tax)}</p>
       ) : null}

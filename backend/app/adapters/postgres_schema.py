@@ -63,4 +63,15 @@ SCHEMA = (
       value TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS checklists (
+      id UUID PRIMARY KEY,
+      session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      template_id TEXT NOT NULL,
+      answers JSONB NOT NULL,
+      steps JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
 )

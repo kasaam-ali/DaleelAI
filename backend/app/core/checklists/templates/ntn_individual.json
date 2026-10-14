@@ -1,0 +1,35 @@
+{
+  "id": "ntn_individual",
+  "title": "Register for an NTN",
+  "title_ru": "NTN registration",
+  "description": "National Tax Number for an individual on IRIS.",
+  "questions": [
+    {
+      "id": "work",
+      "prompt": "What is the main income?",
+      "prompt_ru": "Aamdani kis cheez se hai?",
+      "options": ["salary", "freelance", "business"]
+    },
+    {
+      "id": "registered",
+      "prompt": "Do you already have an IRIS login?",
+      "prompt_ru": "Kya IRIS login pehle se hai?",
+      "options": ["yes", "no"]
+    }
+  ],
+  "steps": [
+    {
+      "id": "section",
+      "title": "Read the registration provision",
+      "detail": "Section 181 of the Income Tax Ordinance, 2001 is the registration provision for a National Tax Number.",
+      "sources": ["Income Tax Ordinance, 2001, section 181"]
+    },
+    {
+      "id": "iris",
+      "title": "Start the application on IRIS",
+      "detail": "Use the FBR IRIS portal. This build only links the confirmed IRIS address.",
+      "sources": ["Income Tax Ordinance, 2001, section 181"],
+      "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
+    }
+  ]
+}

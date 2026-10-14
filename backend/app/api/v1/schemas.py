@@ -261,3 +261,88 @@ SSE_EVENTS = (
     ErrorEvent,
     DoneEvent,
 )
+
+
+class NoticeExplanation(BaseModel):
+    summary: str
+    why_received: str
+    next_steps: list[str]
+    severity: Literal["low", "medium", "high"]
+    recommend_expert: bool
+    days_left: int | None = None
+
+
+class NoticeSource(BaseModel):
+    title: str
+    section: str | None = None
+    snippet: str
+
+
+class NoticeActionLink(BaseModel):
+    topic: str
+    label: str
+    label_ru: str
+    url: str
+    authority: Authority
+
+
+class NoticeResponse(BaseModel):
+    notice_type: str
+    law: str
+    section: str | None = None
+    tax_year: str | None = None
+    amount: int | None = None
+    deadline: str | None = None
+    issuing_office: str | None = None
+    explanation: NoticeExplanation
+    sources: list[NoticeSource]
+    redactions: dict[str, int]
+    ocr_used: bool
+    action_links: list[NoticeActionLink]
+
+
+class ChecklistQuestion(BaseModel):
+    id: str
+    prompt: str
+    prompt_ru: str
+    options: list[str]
+
+
+class ChecklistTemplate(BaseModel):
+    id: str
+    title: str
+    title_ru: str
+    description: str
+    questions: list[ChecklistQuestion]
+
+
+class ChecklistStepLink(BaseModel):
+    label: str
+    url: str
+
+
+class ChecklistStep(BaseModel):
+    id: str
+    title: str
+    detail: str
+    sources: list[str]
+    done: bool
+    link: ChecklistStepLink | None = None
+
+
+class ChecklistRequest(BaseModel):
+    template_id: str
+    answers: dict[str, str] = Field(default_factory=dict)
+    language: Literal["en", "roman_urdu", "urdu"] = "en"
+
+
+class ChecklistStepPatch(BaseModel):
+    done: bool
+
+
+class ChecklistResponse(BaseModel):
+    id: str
+    template_id: str
+    title: str
+    steps: list[ChecklistStep]
+    progress: float

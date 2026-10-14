@@ -72,7 +72,7 @@ docker compose up -d
 
 Put provider keys only in the local `.env`. That file is gitignored. The app is at [http://localhost:5173](http://localhost:5173). The API is at [http://localhost:8000](http://localhost:8000). Health: `GET /health`.
 
-`docs/demo_script.md` lists four saved questions that answer immediately when every model provider is down. The first is `Demo: what does section 149 cover?`
+Four saved questions answer immediately when every model provider is down. The first is `Demo: what does section 149 cover?`
 
 Do not delete the Qdrant `documents` collection. Rebuilding it is a separate, explicit job.
 
@@ -92,15 +92,5 @@ npm test
 npm run typecheck
 npm run lint
 ```
-
-## Docs
-
-| Doc | What it decides |
-|---|---|
-| [docs/PLAN.md](docs/PLAN.md) | Scope and roadmap |
-| [docs/SPECS.md](docs/SPECS.md) | Field names and formats |
-| [docs/adr/](docs/adr/) | Architecture decisions |
-| [docs/report/log.md](docs/report/log.md) | What was built, what broke, what was learned |
-| [docs/demo_script.md](docs/demo_script.md) | Demo-day questions |
 
 OpenAPI: `contracts/openapi.json`.

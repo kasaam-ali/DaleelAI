@@ -31,3 +31,8 @@ dist/
 # OS / editor
 .DS_Store
 Thumbs.db
+.cursor/
+
+# Kept on this machine, not in the public repo
+.github/
+/docs/

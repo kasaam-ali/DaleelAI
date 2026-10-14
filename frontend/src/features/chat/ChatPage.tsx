@@ -79,6 +79,7 @@ export default function ChatPage({
       feedback: null,
       feedbackNote: null,
       toolNote: false,
+      toolCard: null,
     }
     setTurns((prev) => [...prev, turn])
     setBusy(true)
@@ -142,7 +143,7 @@ export default function ChatPage({
         error: event.data.message || copy("answerFailed"),
       }))
     } else if (event.event === "tool_result") {
-      patch(id, (current) => ({ ...current, toolNote: true }))
+      patch(id, (current) => ({ ...current, toolCard: event.data.card }))
     } else if (event.event === "done") {
       patch(id, (current) => ({ ...current, status: "" }))
     }

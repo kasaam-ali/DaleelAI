@@ -39,29 +39,33 @@ class LiteLLMGateway:
             raise ValueError(f"No models configured for role '{role}'")
 
         errors: list[str] = []
-        for index, model in enumerate(candidates):
-            if not _has_api_key(model):
-                errors.append(f"{model}: no API key")
+        for index, entry in enumerate(candidates):
+            resolved = _resolve(entry)
+            if resolved is None:
+                errors.append(f"{entry}: no API key")
                 continue
-            if self._clock() < self._cooldown_until.get(model, 0.0):
-                errors.append(f"{model}: cooling down")
+            model, api_key = resolved
+            if self._clock() < self._cooldown_until.get(entry, 0.0):
+                errors.append(f"{entry}: cooling down")
                 continue
 
             started = self._clock()
             try:
                 response = await litellm.acompletion(
-                    model=model,
-                    messages=[message.model_dump() for message in messages],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    timeout=self._config.retry.timeout_s,
-                    num_retries=self._config.retry.attempts,
+                    **_call_kwargs(
+                        self._config,
+                        model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        api_key,
+                    )
                 )
             except Exception as exc:
-                self._cooldown_until[model] = self._clock() + self._config.retry.cooldown_s
+                self._cooldown_until[entry] = self._clock() + self._config.retry.cooldown_s
                 reason = _describe_error(exc)
-                log.warning("LLM call failed for %s (%s): %s", model, role, reason)
-                errors.append(f"{model}: {reason}")
+                log.warning("LLM call failed for %s (%s): %s", entry, role, reason)
+                errors.append(f"{entry}: {reason}")
                 continue
 
             usage = getattr(response, "usage", None)
@@ -91,34 +95,38 @@ class LiteLLMGateway:
             raise ValueError(f"No models configured for role '{role}'")
 
         errors: list[str] = []
-        for index, model in enumerate(candidates):
-            if not _has_api_key(model):
-                errors.append(f"{model}: no API key")
+        for index, entry in enumerate(candidates):
+            resolved = _resolve(entry)
+            if resolved is None:
+                errors.append(f"{entry}: no API key")
                 continue
-            if self._clock() < self._cooldown_until.get(model, 0.0):
-                errors.append(f"{model}: cooling down")
+            model, api_key = resolved
+            if self._clock() < self._cooldown_until.get(entry, 0.0):
+                errors.append(f"{entry}: cooling down")
                 continue
 
             collected: list[str] = []
             try:
                 response = await litellm.acompletion(
-                    model=model,
-                    messages=[message.model_dump() for message in messages],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    timeout=self._config.retry.timeout_s,
-                    num_retries=self._config.retry.attempts,
-                    stream=True,
+                    **_call_kwargs(
+                        self._config,
+                        model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        api_key,
+                        stream=True,
+                    )
                 )
                 async for chunk in response:
                     text = _delta_text(chunk)
                     if text:
                         collected.append(text)
             except Exception as exc:
-                self._cooldown_until[model] = self._clock() + self._config.retry.cooldown_s
+                self._cooldown_until[entry] = self._clock() + self._config.retry.cooldown_s
                 reason = _describe_error(exc)
-                log.warning("LLM stream failed for %s (%s): %s", model, role, reason)
-                errors.append(f"{model}: {reason}")
+                log.warning("LLM stream failed for %s (%s): %s", entry, role, reason)
+                errors.append(f"{entry}: {reason}")
                 continue
             if info is not None:
                 info["model"] = model
@@ -145,6 +153,34 @@ def _describe_error(exc: Exception) -> str:
     return f"{type(exc).__name__} (HTTP {status})" if status else type(exc).__name__
 
 
-def _has_api_key(model: str) -> bool:
-    env_var = PROVIDER_KEYS.get(model.split("/", 1)[0])
-    return env_var is None or bool(os.environ.get(env_var))
+def _resolve(entry: str) -> tuple[str, str | None] | None:
+    """Return `(model, api_key)`. None means the named key is missing.
+
+    `model|ENV_VAR` forces that variable. Cooldown stays on the whole entry,
+    so the same Gemini model can be tried again with `GEMINI_API_KEY_2`.
+    """
+    model, sep, env_name = entry.partition("|")
+    if not sep:
+        env_name = PROVIDER_KEYS.get(model.split("/", 1)[0]) or ""
+    if not env_name:
+        return model, None
+    api_key = os.environ.get(env_name)
+    if not api_key:
+        return None
+    return model, api_key
+
+
+def _call_kwargs(config, model, messages, temperature, max_tokens, api_key, stream=False) -> dict:
+    kwargs = {
+        "model": model,
+        "messages": [message.model_dump() for message in messages],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "timeout": config.retry.timeout_s,
+        "num_retries": config.retry.attempts,
+    }
+    if api_key:
+        kwargs["api_key"] = api_key
+    if stream:
+        kwargs["stream"] = True
+    return kwargs

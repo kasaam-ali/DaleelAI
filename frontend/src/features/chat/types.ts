@@ -14,4 +14,5 @@ export type Turn = {
   feedback: "up" | "down" | null
   feedbackNote: string | null
   toolNote: boolean
+  toolCard: { type: string; data: Record<string, unknown> } | null
 }

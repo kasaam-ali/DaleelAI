@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daleelai.local/tax-rules.schema.json",
+  "type": "object",
+  "required": ["tax_year", "rules_version", "period", "salary", "surcharge", "freelancer", "withholding"],
+  "properties": {
+    "tax_year": {"type": "string", "pattern": "^TY20\\d{2}$"},
+    "rules_version": {"type": "string"},
+    "period": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "string"},
+        "end": {"type": "string"}
+      }
+    },
+    "salary": {"type": "object", "required": ["slabs", "source"]},
+    "surcharge": {"type": "object", "required": ["salaried", "source"]},
+    "freelancer": {"type": "object"},
+    "withholding": {"type": "object"}
+  }
+}

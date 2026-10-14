@@ -1,0 +1,135 @@
+{
+  "tax_year": "TY2027",
+  "rules_version": "ty2027@2026-07-01",
+  "period": {"start": "2026-07-01", "end": "2027-06-30"},
+  "enacted_by": "Finance Act, 2026",
+  "verified_on": "2026-10-14",
+  "salary": {
+    "slabs": [
+      {"from": 0, "to": 600000, "fixed": 0, "rate": "0"},
+      {"from": 600000, "to": 1200000, "fixed": 0, "rate": "0.01"},
+      {"from": 1200000, "to": 2200000, "fixed": 6000, "rate": "0.11"},
+      {"from": 2200000, "to": 3200000, "fixed": 116000, "rate": "0.20"},
+      {"from": 3200000, "to": 4100000, "fixed": 316000, "rate": "0.25"},
+      {"from": 4100000, "to": 5600000, "fixed": 541000, "rate": "0.29"},
+      {"from": 5600000, "to": 7000000, "fixed": 976000, "rate": "0.32"},
+      {"from": 7000000, "to": null, "fixed": 1424000, "rate": "0.35"}
+    ],
+    "source": {
+      "law": "Finance Act, 2026",
+      "ref": "First Schedule, Part I, Division I, table substituted for clause (2)"
+    }
+  },
+  "surcharge": {
+    "salaried": {"income_above": 10000000, "rate_on_tax": "0"},
+    "non_salaried": {"income_above": 10000000, "rate_on_tax": "0.10"},
+    "source": {
+      "law": "Income Tax Ordinance, 2001 (amended up to 30 June 2026)",
+      "ref": "section 4AB, salary proviso (no surcharge), as explained in Income Tax Circular No. 2 of 2026-27"
+    }
+  },
+  "freelancer": {
+    "pseb_export": {
+      "filer": "0.0025",
+      "non_filer": "0.0025",
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 154A, Division IVA of Part III of the First Schedule, read with rule 10(ca) of the Tenth Schedule, persons registered with the Pakistan Software Export Board, tax years 2024 to 2029"
+      }
+    },
+    "export_services": {
+      "filer": "0.01",
+      "non_filer": "0.01",
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 154A, Division IVA of Part III of the First Schedule, read with rule 10(ca) of the Tenth Schedule, any other case"
+      }
+    },
+    "local_services": {
+      "filer": "0.04",
+      "non_filer": "0.08",
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 153(1)(b), Division III of Part III of the First Schedule, IT and IT enabled services"
+      }
+    }
+  },
+  "withholding": {
+    "property_purchase": {
+      "basis": "percent",
+      "bands": [
+        {"to": 50000000, "filer": "0.0125", "non_filer": "0.105"},
+        {"to": 100000000, "filer": "0.0125", "non_filer": "0.145"},
+        {"to": null, "filer": "0.0125", "non_filer": "0.185"}
+      ],
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 236K, Division XVIII of Part IV of the First Schedule, read with rule 1 of the Tenth Schedule"
+      }
+    },
+    "property_sale": {
+      "basis": "percent",
+      "bands": [
+        {"to": 50000000, "filer": "0.0275", "non_filer": "0.115"},
+        {"to": 100000000, "filer": "0.0275", "non_filer": "0.115"},
+        {"to": null, "filer": "0.0275", "non_filer": "0.115"}
+      ],
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 236C, Division X of Part IV of the First Schedule, read with rule 1 of the Tenth Schedule"
+      }
+    },
+    "vehicle_registration": {
+      "basis": "percent",
+      "by_engine_cc": [
+        {"max_cc": 850, "filer": "0.005", "non_filer": "0.015"},
+        {"max_cc": 1000, "filer": "0.01", "non_filer": "0.03"},
+        {"max_cc": 1300, "filer": "0.015", "non_filer": "0.045"},
+        {"max_cc": 1600, "filer": "0.02", "non_filer": "0.06"},
+        {"max_cc": 1800, "filer": "0.03", "non_filer": "0.09"},
+        {"max_cc": 2000, "filer": "0.05", "non_filer": "0.15"},
+        {"max_cc": 2500, "filer": "0.07", "non_filer": "0.21"},
+        {"max_cc": 3000, "filer": "0.09", "non_filer": "0.27"},
+        {"max_cc": null, "filer": "0.12", "non_filer": "0.36"}
+      ],
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 231B(1) and 231B(3), Division VII of Part IV of the First Schedule"
+      }
+    },
+    "vehicle_token": {
+      "basis": "fixed",
+      "by_engine_cc": [
+        {"max_cc": 1000, "filer": 800, "non_filer": 1600},
+        {"max_cc": 1199, "filer": 1500, "non_filer": 3000},
+        {"max_cc": 1299, "filer": 1750, "non_filer": 3500},
+        {"max_cc": 1499, "filer": 2500, "non_filer": 5000},
+        {"max_cc": 1599, "filer": 3750, "non_filer": 7500},
+        {"max_cc": 1999, "filer": 4500, "non_filer": 9000},
+        {"max_cc": null, "filer": 10000, "non_filer": 20000}
+      ],
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 234, Division III of Part IV of the First Schedule, motor vehicles by engine capacity"
+      }
+    },
+    "dividend": {
+      "basis": "percent",
+      "filer": "0.15",
+      "non_filer": "0.30",
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 150, Division I of Part III of the First Schedule, other than IPPs and clauses (a), (ba), (c) and (d)"
+      }
+    },
+    "profit_on_debt": {
+      "basis": "percent",
+      "filer": "0.20",
+      "non_filer": "0.40",
+      "source": {
+        "law": "Withholding Tax Rate Card, Tax Year 2027 (up to 30 June 2026)",
+        "ref": "section 151, Division IA of Part III of the First Schedule, profit paid by a banking company or financial institution on a deposit"
+      }
+    }
+  }
+}

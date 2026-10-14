@@ -206,6 +206,16 @@ async def iter_chat_events(
             result.action_links,
             confidence=result.confidence,
         )
+    elif routed.intent in {"calculate", "compare_filer"}:
+        from app.core.tax_engine import chat_tool
+
+        card_type, card, answer = chat_tool(
+            routed.intent, body.message, tax_year, routed.params
+        )
+        if card_type is not None and card is not None:
+            yield {"event": "tool_result", "data": {"card": {"type": card_type, "data": card}}}
+        yield {"event": "token", "data": {"text": answer}}
+        final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:
         answer = _short_reply(routed.intent, routed.authority)
         links = match_action_links(body.message, rules, domains=set())

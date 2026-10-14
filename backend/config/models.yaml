@@ -1,8 +1,34 @@
-# Models per role, in fallback order. A model whose provider has no API key is skipped.
-# Free-tier model ids change often: check with `python -m scripts.list_models`.
+# Models per role, in fallback order. A model whose key is missing is skipped.
+# A `|ENV_VAR` suffix sends that variable as the API key. The same Gemini model
+# is listed twice so a rate limit on GEMINI_API_KEY still tries GEMINI_API_KEY_2.
+# Order for every role: Groq, Gemini key 1, Gemini key 2, OpenRouter.
 roles:
-  reasoning: [groq/openai/gpt-oss-120b, gemini/gemini-3.8-flash, gemini/gemini-3.6-flash, gemini/gemini-2.5-flash, openrouter/nvidia/nemotron-3-super-120b-a12b:free]
-  fast:      [groq/openai/gpt-oss-20b, gemini/gemini-3.8-flash, gemini/gemini-3.6-flash, openrouter/google/gemma-4-31b-it:free]
-  vision:    [gemini/gemini-3.8-flash, gemini/gemini-3.6-flash, gemini/gemini-2.5-flash]
-  judge:     [gemini/gemini-3.8-flash, gemini/gemini-3.6-flash, gemini/gemini-2.5-flash, openrouter/google/gemma-4-31b-it:free, groq/openai/gpt-oss-120b]   # prefer a provider different from reasoning
+  reasoning:
+    - groq/openai/gpt-oss-120b
+    - gemini/gemini-3.8-flash
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.8-flash|GEMINI_API_KEY_2
+    - gemini/gemini-2.5-flash|GEMINI_API_KEY_2
+    - openrouter/nvidia/nemotron-3-super-120b-a12b:free
+  fast:
+    - groq/openai/gpt-oss-20b
+    - gemini/gemini-3.8-flash
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.8-flash|GEMINI_API_KEY_2
+    - gemini/gemini-2.5-flash|GEMINI_API_KEY_2
+    - openrouter/google/gemma-4-31b-it:free
+  vision:
+    - groq/openai/gpt-oss-120b
+    - gemini/gemini-3.8-flash
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.8-flash|GEMINI_API_KEY_2
+    - gemini/gemini-2.5-flash|GEMINI_API_KEY_2
+    - openrouter/google/gemma-4-31b-it:free
+  judge:
+    - groq/openai/gpt-oss-120b
+    - gemini/gemini-3.8-flash
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.8-flash|GEMINI_API_KEY_2
+    - gemini/gemini-2.5-flash|GEMINI_API_KEY_2
+    - openrouter/google/gemma-4-31b-it:free
 retry: {attempts: 1, cooldown_s: 60, timeout_s: 45}

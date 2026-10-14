@@ -132,10 +132,293 @@
           }
         }
       }
+    },
+    "/api/v1/calculator/salary": {
+      "post": {
+        "summary": "Salary Tax",
+        "operationId": "salary_tax_api_v1_calculator_salary_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calculator/freelancer": {
+      "post": {
+        "summary": "Freelancer Tax",
+        "operationId": "freelancer_tax_api_v1_calculator_freelancer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreelancerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calculator/property": {
+      "post": {
+        "summary": "Property Withholding",
+        "operationId": "property_withholding_api_v1_calculator_property_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compare/filer": {
+      "post": {
+        "summary": "Filer Comparison",
+        "operationId": "filer_comparison_api_v1_compare_filer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilerCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilerComparisonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "BreakdownLine": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "base": {
+            "type": "integer",
+            "title": "Base"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "tax": {
+            "type": "integer",
+            "title": "Tax"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TaxSource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "base",
+          "tax",
+          "source"
+        ],
+        "title": "BreakdownLine"
+      },
+      "CalculationResponse": {
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputs"
+          },
+          "total_tax": {
+            "type": "integer",
+            "title": "Total Tax"
+          },
+          "effective_rate": {
+            "type": "number",
+            "title": "Effective Rate"
+          },
+          "breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/BreakdownLine"
+            },
+            "type": "array",
+            "title": "Breakdown"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "rules_version": {
+            "type": "string",
+            "title": "Rules Version"
+          },
+          "compared_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/YearDelta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthly_tax": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Tax"
+          },
+          "net_annual": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Annual"
+          },
+          "net_monthly": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Monthly"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tax_year",
+          "inputs",
+          "total_tax",
+          "effective_rate",
+          "breakdown",
+          "notes",
+          "rules_version"
+        ],
+        "title": "CalculationResponse"
+      },
       "ChatRequest": {
         "properties": {
           "chat_id": {
@@ -262,6 +545,201 @@
           "id"
         ],
         "title": "FeedbackResponse"
+      },
+      "FilerCompareRequest": {
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year",
+            "default": "TY2027"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/FilerTransaction"
+            },
+            "type": "array",
+            "title": "Transactions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transactions"
+        ],
+        "title": "FilerCompareRequest"
+      },
+      "FilerComparisonResponse": {
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/FilerRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "filer_total": {
+            "type": "integer",
+            "title": "Filer Total"
+          },
+          "non_filer_total": {
+            "type": "integer",
+            "title": "Non Filer Total"
+          },
+          "savings": {
+            "type": "integer",
+            "title": "Savings"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "rules_version": {
+            "type": "string",
+            "title": "Rules Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tax_year",
+          "rows",
+          "filer_total",
+          "non_filer_total",
+          "savings",
+          "notes",
+          "rules_version"
+        ],
+        "title": "FilerComparisonResponse"
+      },
+      "FilerRow": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "engine_cc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Cc"
+          },
+          "filer_tax": {
+            "type": "integer",
+            "title": "Filer Tax"
+          },
+          "late_filer_tax": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Late Filer Tax"
+          },
+          "non_filer_tax": {
+            "type": "integer",
+            "title": "Non Filer Tax"
+          },
+          "difference": {
+            "type": "integer",
+            "title": "Difference"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TaxSource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount",
+          "filer_tax",
+          "non_filer_tax",
+          "difference",
+          "source"
+        ],
+        "title": "FilerRow"
+      },
+      "FilerTransaction": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "engine_cc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Cc"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount"
+        ],
+        "title": "FilerTransaction"
+      },
+      "FreelancerRequest": {
+        "properties": {
+          "annual_receipts": {
+            "type": "integer",
+            "title": "Annual Receipts"
+          },
+          "regime": {
+            "type": "string",
+            "enum": [
+              "pseb_export",
+              "export_services",
+              "local_services"
+            ],
+            "title": "Regime"
+          },
+          "filer_status": {
+            "type": "string",
+            "enum": [
+              "filer",
+              "non_filer"
+            ],
+            "title": "Filer Status",
+            "default": "filer"
+          },
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year",
+            "default": "TY2027"
+          }
+        },
+        "type": "object",
+        "required": [
+          "annual_receipts",
+          "regime"
+        ],
+        "title": "FreelancerRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -391,6 +869,105 @@
         "type": "object",
         "title": "Profile"
       },
+      "PropertyRequest": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "enum": [
+              "purchase",
+              "sale"
+            ],
+            "title": "Side"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "filer_status": {
+            "type": "string",
+            "enum": [
+              "filer",
+              "late_filer",
+              "non_filer"
+            ],
+            "title": "Filer Status"
+          },
+          "holding_period_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holding Period Years"
+          },
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year",
+            "default": "TY2027"
+          }
+        },
+        "type": "object",
+        "required": [
+          "side",
+          "value",
+          "filer_status"
+        ],
+        "title": "PropertyRequest"
+      },
+      "SalaryRequest": {
+        "properties": {
+          "annual_income": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Income"
+          },
+          "monthly_income": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Income"
+          },
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year",
+            "default": "TY2027"
+          }
+        },
+        "type": "object",
+        "title": "SalaryRequest"
+      },
+      "TaxSource": {
+        "properties": {
+          "law": {
+            "type": "string",
+            "title": "Law"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "law",
+          "ref"
+        ],
+        "title": "TaxSource"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -430,6 +1007,29 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "YearDelta": {
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "title": "Tax Year"
+          },
+          "total_tax": {
+            "type": "integer",
+            "title": "Total Tax"
+          },
+          "difference": {
+            "type": "integer",
+            "title": "Difference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tax_year",
+          "total_tax",
+          "difference"
+        ],
+        "title": "YearDelta"
       }
     }
   }

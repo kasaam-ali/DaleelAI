@@ -1,9 +1,9 @@
 """API contract source (Pydantic)."""
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Language = Literal["en", "roman_urdu", "urdu"]
 AnswerSource = Literal["verified", "web", "none"]
@@ -118,6 +118,98 @@ class FeedbackRequest(BaseModel):
 
 class FeedbackResponse(BaseModel):
     id: str
+
+
+class SalaryRequest(BaseModel):
+    annual_income: int | None = None
+    monthly_income: int | None = None
+    tax_year: str = "TY2027"
+
+    @model_validator(mode="after")
+    def _one_income(self) -> "SalaryRequest":
+        if (self.annual_income is None) == (self.monthly_income is None):
+            raise ValueError("Send annual_income or monthly_income.")
+        return self
+
+
+class FreelancerRequest(BaseModel):
+    annual_receipts: int
+    regime: Literal["pseb_export", "export_services", "local_services"]
+    filer_status: Literal["filer", "non_filer"] = "filer"
+    tax_year: str = "TY2027"
+
+
+class PropertyRequest(BaseModel):
+    side: Literal["purchase", "sale"]
+    value: int
+    filer_status: Literal["filer", "late_filer", "non_filer"]
+    holding_period_years: int | None = None
+    tax_year: str = "TY2027"
+
+
+class FilerTransaction(BaseModel):
+    type: str
+    amount: int
+    engine_cc: int | None = None
+
+
+class FilerCompareRequest(BaseModel):
+    tax_year: str = "TY2027"
+    transactions: list[FilerTransaction]
+
+
+class TaxSource(BaseModel):
+    law: str
+    ref: str
+
+
+class BreakdownLine(BaseModel):
+    label: str
+    base: int
+    rate: float | None = None
+    tax: int
+    source: TaxSource
+
+
+class YearDelta(BaseModel):
+    tax_year: str
+    total_tax: int
+    difference: int
+
+
+class CalculationResponse(BaseModel):
+    tax_year: str
+    inputs: dict[str, Any]
+    total_tax: int
+    effective_rate: float
+    breakdown: list[BreakdownLine]
+    notes: list[str]
+    rules_version: str
+    compared_to: YearDelta | None = None
+    monthly_tax: int | None = None
+    net_annual: int | None = None
+    net_monthly: int | None = None
+
+
+class FilerRow(BaseModel):
+    type: str
+    amount: int
+    engine_cc: int | None = None
+    filer_tax: int
+    late_filer_tax: int | None = None
+    non_filer_tax: int
+    difference: int
+    source: TaxSource
+
+
+class FilerComparisonResponse(BaseModel):
+    tax_year: str
+    rows: list[FilerRow]
+    filer_total: int
+    non_filer_total: int
+    savings: int
+    notes: list[str]
+    rules_version: str
 
 
 class ErrorData(BaseModel):

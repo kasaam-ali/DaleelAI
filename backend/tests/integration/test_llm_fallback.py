@@ -6,7 +6,7 @@ import pytest
 from app.adapters import llm_litellm
 from app.adapters.llm_litellm import LiteLLMGateway
 from app.core.ports import AllProvidersUnavailable, ChatMessage
-from app.settings import ModelsConfig, RetryConfig
+from app.settings import ModelsConfig, RetryConfig, load_models_config
 
 MESSAGES = [ChatMessage(role="user", content="Salam")]
 
@@ -165,3 +165,76 @@ async def test_stream_drops_a_partial_model_and_uses_the_next(monkeypatch):
     assert parts == ["lo"]
     assert info["model"] == "gemini/flash"
     assert info["fallback"] is True
+
+
+def _key_name(entry: str) -> str:
+    model, sep, env_name = entry.partition("|")
+    if sep:
+        return env_name
+    provider = model.split("/", 1)[0]
+    return {
+        "groq": "GROQ_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }[provider]
+
+
+def test_every_role_uses_the_four_keys_in_order():
+    config = load_models_config()
+    expected = [
+        "GROQ_API_KEY",
+        "GEMINI_API_KEY",
+        "GEMINI_API_KEY_2",
+        "OPENROUTER_API_KEY",
+    ]
+    for role in ("reasoning", "fast", "judge", "vision"):
+        names = []
+        for entry in config.roles[role]:
+            name = _key_name(entry)
+            if not names or names[-1] != name:
+                names.append(name)
+        assert names == expected
+        assert "gemini/gemini-3.8-flash|GEMINI_API_KEY_2" in config.roles[role]
+        assert "gemini/gemini-2.5-flash|GEMINI_API_KEY_2" in config.roles[role]
+
+
+async def test_keys_one_two_and_three_fall_through_to_openrouter(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-key-1")
+    monkeypatch.setenv("GEMINI_API_KEY_2", "gemini-key-2")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    seen: list[tuple[str, str | None]] = []
+
+    async def fake_acompletion(model, **kwargs):
+        seen.append((model, kwargs.get("api_key")))
+        if model.startswith("openrouter/"):
+            return ok_response("from openrouter")
+        raise litellm.RateLimitError(message="429", llm_provider="test", model=model)
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    config = ModelsConfig(
+        roles={
+            "reasoning": [
+                "groq/big",
+                "gemini/gemini-3.8-flash",
+                "gemini/gemini-2.5-flash",
+                "gemini/gemini-3.8-flash|GEMINI_API_KEY_2",
+                "gemini/gemini-2.5-flash|GEMINI_API_KEY_2",
+                "openrouter/google/gemma-4-31b-it:free",
+            ]
+        },
+        retry=RetryConfig(attempts=0, cooldown_s=60, timeout_s=5),
+    )
+
+    result = await LiteLLMGateway(config, clock=FakeClock()).complete("reasoning", MESSAGES)
+
+    assert result.model == "openrouter/google/gemma-4-31b-it:free"
+    assert result.fallback is True
+    assert seen == [
+        ("groq/big", "groq-key"),
+        ("gemini/gemini-3.8-flash", "gemini-key-1"),
+        ("gemini/gemini-2.5-flash", "gemini-key-1"),
+        ("gemini/gemini-3.8-flash", "gemini-key-2"),
+        ("gemini/gemini-2.5-flash", "gemini-key-2"),
+        ("openrouter/google/gemma-4-31b-it:free", "openrouter-key"),
+    ]

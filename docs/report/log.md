@@ -10,7 +10,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | 1 Data and retrieval | Catalog and download done. 32 active docs chunked and indexed. Qdrant `documents` has 18,600 points, 0 failures. Other scans not OCR'd. |
 | 2 Agentic RAG and API | In progress. The backend image was rebuilt with `langgraph` and `psycopg`. `/health` reports corpus `9a59fef60e481ac3`. Parent sections are in Postgres (6,080 rows). `web_pages` has a 24-point seed. Token streaming, server PII redaction, and `POST /api/v1/feedback` are in. Confidence fitting, reranker comparison, and eval set v1 are still open. |
 | 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Feedback can be saved. Not deployed. |
-| 4-9 | Not started |
+| 4 Tax tools | Built. TY2026 and TY2027 rules, the calculator, the filer comparison, the labeling guidelines, and the four-key LLM fallback are in. Slab-boundary tests passed. |
+| 5-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -21,7 +22,28 @@ Deferred on purpose:
 1. Collection `documents` still has 18,600 points. Do not delete it. Do not resume the documents indexer unless the chunks change.
 2. Still open: confidence fitted on the dev set, reranker comparison, eval set v1, and a real crawl of the web allowlist. The `web_pages` collection is only the four-page seed (24 points). IRIS fell back to a short paragraph because the live page text was under 400 characters.
 3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
-4. Gemini Flash order is `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-2.5-flash`. On 2026-10-14, 3.6 returned 503 and 3.8 answered. If every judge is down after draft tokens, the stream now ends with `verified: false`, confidence low, `final`, and `done`.
+4. Every LLM role tries Groq, then `GEMINI_API_KEY` (3.8 then 2.5), then the same Gemini models on `GEMINI_API_KEY_2`, then OpenRouter. If every judge is down after draft tokens, the stream ends with `verified: false`, confidence low, `final`, and `done`.
+5. The classifier is not trained. `backend/ml/labeling_guidelines.md` is only the labeling rules. The Docker frontend on port 5173 did not pick up the new pages (its file watcher missed the writes). The same pages were checked on `http://127.0.0.1:5174/`.
+
+## 2026-10-14: Four API keys in the LLM fallback
+
+### Built
+Each role now tries Groq, then Gemini 3.8 and 2.5 on `GEMINI_API_KEY`, then those same models on `GEMINI_API_KEY_2`, then OpenRouter. A failed Gemini call cools down that key only, so the second key is still tried.
+
+### Learned
+Cooldown was stored by model id. Listing `gemini-3.8-flash` twice would have skipped the second key. The suffix on the config entry keeps the two attempts apart, and the call sends that entry's key.
+
+## 2026-10-14: Tax rules and calculators
+
+### Built
+TY2026 and TY2027 rules in `backend/app/core/tax_rules/`. Salary slabs come from the Income Tax Ordinance schedule and the Finance Act 2026 substitution. Section 4AB is 9 percent of salary tax above Rs 10,000,000 for TY2026, and no salary surcharge for TY2027. Freelancer rates cover PSEB export, other export of services, and domestic IT services. Property uses sections 236C and 236K. Late filer rates are only on TY2026 property. Filer comparison also covers vehicle registration, the annual vehicle tax, dividends, and profit on a bank deposit.
+
+The engine, four API routes, chat cards for `calculate` and `compare_filer`, and the Calculator and Filer pages are in. `contracts/openapi.json` was exported again. Labeling rules are in `backend/ml/labeling_guidelines.md`.
+
+### Learned
+The TY2027 withholding card has no late-filer column, so a late-filer property request for that year returns 400. A rupee just above a salary boundary can round back to the same tax. The tests still check that step.
+
+Checks: ruff clean, pytest 184 passed. No image rebuild. Qdrant and Postgres were not touched.
 
 ## 2026-10-14: Judge failure keeps the draft
 

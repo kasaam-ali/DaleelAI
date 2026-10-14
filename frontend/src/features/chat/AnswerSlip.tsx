@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { FeedbackReason, Source } from "../../api/chat"
-import { annotatePkr } from "../../lib/money"
+import { annotatePkr, formatPkr } from "../../lib/money"
 import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
 import type { Turn } from "./types"
@@ -61,7 +61,10 @@ export default function AnswerSlip({
             </p>
           ) : null}
 
-          {turn.toolNote ? <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p> : null}
+          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} /> : null}
+          {turn.toolNote && !turn.toolCard ? (
+            <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p>
+          ) : null}
 
           {final ? (
             <div className="mt-5">
@@ -210,6 +213,50 @@ export default function AnswerSlip({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function ToolCard({
+  card,
+  copy,
+}: {
+  card: NonNullable<Turn["toolCard"]>
+  copy: Copy
+}) {
+  const data = card.data
+  const rows = Array.isArray(data.rows) ? (data.rows as Record<string, unknown>[]) : []
+  const lines = Array.isArray(data.breakdown) ? (data.breakdown as Record<string, unknown>[]) : []
+  return (
+    <div className="mt-4 border border-rule bg-field px-3 py-3">
+      <p className="text-sm font-medium">{copy(card.type === "filer_comparison" ? "filerTitle" : "calcTitle")}</p>
+      {typeof data.total_tax === "number" ? (
+        <p className="mt-2 text-lg">{formatPkr(data.total_tax)}</p>
+      ) : null}
+      {typeof data.monthly_tax === "number" ? (
+        <p className="text-sm text-muted">
+          {copy("monthlyTax")} {formatPkr(data.monthly_tax)}
+        </p>
+      ) : null}
+      {lines.length > 0 ? (
+        <ul className="mt-2 grid gap-1 text-sm">
+          {lines.map((line, index) => (
+            <li key={index}>
+              {String(line.label)}: {formatPkr(Number(line.tax))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {rows.length > 0 ? (
+        <ul className="mt-2 grid gap-1 text-sm">
+          {rows.map((row, index) => (
+            <li key={index}>
+              {String(row.type)}: {copy("filer")} {formatPkr(Number(row.filer_tax))}, {copy("nonFiler")}{" "}
+              {formatPkr(Number(row.non_filer_tax))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   )
 }
 

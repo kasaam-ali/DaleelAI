@@ -56,7 +56,7 @@ export type SseEvent =
   | { event: "final"; data: FinalData }
   | { event: "error"; data: { code: string; message: string } }
   | { event: "done"; data: Record<string, never> }
-  | { event: "tool_result"; data: { card: { type: string } } }
+  | { event: "tool_result"; data: { card: { type: string; data: Record<string, unknown> } } }
 
 export type ChatBody = {
   chat_id: string | null

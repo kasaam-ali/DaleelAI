@@ -1,6 +1,7 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from app.adapters.fakes import FakeLLM
@@ -20,6 +21,7 @@ class Container:
     qa: QaRunner | None = None
     answer_cache: MemoryCache | None = None
     feedback: Any = None
+    classifier: Any = None
     corpus_version: str = "unindexed"
     corpus_date: str = "unindexed"
     today: Callable[[], date] = date.today
@@ -31,22 +33,29 @@ def build_container(settings: Settings | None = None) -> Container:
         llm: LLMPort = FakeLLM()
     else:
         llm = LiteLLMGateway(load_models_config())
-    qa = None
-    if settings.adapters.vector_store == "qdrant":
-        from app.adapters.live_qa import LiveQa
-
-        qa = LiveQa(settings, llm)
     feedback = None
     if settings.database_url:
         from app.adapters.postgres_store import PostgresStore
 
         feedback = PostgresStore(settings.database_url)
+    from app.adapters.onnx_classifier import load_classifier
+
+    model_path = Path(settings.models.classifier_path)
+    if not model_path.is_absolute():
+        model_path = Path(__file__).resolve().parent.parent / model_path
+    classifier = load_classifier(settings.adapters.classifier, model_path)
+    qa = None
+    if settings.adapters.vector_store == "qdrant":
+        from app.adapters.live_qa import LiveQa
+
+        qa = LiveQa(settings, llm, classifier)
     return Container(
         settings=settings,
         llm=llm,
         qa=qa,
         answer_cache=MemoryCache(),
         feedback=feedback,
+        classifier=classifier,
         corpus_version=INDEXED_CORPUS_VERSION,
         corpus_date=CORPUS_DATE,
     )

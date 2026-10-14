@@ -64,6 +64,7 @@ async def iter_chat_events(
     calls_cap: int = 5,
     session_id: str | None = None,
     store=None,
+    classifier=None,
 ) -> AsyncIterator[dict[str, Any]]:
     body = body.model_copy(update={"message": redact_pii(body.message)})
     rules_path = CONFIG_DIR / "action_links.yaml"
@@ -225,6 +226,19 @@ async def iter_chat_events(
             card_type, card, answer = checklist_from_chat(body.message, language, store, session)
         if card_type is not None and card is not None:
             yield {"event": "tool_result", "data": {"card": {"type": card_type, "data": card}}}
+        yield {"event": "token", "data": {"text": answer}}
+        final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
+    elif routed.intent == "find_expert":
+        from app.core.services.experts import city_in_text, find_experts
+
+        card = find_experts(
+            body.message,
+            city=routed.params.get("city") or city_in_text(body.message),
+            category=routed.params.get("category"),
+            classifier=classifier,
+        )
+        answer = card["advice"]
+        yield {"event": "tool_result", "data": {"card": {"type": "experts", "data": card}}}
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:

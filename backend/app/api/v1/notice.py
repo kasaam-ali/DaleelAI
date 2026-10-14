@@ -32,12 +32,14 @@ async def explain_notice(
         return store.find_sections(section)
 
     try:
+        classifier = getattr(request.app.state.container, "classifier", None)
         body = await explain_upload(
             data,
             language=language,
             llm=request.app.state.container.llm,
             searcher=searcher,
             today=date.today(),
+            classifier=classifier,
         )
     except NoticeError as exc:
         return _error(400, exc.code, exc.message)

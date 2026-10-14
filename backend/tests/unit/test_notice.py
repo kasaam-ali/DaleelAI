@@ -127,6 +127,7 @@ async def test_every_notice_processes_and_pii_stays_out_of_the_model(notices):
     assert soon_result["explanation"]["days_left"] == 2
     assert soon_result["explanation"]["severity"] == "high"
     assert soon_result["explanation"]["recommend_expert"] is True
+    assert soon_result["expert_category"] == "audit_notice"
     calm = next(row for row in notices if row["id"] == "n18")
     calm_result = await explain_upload(_pdf(_body(calm)), llm=spy, today=_TODAY)
     assert calm_result["explanation"]["severity"] == "low"

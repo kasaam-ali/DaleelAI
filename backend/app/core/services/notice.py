@@ -8,6 +8,7 @@ from typing import Any
 
 import fitz
 
+from app.core.classifier import KeywordClassifier
 from app.core.ports import ChatMessage, LLMPort, Role
 from app.core.privacy.pii import outbound_pii, pii_secrets, redact_report
 from app.core.retrieval.action_links import ActionLink, load_action_links, match_action_links
@@ -121,6 +122,7 @@ async def explain_upload(
     searcher: Callable[[str], list[dict[str, Any]]] | None = None,
     today: date | None = None,
     link_rules: list | None = None,
+    classifier=None,
 ) -> dict[str, Any]:
     """Validate, extract, redact, then explain. The upload is never written to disk."""
     kind = validate_upload(data)
@@ -174,6 +176,8 @@ async def explain_upload(
         else load_action_links(CONFIG_DIR / "action_links.yaml")
     )
     links = match_action_links("return filing IRIS", rules)
+    model = classifier or KeywordClassifier()
+    prediction = model.predict(redacted)
     return {
         **fields,
         "explanation": explanation,
@@ -181,6 +185,8 @@ async def explain_upload(
         "redactions": redactions,
         "ocr_used": ocr_used,
         "action_links": [_link(item) for item in links],
+        "classification": prediction.public(),
+        "expert_category": prediction.category if explanation["recommend_expert"] else None,
     }
 
 

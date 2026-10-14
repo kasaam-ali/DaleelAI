@@ -3,6 +3,8 @@ import { useHealth } from "./api/health"
 import CalculatorPage from "./features/calculator/CalculatorPage"
 import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
+import EvaluationPage from "./features/evaluation/EvaluationPage"
+import ExpertsPage from "./features/experts/ExpertsPage"
 import FilerPage from "./features/filer/FilerPage"
 import NoticePage from "./features/notice/NoticePage"
 import ProfilePanel from "./features/onboarding/ProfilePanel"
@@ -25,7 +27,10 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
-  const [view, setView] = useState<"chat" | "calculator" | "filer" | "notice" | "checklist">("chat")
+  const [view, setView] = useState<
+    "chat" | "calculator" | "filer" | "notice" | "checklist" | "experts" | "evaluation"
+  >("chat")
+  const [expertQuery, setExpertQuery] = useState("")
   const copy = (key: CopyKey) => t(language, key)
 
   function changeLanguage(next: UiLanguage) {
@@ -88,6 +93,8 @@ export default function App() {
                 ["filer", "navFiler"],
                 ["notice", "navNotice"],
                 ["checklist", "navChecklist"],
+                ["experts", "navExperts"],
+                ["evaluation", "navEvaluation"],
               ] as const
             ).map(([item, label]) => (
               <button
@@ -114,8 +121,19 @@ export default function App() {
           </div>
           {view === "calculator" ? <CalculatorPage copy={copy} /> : null}
           {view === "filer" ? <FilerPage copy={copy} /> : null}
-          {view === "notice" ? <NoticePage copy={copy} language={language} /> : null}
+          {view === "notice" ? (
+            <NoticePage
+              copy={copy}
+              language={language}
+              onFindExpert={(query) => {
+                setExpertQuery(query)
+                setView("experts")
+              }}
+            />
+          ) : null}
           {view === "checklist" ? <ChecklistsPage copy={copy} language={language} /> : null}
+          {view === "experts" ? <ExpertsPage copy={copy} initialQuery={expertQuery} /> : null}
+          {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
         </main>
       </div>
     </div>

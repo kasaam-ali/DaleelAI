@@ -299,6 +299,8 @@ class NoticeResponse(BaseModel):
     redactions: dict[str, int]
     ocr_used: bool
     action_links: list[NoticeActionLink]
+    classification: dict[str, Any] | None = None
+    expert_category: str | None = None
 
 
 class ChecklistQuestion(BaseModel):
@@ -346,3 +348,57 @@ class ChecklistResponse(BaseModel):
     title: str
     steps: list[ChecklistStep]
     progress: float
+
+
+class ExpertFindRequest(BaseModel):
+    query: str
+    city: str | None = None
+    category: (
+        Literal[
+            "income_tax",
+            "sales_tax",
+            "customs",
+            "corporate_secp",
+            "audit_notice",
+            "property",
+        ]
+        | None
+    ) = None
+
+
+class ExpertClassification(BaseModel):
+    category: str | None
+    complexity: Literal["simple", "complex"]
+    confidence: float
+    low_confidence: bool
+
+
+class ExpertListing(BaseModel):
+    id: str
+    name: str
+    firm: str | None = None
+    city: str
+    specialties: list[str]
+    profile_url: str
+    source: str
+    last_updated: str
+    match_score: float
+
+
+class ExpertFindResponse(BaseModel):
+    classification: ExpertClassification
+    experts: list[ExpertListing]
+    advice: str
+    disclaimer: str
+    removal_contact: str
+
+
+class ExpertUpsert(BaseModel):
+    id: str
+    name: str
+    firm: str | None = None
+    city: str
+    specialties: list[str]
+    profile_url: str
+    source: str
+    last_updated: str

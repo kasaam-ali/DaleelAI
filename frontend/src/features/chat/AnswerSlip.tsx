@@ -236,11 +236,17 @@ function ToolCard({
               ? "noticeTitle"
               : card.type === "checklist"
                 ? "checklistTitle"
-                : "calcTitle",
+                : card.type === "experts"
+                  ? "expertsTitle"
+                  : "calcTitle",
         )}
       </p>
       {typeof data.message === "string" ? <p className="mt-2 text-sm">{data.message}</p> : null}
       {typeof data.title === "string" ? <p className="mt-2">{data.title}</p> : null}
+      {typeof data.advice === "string" ? <p className="mt-2 text-sm">{data.advice}</p> : null}
+      {typeof data.disclaimer === "string" ? (
+        <p className="mt-2 text-sm text-muted">{data.disclaimer}</p>
+      ) : null}
       {typeof data.progress === "number" ? (
         <p className="text-sm text-muted">
           {copy("checklistProgress")} {Math.round(data.progress * 100)}%

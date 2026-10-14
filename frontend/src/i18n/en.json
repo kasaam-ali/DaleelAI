@@ -143,5 +143,21 @@
   "checklistStart": "Start checklist",
   "checklistFailed": "The checklist could not be saved.",
   "checklistProgress": "Progress",
-  "checklistSaved": "Saved on this device"
+  "checklistSaved": "Saved on this device",
+  "navExperts": "Find an expert",
+  "navEvaluation": "Evaluation",
+  "noticeFindExpert": "Find an expert for this notice",
+  "expertsTitle": "Find an expert",
+  "expertsHelp": "Public listings only. This is not an endorsement, and a simple question should go to chat first.",
+  "expertsQuery": "What do you need help with?",
+  "expertsCity": "City",
+  "expertsAnyCity": "Any city",
+  "expertsFind": "Search listings",
+  "expertsFailed": "The directory could not be searched.",
+  "expertsNone": "No listing matched.",
+  "evalTitle": "Classifier evaluation",
+  "evalMissing": "The classifier report has not been written yet.",
+  "evalHuman": "Human-written test",
+  "evalSynthetic": "Synthetic test",
+  "evalLatency": "Mean latency"
 }

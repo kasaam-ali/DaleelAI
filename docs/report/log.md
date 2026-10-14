@@ -12,7 +12,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | 3 Chat UI | In progress. Browser PII redaction, onboarding profile, and the chat page are in. Feedback can be saved. Not deployed. |
 | 4 Tax tools | Built. TY2026 and TY2027 rules, the calculator, the filer comparison, the labeling guidelines, and the four-key LLM fallback are in. Slab-boundary tests passed. |
 | 5 Notice and checklists | Built. Notice uploads are read in memory, personal numbers are redacted before any model call, and the five checklists save progress for the session. |
-| 6-9 | Not started |
+| 6 Expert finder | Built. Word TF-IDF logistic regression is served as int8 ONNX. Human-written macro-F1 is 0.986. The Find an Expert page, city filter, and retrieval domain boost are in. SetFit and zero-shot mDeBERTa were not trained: the image has no torch. |
+| 7-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -24,7 +25,22 @@ Deferred on purpose:
 2. Still open: confidence fitted on the dev set, reranker comparison, eval set v1, and a real crawl of the web allowlist. The `web_pages` collection is only the four-page seed (24 points). IRIS fell back to a short paragraph because the live page text was under 400 characters.
 3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
 4. Every LLM role tries Groq, then `GEMINI_API_KEY` (3.8 then 2.5), then the same Gemini models on `GEMINI_API_KEY_2`, then OpenRouter. If every judge is down after draft tokens, the stream ends with `verified: false`, confidence low, `final`, and `done`.
-5. The classifier is not trained. `backend/ml/labeling_guidelines.md` is only the labeling rules.
+5. The served classifier is the word TF-IDF model in `backend/ml/reports/classifier_metrics.json`. The ONNX file is gitignored. A checkout without that file uses the keyword rules.
+
+## 2026-10-14: Expert finder and classifier
+
+### Built
+1,608 synthetic questions and 72 human-written questions, in English and Roman Urdu, across the six domains and both complexity levels. The synthetic test (336) and the human test are scored apart. Word n-grams and character n-grams both reach human macro-F1 0.986 and synthetic macro-F1 1.0. The word model is served. It is an int8 ONNX matrix, 62 KB with the vocabulary file, under the 300 MB cap. Accuracy, per-language F1, the confusion matrix, and latency are in the metrics file and on the Evaluation page.
+
+The same model feeds the 1.2 retrieval boost when confidence is high enough, and a notice that should go to an expert carries that category. The directory is 13 public firm listings with city, specialties, source, last updated, a removal contact, and the not-an-endorsement line. `POST /api/v1/experts/find` and the chat `find_expert` card use it. A simple question returns no listing and points back to chat.
+
+### Broke
+The first ONNX export was a text pipeline. The slim image has no `en_US.UTF-8` locale, so the runtime refused to load it. TF-IDF now stays in Python and only the linear weights are quantized.
+
+### Learned
+SetFit and mDeBERTa need torch, which this image does not have, so they are listed as not trained rather than given a fake score. The two logistic models tied, and the word model is faster (0.23 ms vs 0.50 ms on the human set).
+
+Checks: ruff clean, pytest 202 passed, frontend 37 passed, typecheck and lint clean. No image rebuild. Qdrant was not touched. The first live search created the experts table and stored the 13 listings.
 
 ## 2026-10-14: Notice explainer and checklists
 

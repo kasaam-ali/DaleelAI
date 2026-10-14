@@ -1,0 +1,136 @@
+{
+  "disclaimer": "Listings are from public directories and are not an endorsement.",
+  "removal_contact": "Write to the project maintainer and name the firm and city to remove.",
+  "experts": [
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000001",
+      "name": "A. F. Ferguson & Co.",
+      "firm": "PwC Pakistan",
+      "city": "Karachi",
+      "specialties": ["income_tax", "audit_notice", "corporate_secp"],
+      "profile_url": "https://www.pwc.com/pk/en.html",
+      "source": "PwC Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000002",
+      "name": "A. F. Ferguson & Co.",
+      "firm": "PwC Pakistan",
+      "city": "Lahore",
+      "specialties": ["income_tax", "audit_notice", "corporate_secp"],
+      "profile_url": "https://www.pwc.com/pk/en.html",
+      "source": "PwC Pakistan public website, Lahore",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000003",
+      "name": "A. F. Ferguson & Co.",
+      "firm": "PwC Pakistan",
+      "city": "Islamabad",
+      "specialties": ["income_tax", "property", "audit_notice"],
+      "profile_url": "https://www.pwc.com/pk/en.html",
+      "source": "PwC Pakistan public website, Islamabad",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000004",
+      "name": "KPMG Taseer Hadi & Co.",
+      "firm": "KPMG Pakistan",
+      "city": "Karachi",
+      "specialties": ["income_tax", "sales_tax", "audit_notice"],
+      "profile_url": "https://kpmg.com/pk/en/home.html",
+      "source": "KPMG Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000005",
+      "name": "KPMG Taseer Hadi & Co.",
+      "firm": "KPMG Pakistan",
+      "city": "Lahore",
+      "specialties": ["sales_tax", "customs", "income_tax"],
+      "profile_url": "https://kpmg.com/pk/en/home.html",
+      "source": "KPMG Pakistan public website, Lahore",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000006",
+      "name": "EY Ford Rhodes",
+      "firm": "EY Pakistan",
+      "city": "Karachi",
+      "specialties": ["corporate_secp", "income_tax", "sales_tax"],
+      "profile_url": "https://www.ey.com/en_pk",
+      "source": "EY Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000007",
+      "name": "EY Ford Rhodes",
+      "firm": "EY Pakistan",
+      "city": "Lahore",
+      "specialties": ["corporate_secp", "property", "income_tax"],
+      "profile_url": "https://www.ey.com/en_pk",
+      "source": "EY Pakistan public website, Lahore",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000008",
+      "name": "Grant Thornton Anjum Rahman",
+      "firm": "Grant Thornton Pakistan",
+      "city": "Karachi",
+      "specialties": ["audit_notice", "income_tax", "property"],
+      "profile_url": "https://www.grantthornton.pk/",
+      "source": "Grant Thornton Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-000000000009",
+      "name": "Grant Thornton Anjum Rahman",
+      "firm": "Grant Thornton Pakistan",
+      "city": "Islamabad",
+      "specialties": ["property", "audit_notice", "corporate_secp"],
+      "profile_url": "https://www.grantthornton.pk/",
+      "source": "Grant Thornton Pakistan public website, Islamabad",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-00000000000a",
+      "name": "BDO Ebrahim & Co.",
+      "firm": "BDO Pakistan",
+      "city": "Karachi",
+      "specialties": ["sales_tax", "customs", "income_tax"],
+      "profile_url": "https://www.bdo.com.pk/",
+      "source": "BDO Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-00000000000b",
+      "name": "BDO Ebrahim & Co.",
+      "firm": "BDO Pakistan",
+      "city": "Islamabad",
+      "specialties": ["customs", "sales_tax", "audit_notice"],
+      "profile_url": "https://www.bdo.com.pk/",
+      "source": "BDO Pakistan public website, Islamabad",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-00000000000c",
+      "name": "Deloitte Yousuf Adil",
+      "firm": "Deloitte Pakistan",
+      "city": "Karachi",
+      "specialties": ["income_tax", "corporate_secp", "customs"],
+      "profile_url": "https://www.deloitte.com/pk/en.html",
+      "source": "Deloitte Pakistan public website, Karachi",
+      "last_updated": "2026-10-14"
+    },
+    {
+      "id": "b1c1a1d0-0001-4000-8000-00000000000d",
+      "name": "Deloitte Yousuf Adil",
+      "firm": "Deloitte Pakistan",
+      "city": "Lahore",
+      "specialties": ["customs", "corporate_secp", "sales_tax"],
+      "profile_url": "https://www.deloitte.com/pk/en.html",
+      "source": "Deloitte Pakistan public website, Lahore",
+      "last_updated": "2026-10-14"
+    }
+  ]
+}

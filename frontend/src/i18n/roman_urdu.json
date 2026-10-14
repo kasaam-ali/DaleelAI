@@ -143,5 +143,21 @@
   "checklistStart": "Checklist shuru karein",
   "checklistFailed": "Checklist save nahi ho saki.",
   "checklistProgress": "Progress",
-  "checklistSaved": "Is device par save hai"
+  "checklistSaved": "Is device par save hai",
+  "navExperts": "Expert dhoondein",
+  "navEvaluation": "Evaluation",
+  "noticeFindExpert": "Is notice ke liye expert dhoondein",
+  "expertsTitle": "Expert dhoondein",
+  "expertsHelp": "Sirf public listings. Yeh endorsement nahi, aur seedha sawal pehle chat mein poochhein.",
+  "expertsQuery": "Madad kis cheez mein chahiye?",
+  "expertsCity": "Sheher",
+  "expertsAnyCity": "Koi bhi sheher",
+  "expertsFind": "Listings dhoondein",
+  "expertsFailed": "Directory search nahi ho saki.",
+  "expertsNone": "Koi listing nahi mili.",
+  "evalTitle": "Classifier evaluation",
+  "evalMissing": "Classifier ki report abhi nahi likhi gayi.",
+  "evalHuman": "Human-written test",
+  "evalSynthetic": "Synthetic test",
+  "evalLatency": "Mean latency"
 }

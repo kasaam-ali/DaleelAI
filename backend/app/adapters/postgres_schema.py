@@ -74,4 +74,20 @@ SCHEMA = (
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS experts (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      firm TEXT,
+      city TEXT NOT NULL,
+      specialties TEXT[] NOT NULL,
+      profile_url TEXT NOT NULL,
+      source TEXT NOT NULL,
+      last_updated DATE NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT true,
+      UNIQUE (source, profile_url)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS experts_city_idx ON experts (city)",
+    "CREATE INDEX IF NOT EXISTS experts_specialties_idx ON experts USING GIN (specialties)",
 )

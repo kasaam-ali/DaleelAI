@@ -474,6 +474,114 @@
           }
         }
       }
+    },
+    "/api/v1/experts/find": {
+      "post": {
+        "summary": "Experts Find",
+        "operationId": "experts_find_api_v1_experts_find_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpertFindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertFindResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evaluation/classifier": {
+      "get": {
+        "summary": "Classifier Report",
+        "operationId": "classifier_report_api_v1_evaluation_classifier_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/experts/upsert": {
+      "post": {
+        "summary": "Experts Upsert",
+        "operationId": "experts_upsert_internal_experts_upsert_post",
+        "parameters": [
+          {
+            "name": "x-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpertUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -895,6 +1003,242 @@
           "questions"
         ],
         "title": "ChecklistTemplate"
+      },
+      "ExpertClassification": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "complexity": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "complex"
+            ],
+            "title": "Complexity"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "low_confidence": {
+            "type": "boolean",
+            "title": "Low Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "complexity",
+          "confidence",
+          "low_confidence"
+        ],
+        "title": "ExpertClassification"
+      },
+      "ExpertFindRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "income_tax",
+                  "sales_tax",
+                  "customs",
+                  "corporate_secp",
+                  "audit_notice",
+                  "property"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "ExpertFindRequest"
+      },
+      "ExpertFindResponse": {
+        "properties": {
+          "classification": {
+            "$ref": "#/components/schemas/ExpertClassification"
+          },
+          "experts": {
+            "items": {
+              "$ref": "#/components/schemas/ExpertListing"
+            },
+            "type": "array",
+            "title": "Experts"
+          },
+          "advice": {
+            "type": "string",
+            "title": "Advice"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          },
+          "removal_contact": {
+            "type": "string",
+            "title": "Removal Contact"
+          }
+        },
+        "type": "object",
+        "required": [
+          "classification",
+          "experts",
+          "advice",
+          "disclaimer",
+          "removal_contact"
+        ],
+        "title": "ExpertFindResponse"
+      },
+      "ExpertListing": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "firm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firm"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "specialties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Specialties"
+          },
+          "profile_url": {
+            "type": "string",
+            "title": "Profile Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "last_updated": {
+            "type": "string",
+            "title": "Last Updated"
+          },
+          "match_score": {
+            "type": "number",
+            "title": "Match Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "city",
+          "specialties",
+          "profile_url",
+          "source",
+          "last_updated",
+          "match_score"
+        ],
+        "title": "ExpertListing"
+      },
+      "ExpertUpsert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "firm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firm"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "specialties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Specialties"
+          },
+          "profile_url": {
+            "type": "string",
+            "title": "Profile Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "last_updated": {
+            "type": "string",
+            "title": "Last Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "city",
+          "specialties",
+          "profile_url",
+          "source",
+          "last_updated"
+        ],
+        "title": "ExpertUpsert"
       },
       "FeedbackRequest": {
         "properties": {
@@ -1403,6 +1747,29 @@
             },
             "type": "array",
             "title": "Action Links"
+          },
+          "classification": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
+          },
+          "expert_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Category"
           }
         },
         "type": "object",

@@ -12,8 +12,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Data and indexes (rebuilt from the catalog)
-data/
+# Data and indexes (rebuilt from the catalog). The leading slash keeps
+# backend/ml/data, the frozen classifier split, in git.
+/data/
 chroma_db/
 qdrant_storage/
 backend/models/*.onnx

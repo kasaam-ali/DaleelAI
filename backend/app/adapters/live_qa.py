@@ -10,9 +10,10 @@ from app.settings import CONFIG_DIR, Settings
 
 
 class LiveQa:
-    def __init__(self, settings: Settings, llm) -> None:
+    def __init__(self, settings: Settings, llm, classifier=None) -> None:
         self.settings = settings
         self.llm = llm
+        self.classifier = classifier
         self.search = QdrantHybridSearch(
             settings.qdrant.url,
             settings.qdrant.api_key,
@@ -36,6 +37,11 @@ class LiveQa:
         retrieval = self.settings.retrieval
         web = self.settings.web_fallback
         band = self.settings.sufficiency
+        domain = None
+        if self.classifier is not None:
+            from app.core.classifier import retrieval_domain
+
+            domain = retrieval_domain(self.classifier.predict(body.message))
         return await run_qa_graph(
             self.llm,
             self.search,
@@ -52,6 +58,7 @@ class LiveQa:
             keep=retrieval.rerank_keep,
             web_keep=web.rerank_keep,
             domain_boost=retrieval.domain_boost,
+            domain=domain,
             token_budget=retrieval.context_tokens,
             runner=self.settings.adapters.agent_runner,
             on_delta=on_delta,

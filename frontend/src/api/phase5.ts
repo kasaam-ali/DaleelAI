@@ -21,6 +21,13 @@ export type NoticeExplanation = {
   redactions: Record<string, number>
   ocr_used: boolean
   action_links: { label: string; label_ru: string; url: string; authority: string }[]
+  classification: {
+    category: string | null
+    complexity: string
+    confidence: number
+    low_confidence: boolean
+  } | null
+  expert_category: string | null
 }
 
 export async function explainNotice(file: File, language: string): Promise<NoticeExplanation> {

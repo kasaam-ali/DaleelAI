@@ -29,6 +29,7 @@ async def chat(
             calls_cap=container.settings.budget.calls_cap,
             session_id=x_session_id,
             store=container.feedback,
+            classifier=getattr(container, "classifier", None),
         ):
             yield format_sse(event)
 

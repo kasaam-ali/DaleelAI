@@ -7,7 +7,15 @@ type Copy = (key: CopyKey) => string
 
 const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
 
-export default function NoticePage({ copy, language }: { copy: Copy; language: UiLanguage }) {
+export default function NoticePage({
+  copy,
+  language,
+  onFindExpert,
+}: {
+  copy: Copy
+  language: UiLanguage
+  onFindExpert?: (query: string) => void
+}) {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<NoticeExplanation | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +75,15 @@ export default function NoticePage({ copy, language }: { copy: Copy; language: U
             </p>
           ) : null}
           {explanation.recommend_expert ? <p className="mt-2 text-sm">{copy("noticeExpert")}</p> : null}
+          {result.expert_category && onFindExpert ? (
+            <button
+              type="button"
+              className="mt-3 min-h-11 border border-rule px-3 text-sm"
+              onClick={() => onFindExpert(`${result.expert_category ?? ""} notice`)}
+            >
+              {copy("noticeFindExpert")} ({result.expert_category})
+            </button>
+          ) : null}
           <ul className="mt-3 grid gap-1 text-sm">
             {explanation.next_steps.map((step) => (
               <li key={step}>{step}</li>

@@ -220,6 +220,52 @@ class PostgresStore:
             "steps": steps,
         }
 
+    def list_experts(self) -> list[dict[str, Any]]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, name, firm, city, specialties, profile_url, source, last_updated
+                    FROM experts
+                    WHERE active
+                    ORDER BY name, city
+                    """
+                )
+                rows = cur.fetchall()
+        return [_expert_row(row) for row in rows]
+
+    def upsert_expert(self, row: dict[str, Any]) -> None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO experts (
+                      id, name, firm, city, specialties, profile_url, source, last_updated, active
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, true)
+                    ON CONFLICT (source, profile_url) DO UPDATE SET
+                      name = EXCLUDED.name,
+                      firm = EXCLUDED.firm,
+                      city = EXCLUDED.city,
+                      specialties = EXCLUDED.specialties,
+                      last_updated = EXCLUDED.last_updated,
+                      active = true
+                    """,
+                    (
+                        _uuid(str(row["id"])),
+                        row["name"],
+                        row.get("firm"),
+                        row["city"],
+                        list(row["specialties"]),
+                        row["profile_url"],
+                        row["source"],
+                        row["last_updated"],
+                    ),
+                )
+            conn.commit()
+
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:
         cur.execute("SELECT id FROM messages WHERE id = %s", (_uuid(message_id),))
         if cur.fetchone():
@@ -264,3 +310,17 @@ class PostgresStore:
 
 def _uuid(value: str) -> uuid.UUID:
     return uuid.UUID(value)
+
+
+def _expert_row(row: tuple) -> dict[str, Any]:
+    updated = row[7]
+    return {
+        "id": str(row[0]),
+        "name": row[1],
+        "firm": row[2],
+        "city": row[3],
+        "specialties": list(row[4] or []),
+        "profile_url": row[5],
+        "source": row[6],
+        "last_updated": updated.isoformat() if hasattr(updated, "isoformat") else str(updated),
+    }

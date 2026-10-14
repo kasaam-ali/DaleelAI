@@ -241,6 +241,28 @@ async def iter_chat_events(
         yield {"event": "tool_result", "data": {"card": {"type": "experts", "data": card}}}
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
+    elif routed.intent == "updates":
+        from app.core.services.updates import list_updates, memory_updates
+
+        updates_store = (
+            store
+            if store is not None and hasattr(store, "list_notifications")
+            else memory_updates()
+        )
+        card = list_updates(
+            updates_store,
+            doc_type="all",
+            domain=str(routed.params.get("domain") or "all"),
+            page=1,
+            limit=5,
+        )
+        if card["items"]:
+            answer = "Recent FBR updates: " + "; ".join(item["title"] for item in card["items"])
+        else:
+            answer = "No FBR updates are stored yet. Open Updates and run the saved replay."
+        yield {"event": "tool_result", "data": {"card": {"type": "updates", "data": card}}}
+        yield {"event": "token", "data": {"text": answer}}
+        final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:
         answer = _short_reply(routed.intent, routed.authority)
         links = match_action_links(body.message, rules, domains=set())

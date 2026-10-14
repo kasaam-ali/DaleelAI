@@ -7,7 +7,9 @@ import EvaluationPage from "./features/evaluation/EvaluationPage"
 import ExpertsPage from "./features/experts/ExpertsPage"
 import FilerPage from "./features/filer/FilerPage"
 import NoticePage from "./features/notice/NoticePage"
+import PrivacyPage from "./features/privacy/PrivacyPage"
 import ProfilePanel from "./features/onboarding/ProfilePanel"
+import UpdatesPage from "./features/updates/UpdatesPage"
 import { t, type CopyKey } from "./i18n"
 import {
   THEME_KEY,
@@ -28,7 +30,7 @@ export default function App() {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
   const [view, setView] = useState<
-    "chat" | "calculator" | "filer" | "notice" | "checklist" | "experts" | "evaluation"
+    "chat" | "calculator" | "filer" | "notice" | "checklist" | "experts" | "evaluation" | "updates" | "privacy"
   >("chat")
   const [expertQuery, setExpertQuery] = useState("")
   const copy = (key: CopyKey) => t(language, key)
@@ -94,7 +96,9 @@ export default function App() {
                 ["notice", "navNotice"],
                 ["checklist", "navChecklist"],
                 ["experts", "navExperts"],
+                ["updates", "navUpdates"],
                 ["evaluation", "navEvaluation"],
+                ["privacy", "navPrivacy"],
               ] as const
             ).map(([item, label]) => (
               <button
@@ -133,7 +137,9 @@ export default function App() {
           ) : null}
           {view === "checklist" ? <ChecklistsPage copy={copy} language={language} /> : null}
           {view === "experts" ? <ExpertsPage copy={copy} initialQuery={expertQuery} /> : null}
+          {view === "updates" ? <UpdatesPage copy={copy} /> : null}
           {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
+          {view === "privacy" ? <PrivacyPage copy={copy} /> : null}
         </main>
       </div>
     </div>

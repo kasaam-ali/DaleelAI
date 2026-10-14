@@ -266,6 +266,170 @@ class PostgresStore:
                 )
             conn.commit()
 
+    def insert_notification(self, row: dict[str, Any]) -> bool:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO notifications (
+                      id, sha256, title, doc_type, domain, source_url, published_at,
+                      effective_from, summary, who_is_affected, key_changes, indexed
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (sha256) DO NOTHING
+                    """,
+                    (
+                        _uuid(row["id"]),
+                        row["sha256"],
+                        row["title"],
+                        row["doc_type"],
+                        row.get("domain"),
+                        row["source_url"],
+                        row.get("published_at"),
+                        row.get("effective_from"),
+                        row["summary"],
+                        row.get("who_is_affected"),
+                        list(row.get("key_changes") or []),
+                        bool(row.get("indexed")),
+                    ),
+                )
+                inserted = cur.rowcount == 1
+                if not inserted and row.get("domain"):
+                    cur.execute(
+                        """
+                        UPDATE notifications
+                        SET domain = %s
+                        WHERE sha256 = %s AND domain IS NULL
+                        """,
+                        (row["domain"], row["sha256"]),
+                    )
+            conn.commit()
+        return inserted
+
+    def mark_notification_indexed(self, sha256: str) -> None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE notifications SET indexed = true WHERE sha256 = %s",
+                    (sha256,),
+                )
+            conn.commit()
+
+    def list_notifications(
+        self, *, doc_type: str, domain: str, page: int, limit: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        self.ensure()
+        offset = (page - 1) * limit
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT count(*) FROM notifications
+                    WHERE (%s = 'all' OR doc_type = %s)
+                      AND (%s = 'all' OR domain = %s)
+                    """,
+                    (doc_type, doc_type, domain, domain),
+                )
+                total = int(cur.fetchone()[0])
+                cur.execute(
+                    """
+                    SELECT id, title, doc_type, domain, source_url, published_at,
+                           effective_from, summary, who_is_affected, key_changes
+                    FROM notifications
+                    WHERE (%s = 'all' OR doc_type = %s)
+                      AND (%s = 'all' OR domain = %s)
+                    ORDER BY published_at DESC NULLS LAST, title
+                    LIMIT %s OFFSET %s
+                    """,
+                    (doc_type, doc_type, domain, domain, limit, offset),
+                )
+                rows = [_notification_row(row) for row in cur.fetchall()]
+        return rows, total
+
+    def get_notification(self, item_id: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, title, doc_type, domain, source_url, published_at,
+                           effective_from, summary, who_is_affected, key_changes
+                    FROM notifications WHERE id = %s
+                    """,
+                    (_uuid(item_id),),
+                )
+                found = cur.fetchone()
+        if found is None:
+            return None
+        return _notification_row(found)
+
+    def notification_sha256s(self) -> list[str]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT sha256 FROM notifications")
+                return [row[0] for row in cur.fetchall()]
+
+    def upsert_web(self, row: dict[str, Any]) -> None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO web_pages (
+                      id, url, site, title, content_type, sha256, removed
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, false)
+                    ON CONFLICT (url) DO UPDATE SET
+                      title = EXCLUDED.title,
+                      sha256 = EXCLUDED.sha256,
+                      fetched_at = now(),
+                      changed_at = now(),
+                      removed = false
+                    """,
+                    (
+                        _uuid(str(uuid.uuid5(uuid.NAMESPACE_URL, row["url"]))),
+                        row["url"],
+                        row["site"],
+                        row.get("title"),
+                        row.get("content_type") or "html",
+                        row["sha256"],
+                    ),
+                )
+            conn.commit()
+
+    def mark_web_removed(self, url: str) -> None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE web_pages SET removed = true WHERE url = %s", (url,))
+            conn.commit()
+
+    def touch_web(self, url: str, fetched_at: str) -> None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE web_pages SET fetched_at = now() WHERE url = %s",
+                    (url,),
+                )
+            conn.commit()
+
+    def web_hashes(self, site: str) -> dict[str, str]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT url, sha256 FROM web_pages
+                    WHERE site = %s AND removed = false
+                    """,
+                    (site,),
+                )
+                return {row[0]: row[1] for row in cur.fetchall()}
+
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:
         cur.execute("SELECT id FROM messages WHERE id = %s", (_uuid(message_id),))
         if cur.fetchone():
@@ -310,6 +474,23 @@ class PostgresStore:
 
 def _uuid(value: str) -> uuid.UUID:
     return uuid.UUID(value)
+
+
+def _notification_row(row: tuple) -> dict[str, Any]:
+    published = row[5]
+    effective = row[6]
+    return {
+        "id": str(row[0]),
+        "title": row[1],
+        "doc_type": row[2],
+        "domain": row[3],
+        "source_url": row[4],
+        "published_at": published.isoformat() if hasattr(published, "isoformat") else published,
+        "effective_from": effective.isoformat() if hasattr(effective, "isoformat") else effective,
+        "summary": row[7],
+        "who_is_affected": row[8],
+        "key_changes": list(row[9] or []),
+    }
 
 
 def _expert_row(row: tuple) -> dict[str, Any]:

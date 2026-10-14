@@ -13,7 +13,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | 4 Tax tools | Built. TY2026 and TY2027 rules, the calculator, the filer comparison, the labeling guidelines, and the four-key LLM fallback are in. Slab-boundary tests passed. |
 | 5 Notice and checklists | Built. Notice uploads are read in memory, personal numbers are redacted before any model call, and the five checklists save progress for the session. |
 | 6 Expert finder | Built. Word TF-IDF logistic regression is served as int8 ONNX. Human-written macro-F1 is 0.986. The Find an Expert page, city filter, and retrieval domain boost are in. SetFit and zero-shot mDeBERTa were not trained: the image has no torch. |
-| 7-9 | Not started |
+| 7 Updates agent | Built. Saved replay and a live fetch option, the updates feed, crawl change detection, and the privacy page are in. A scrape or crawl that returns nothing leaves the previous rows in place. |
+| 8-9 | Not started |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -22,10 +23,25 @@ Deferred on purpose:
 
 ### Next
 1. Collection `documents` still has 18,600 points. Do not delete it. Do not resume the documents indexer unless the chunks change.
-2. Still open: confidence fitted on the dev set, reranker comparison, eval set v1, and a real crawl of the web allowlist. The `web_pages` collection is only the four-page seed (24 points). IRIS fell back to a short paragraph because the live page text was under 400 characters.
+2. Still open: confidence fitted on the dev set, reranker comparison, and eval set v1. `web_pages` is 30 points: the original seed, saved SECP, SRB, and BRA pages, and the three replay notices. `documents` is still 18,600. Do not delete it.
 3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
 4. Every LLM role tries Groq, then `GEMINI_API_KEY` (3.8 then 2.5), then the same Gemini models on `GEMINI_API_KEY_2`, then OpenRouter. If every judge is down after draft tokens, the stream ends with `verified: false`, confidence low, `final`, and `done`.
-5. The served classifier is the word TF-IDF model in `backend/ml/reports/classifier_metrics.json`. The ONNX file is gitignored. A checkout without that file uses the keyword rules.
+5. The served classifier is the word TF-IDF model in `backend/ml/reports/classifier_metrics.json`. The ONNX file is gitignored. A checkout without that file uses the keyword rules. The same model tags each new FBR update.
+
+## 2026-10-14: Updates agent
+
+### Built
+The FBR scraper reads a saved listing by default and can fetch a live page with a timeout. If that parse returns zero items, it exits with an alarm and does not delete stored updates. `POST /internal/notifications/ingest` (shared token) writes the `notifications` table, tags a domain with the ONNX classifier, and stores an English and Roman Urdu summary that does not invent a tax rate. New chunks are upserted into `web_pages` only. An empty crawl is an alarm, and a page is removed only when the crawl names it.
+
+The Updates page filters by domain and has a saved-replay button. Chat `updates` returns those cards. Privacy and sources is a page. `contracts/openapi.json` was exported again. Saved SECP, SRB, and BRA pages were added to `web_pages`.
+
+### Broke
+The FBR department listing is drawn by JavaScript, and this image has no Playwright browser, so a plain fetch of that page parses zero items. The homepage's static download links still parse. Replay does not need the live site.
+
+### Learned
+If a partial crawl treated every URL it did not send as removed, it would wipe the library. Removals are explicit. `documents` stayed at 18,600. `web_pages` went from 24 points to 30.
+
+Checks: ruff clean, pytest 207 passed, frontend 37 passed, typecheck and lint clean. The backend container was not recreated.
 
 ## 2026-10-14: Expert finder and classifier
 

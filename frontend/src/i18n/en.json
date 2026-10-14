@@ -159,5 +159,21 @@
   "evalMissing": "The classifier report has not been written yet.",
   "evalHuman": "Human-written test",
   "evalSynthetic": "Synthetic test",
-  "evalLatency": "Mean latency"
+  "evalLatency": "Mean latency",
+  "navUpdates": "Updates",
+  "navPrivacy": "Privacy and sources",
+  "updatesTitle": "Updates",
+  "updatesHelp": "FBR SROs, circulars, and notifications. Replay uses the saved listing, so a slow FBR page cannot wipe what is already stored.",
+  "updatesDomain": "Domain",
+  "updatesAll": "All domains",
+  "updatesRefresh": "Refresh",
+  "updatesReplay": "Run saved replay",
+  "updatesFailed": "The updates feed could not be loaded.",
+  "updatesNone": "No updates stored yet.",
+  "privacyTitle": "Privacy and sources",
+  "privacyAccounts": "There is no account. A session id on this device keeps the chat and checklist progress.",
+  "privacyPii": "CNIC, NTN, phone, email, and bank numbers are masked in the browser and again on the server before any model call. Uploaded notices are not stored.",
+  "privacySources": "A verified answer cites the ordinance text in the library. A web answer cites the official page it was taken from and is not marked verified.",
+  "privacyExperts": "Expert listings are public firm pages. They are not an endorsement. Each card shows the source, the date, and how to ask for removal.",
+  "privacyWeb": "Official pages come from FBR, IRIS, SECP, and the provincial revenue authorities on the allowlist. A crawl that fetches nothing leaves the previous pages in place."
 }

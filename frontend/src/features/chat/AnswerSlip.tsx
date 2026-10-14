@@ -238,7 +238,9 @@ function ToolCard({
                 ? "checklistTitle"
                 : card.type === "experts"
                   ? "expertsTitle"
-                  : "calcTitle",
+                  : card.type === "updates"
+                    ? "updatesTitle"
+                    : "calcTitle",
         )}
       </p>
       {typeof data.message === "string" ? <p className="mt-2 text-sm">{data.message}</p> : null}
@@ -246,6 +248,21 @@ function ToolCard({
       {typeof data.advice === "string" ? <p className="mt-2 text-sm">{data.advice}</p> : null}
       {typeof data.disclaimer === "string" ? (
         <p className="mt-2 text-sm text-muted">{data.disclaimer}</p>
+      ) : null}
+      {Array.isArray(data.items) ? (
+        <ul className="mt-2 grid gap-2 text-sm">
+          {(data.items as { id?: string; title?: string; source_url?: string }[]).map((item) => (
+            <li key={item.id ?? item.title}>
+              {item.source_url ? (
+                <a href={item.source_url} className="underline" target="_blank" rel="noopener noreferrer">
+                  {item.title}
+                </a>
+              ) : (
+                item.title
+              )}
+            </li>
+          ))}
+        </ul>
       ) : null}
       {typeof data.progress === "number" ? (
         <p className="text-sm text-muted">

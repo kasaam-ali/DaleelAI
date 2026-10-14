@@ -90,4 +90,52 @@ SCHEMA = (
     """,
     "CREATE INDEX IF NOT EXISTS experts_city_idx ON experts (city)",
     "CREATE INDEX IF NOT EXISTS experts_specialties_idx ON experts USING GIN (specialties)",
+    """
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY,
+      sha256 TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      doc_type TEXT NOT NULL,
+      domain TEXT,
+      source_url TEXT NOT NULL,
+      published_at DATE,
+      effective_from DATE,
+      summary TEXT NOT NULL,
+      who_is_affected TEXT,
+      key_changes TEXT[],
+      indexed BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS notifications_published_idx ON notifications (published_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS web_pages (
+      id UUID PRIMARY KEY,
+      url TEXT NOT NULL UNIQUE,
+      site TEXT NOT NULL,
+      title TEXT,
+      content_type TEXT NOT NULL,
+      sha256 TEXT NOT NULL,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      removed BOOLEAN NOT NULL DEFAULT false,
+      chunk_count INT NOT NULL DEFAULT 0
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS web_pages_site_idx ON web_pages (site)",
+    """
+    CREATE TABLE IF NOT EXISTS crawl_runs (
+      id UUID PRIMARY KEY,
+      site TEXT NOT NULL,
+      started_at TIMESTAMPTZ NOT NULL,
+      finished_at TIMESTAMPTZ,
+      pages_fetched INT NOT NULL DEFAULT 0,
+      pages_new INT NOT NULL DEFAULT 0,
+      pages_changed INT NOT NULL DEFAULT 0,
+      pages_removed INT NOT NULL DEFAULT 0,
+      success BOOLEAN,
+      error TEXT
+    )
+    """,
 )

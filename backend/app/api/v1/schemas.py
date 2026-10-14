@@ -402,3 +402,69 @@ class ExpertUpsert(BaseModel):
     profile_url: str
     source: str
     last_updated: str
+
+
+class UpdateItem(BaseModel):
+    id: str
+    title: str
+    doc_type: str
+    domain: str | None = None
+    published_at: str | None = None
+    effective_from: str | None = None
+    summary: str
+    who_is_affected: str | None = None
+    key_changes: list[str]
+    source_url: str
+
+
+class UpdateListResponse(BaseModel):
+    items: list[UpdateItem]
+    page: int
+    pages: int
+    total: int
+
+
+class NotificationIngestItem(BaseModel):
+    source_url: str
+    listing_title: str
+    doc_type: Literal["sro", "circular", "notification"]
+    published_at: str | None = None
+    sha256: str
+    pdf_base64: str | None = None
+    text: str | None = None
+
+
+class NotificationIngestRequest(BaseModel):
+    items: list[NotificationIngestItem]
+
+
+class NotificationIngestResponse(BaseModel):
+    ingested: int
+    skipped: int
+    indexed: int = 0
+    corpus_version: str
+
+
+class WebIngestPage(BaseModel):
+    url: str
+    status: Literal["new", "changed", "removed", "unchanged"]
+    content_type: Literal["html", "pdf"] = "html"
+    title: str | None = None
+    sha256: str | None = None
+    fetched_at: str | None = None
+    html: str | None = None
+    pdf_base64: str | None = None
+    text: str | None = None
+
+
+class WebIngestRequest(BaseModel):
+    site: str
+    crawl_id: str
+    pages: list[WebIngestPage]
+
+
+class WebIngestResponse(BaseModel):
+    indexed: int
+    removed: int
+    unchanged: int
+    corpus_version: str

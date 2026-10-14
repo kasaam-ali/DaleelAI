@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
-import { classifierReport, type ClassifierReport } from "../../api/experts"
+import { ablationReport, classifierReport, type AblationReport, type ClassifierReport } from "../../api/experts"
 import type { CopyKey } from "../../i18n"
 
 type Copy = (key: CopyKey) => string
 
 export default function EvaluationPage({ copy }: { copy: Copy }) {
   const [report, setReport] = useState<ClassifierReport | null>(null)
+  const [ablation, setAblation] = useState<AblationReport | null>(null)
   const [missing, setMissing] = useState(false)
+  const [ablationMissing, setAblationMissing] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -16,6 +18,13 @@ export default function EvaluationPage({ copy }: { copy: Copy }) {
       })
       .catch(() => {
         if (active) setMissing(true)
+      })
+    ablationReport()
+      .then((next) => {
+        if (active) setAblation(next)
+      })
+      .catch(() => {
+        if (active) setAblationMissing(true)
       })
     return () => {
       active = false
@@ -47,7 +56,61 @@ export default function EvaluationPage({ copy }: { copy: Copy }) {
           </ul>
         </div>
       ) : null}
+      <h3 className="mt-8 font-statute text-2xl">{copy("evalAblationTitle")}</h3>
+      {ablationMissing ? <p className="mt-3 text-sm text-muted">{copy("evalAblationMissing")}</p> : null}
+      {ablation ? <AblationTable copy={copy} report={ablation} /> : null}
     </section>
+  )
+}
+
+function AblationTable({ copy, report }: { copy: Copy; report: AblationReport }) {
+  return (
+    <div className="mt-4 grid gap-3">
+      <p className="text-sm text-muted">
+        {report.dataset.total} questions. English {report.dataset.en}, Roman Urdu {report.dataset.roman_urdu}.
+        Special cases {report.dataset.special} are included in those counts. Dev {report.dataset.dev}, test{" "}
+        {report.dataset.test}. Sample {report.sample_size}.
+      </p>
+      <div className="overflow-x-auto border border-rule">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr>
+              <th className="px-3 py-2">Stage</th>
+              <th className="px-3 py-2">{copy("evalRecall")}</th>
+              <th className="px-3 py-2">{copy("evalLatency")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.stages.map((stage) => {
+              const score = stage.recall_at_5 ?? stage.coverage
+              return (
+                <tr key={stage.name} className="border-t border-rule">
+                  <td className="px-3 py-2">
+                    <p>{stage.name}</p>
+                    <p className="max-w-[42ch] text-xs text-muted">{stage.reason}</p>
+                  </td>
+                  <td className="px-3 py-2">
+                    {score == null ? (
+                      stage.status
+                    ) : (
+                      <div>
+                        <p>
+                          {stage.recall_at_5 == null ? copy("evalCoverage") : copy("evalRecall")} {score}
+                        </p>
+                        <div className="mt-1 h-3 w-32 border border-rule bg-paper">
+                          <div className="h-full bg-seal" style={{ width: `${Math.round(score * 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{stage.mean_latency_ms == null ? "" : `${stage.mean_latency_ms} ms`}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 

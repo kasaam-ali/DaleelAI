@@ -95,6 +95,15 @@ class VerificationData(BaseModel):
     replaced: bool
 
 
+class AgentTrace(BaseModel):
+    intent: str
+    search_query: str
+    retrieved: int | None = None
+    rerank_top: float | None = None
+    verified: bool | None = None
+    latency_ms: int | None = None
+
+
 class FinalData(BaseModel):
     answer: str
     answer_source: AnswerSource
@@ -106,6 +115,7 @@ class FinalData(BaseModel):
     action_links: list[ActionLink] = Field(default_factory=list)
     follow_ups: list[str] = Field(default_factory=list)
     cached: bool
+    trace: AgentTrace | None = None
 
 
 class FeedbackRequest(BaseModel):

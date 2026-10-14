@@ -39,6 +39,8 @@ class RagResult(BaseModel):
     confidence: Literal["high", "medium", "low"] | None = None
     action_links: list[ActionLink] = Field(default_factory=list)
     sources: list[RankedHit] = Field(default_factory=list)
+    retrieved: int = 0
+    rerank_top: float | None = None
 
 
 async def run_qa(
@@ -284,6 +286,7 @@ def _result(
     request, rules, mode, answer, verified, replaced, model, ranked, confidence=None
 ) -> RagResult:
     hits = [hit for hit, _score in ranked]
+    top = ranked[0][1] if ranked else None
     return RagResult(
         answer=answer,
         answer_source=mode,
@@ -293,6 +296,8 @@ def _result(
         confidence=confidence,
         action_links=_links(request, rules),
         sources=hits[:6],
+        retrieved=len(ranked),
+        rerank_top=top,
     )
 
 
@@ -305,6 +310,8 @@ def _abstain(request, rules, web_ranked: list[tuple[RankedHit, float]]) -> RagRe
         model="none",
         action_links=_links(request, rules),
         sources=[hit for hit, _score in web_ranked[:3]],
+        retrieved=len(web_ranked),
+        rerank_top=web_ranked[0][1] if web_ranked else None,
     )
 
 

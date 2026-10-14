@@ -8,13 +8,20 @@ import {
 } from "../../api/tax"
 import type { CopyKey } from "../../i18n"
 import { formatPkr } from "../../lib/money"
+import { CompareBars } from "../tax/CompareBars"
 
 type Copy = (key: CopyKey) => string
 type Tool = "salary" | "freelancer" | "property"
 
 const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
 
-export default function CalculatorPage({ copy }: { copy: Copy }) {
+export default function CalculatorPage({
+  copy,
+  onOpenChecklist,
+}: {
+  copy: Copy
+  onOpenChecklist?: (templateId: string) => void
+}) {
   const [tool, setTool] = useState<Tool>("salary")
   const [taxYear, setTaxYear] = useState<TaxYear>("TY2027")
   const [amount, setAmount] = useState("1200000")
@@ -174,16 +181,32 @@ export default function CalculatorPage({ copy }: { copy: Copy }) {
           {error}
         </p>
       ) : null}
-      {result ? <Result result={result} copy={copy} /> : null}
+      {result ? <Result result={result} copy={copy} onOpenChecklist={onOpenChecklist} /> : null}
     </section>
   )
 }
 
-function Result({ result, copy }: { result: Calculation; copy: Copy }) {
+function Result({
+  result,
+  copy,
+  onOpenChecklist,
+}: {
+  result: Calculation
+  copy: Copy
+  onOpenChecklist?: (templateId: string) => void
+}) {
   const change = result.compared_to
   return (
     <div className="mt-6 border border-rule bg-field px-4 py-4">
       <p className="text-lg">{formatPkr(result.total_tax)}</p>
+      {change ? (
+        <CompareBars
+          leftLabel={result.tax_year}
+          left={result.total_tax}
+          rightLabel={change.tax_year}
+          right={change.total_tax}
+        />
+      ) : null}
       {result.monthly_tax != null ? (
         <p className="mt-1 text-sm text-muted">
           {copy("monthlyTax")} {formatPkr(result.monthly_tax)}
@@ -201,6 +224,15 @@ function Result({ result, copy }: { result: Calculation; copy: Copy }) {
         <p className="mt-2 text-sm">
           {copy("yearChange")} {change.tax_year}: {formatPkr(change.difference)}
         </p>
+      ) : null}
+      {onOpenChecklist ? (
+        <button
+          type="button"
+          onClick={() => onOpenChecklist("ntn_individual")}
+          className="mt-3 min-h-11 border border-rule px-3 text-sm"
+        >
+          {copy("becomeFiler")}
+        </button>
       ) : null}
       <ul className="mt-3 grid gap-2 text-sm">
         {result.breakdown.map((line) => (

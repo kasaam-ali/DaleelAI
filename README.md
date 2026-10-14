@@ -1,212 +1,106 @@
-# ⚖️ DaleelAI — AI-Powered FBR Tax Assistant
+# DaleelAI v2
 
-> Evidence-based AI for Pakistani Tax & Business Compliance
+Evidence-based tax help for Pakistani salaried people, freelancers, and small businesses. Answers are cited to official FBR and SECP text. Tax figures come from a deterministic rules engine, not from a model.
 
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![LangChain](https://img.shields.io/badge/LangChain-Latest-green)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-Latest-orange)
-![Groq](https://img.shields.io/badge/Groq-Llama3-purple)
+DaleelAI is a final-year project. The approved scope is seven features, all built. The tagged `v1.0` app (Streamlit and Chroma) stays in `src/` as the evaluation baseline. This repository is the v2 system.
 
----
+This is guidance from official documents, not legal advice. For a filing decision, check the cited section or call FBR at 051-111-772-772.
 
-## 🎯 Problem Statement
+## Seven features
 
-Every year, thousands of Pakistani entrepreneurs and freelancers 
-struggle with FBR tax compliance. A single consultation with a 
-Chartered Accountant costs PKR 20,000+. Most small business owners 
-cannot afford this.
+1. **Agentic RAG chat** in English and Roman Urdu. The router rewrites the question, hybrid search retrieves ordinance chunks, and the answer is verified against those chunks before it is marked verified.
+2. **Notice explainer** for a PDF or image. CNIC, NTN, phone, email, and bank numbers are masked in the browser and again on the server. The upload is not stored. The result shows a deadline countdown and can open Find an Expert already filtered to the predicted domain.
+3. **Deterministic tax calculator** for TY2026 and TY2027. Salary, freelancer, and property figures come from versioned rule files.
+4. **Filer vs non-filer comparison** with a savings bar and a link to the Individual NTN checklist.
+5. **Personalized checklists** for NTN, sales tax registration, SECP incorporation, and the income tax return. Progress stays on the device. A checklist can be printed or copied.
+6. **Expert finder** backed by a 62 KB int8 ONNX classifier. Listings are public firm pages, not an endorsement.
+7. **FBR updates agent** with a saved replay mode. A scrape or crawl that returns nothing leaves the previous rows in place.
 
-**DaleelAI solves this.**
+## Architecture
 
----
-
-## 💡 Solution
-
-DaleelAI is an AI-powered RAG chatbot trained on official FBR 
-documents. It provides accurate, source-cited answers to tax 
-questions — completely free.
-
-### Real Questions DaleelAI Can Answer
-- How do I register for GST/Sales Tax?
-- What are the NTN registration requirements?
-- What is the withholding tax rate?
-- What are the tax filing deadlines?
-- What documents are needed for business registration?
-
----
-
-## 🏗️ System Architecture
-User Query
-
-↓
-
-Streamlit UI (app.py)
-
-↓
-
-Query Embedding (all-MiniLM-L6-v2)
-
-↓
-
-ChromaDB Similarity Search
-
-↓
-
-Top 5 Relevant FBR Document Chunks
-
-↓
-
-Groq LLM (Llama 3.3 70B)
-
-↓
-
-Source-Cited Answer
-
-↓
-
-User
----
-
----
-
-## 📊 Knowledge Base Stats
-
-| Metric | Value |
-|--------|-------|
-| Total FBR Documents | 80+ PDFs |
-| Total Pages Indexed | 18,760 |
-| Total Chunks | 103,093 |
-| Embedding Model | all-MiniLM-L6-v2 |
-| Vector Dimensions | 384 |
-| Database | ChromaDB |
-
----
-
-## 🛠️ Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Language | Python 3.13 |
-| Orchestration | LangChain |
-| Embeddings | HuggingFace — all-MiniLM-L6-v2 |
-| Vector Store | ChromaDB |
-| LLM | Groq — Llama 3.3 70B |
-| UI | Streamlit |
-| PDF Processing | PyMuPDF |
-
----
-
-## 📁 Project Structure
-DaleelAI/
-├── data/
-│   └── raw/              # 80+ FBR PDF documents
-├── src/
-│   ├── ingest.py         # PDF loading and chunking
-│   ├── embeddings.py     # Vector embedding pipeline
-│   ├── retriever.py      # Semantic search
-│   ├── chain.py          # RAG chain with Groq LLM
-│   └── app.py            # Streamlit web interface
-├── chroma_db/            # Persistent vector database
-├── .env                  # API keys (not in repo)
-├── requirements.txt      # Dependencies
-└── README.md
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone Repository
-```bash
-git clone https://github.com/yourusername/DaleelAI.git
-cd DaleelAI
+```mermaid
+flowchart LR
+  UI["React + TypeScript"] --> API["FastAPI"]
+  API --> Graph["LangGraph"]
+  API --> ONNX["ONNX Runtime"]
+  Graph --> Qdrant["Qdrant hybrid search"]
+  Graph --> PG["Postgres"]
+  Graph --> LLM["4-key LiteLLM gateway"]
 ```
 
-### 2. Create Virtual Environment
-```bash
-python -m venv venv
-venv\Scripts\activate
+| Piece | Choice |
+|---|---|
+| UI | Vite, React, TypeScript. Chat, calculator, filer, notice, checklists, experts, updates, evaluation. |
+| API | FastAPI, Python 3.12, Docker |
+| Agents | LangGraph: rewrite, retrieve, rerank, expand, verify |
+| Search | Qdrant. Dense `BAAI/bge-small-en-v1.5` plus BM25, fused on the server. Collections: `documents` and `web_pages`. |
+| Database | Postgres 16. Parent sections, chats, notifications. |
+| Models | LiteLLM. Order: Groq, Gemini on the first key, Gemini on the second key, OpenRouter. |
+| Classifier | Word TF-IDF logistic regression, int8 ONNX. Keyword rules if the ONNX file is missing. |
+
+There are no accounts. A session id on the device keeps the chat and checklist progress.
+
+## Evaluation
+
+The question file is 240 synthetic items: 100 English, 100 Roman Urdu, and 40 special cases (unanswerable, provincial, tax-year, prompt injection, evasion refusal). Split: 80 dev, 160 test. File: `backend/eval/datasets/answers.jsonl`.
+
+A read-only sample of 8 test questions, one per gold section, was scored against the live index. The documents collection stayed at 18,600 points. MRR was not scored on this sample, so it is not reported.
+
+| Stage | Recall at 5 |
+|---|---|
+| v1.0 baseline | not re-run (would replace the live index) |
+| dense | 0.625 |
+| +headers | not re-run (headers are already in the live chunks) |
+| +BM25 hybrid | 0.75 |
+| +rerank | not re-run (cross-encoder not loaded) |
+| +parent expansion | 0.75 |
+| +verification | not re-run (would call an outside model) |
+| +web fallback | coverage 1.0, not ordinance recall |
+
+The served classifier is about 62 KB of int8 ONNX plus a small vocabulary file. Macro-F1 on the human-written test set is **0.986**. Human and synthetic scores are stored separately in `backend/ml/reports/classifier_metrics.json`.
+
+Latest local run: **211** backend tests and **39** frontend tests.
+
+## Quick start
+
+Docker Desktop is required. From the repo root:
+
+```powershell
+copy .env.example .env
+docker compose up -d
 ```
 
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
+Put provider keys only in the local `.env`. That file is gitignored. The app is at [http://localhost:5173](http://localhost:5173). The API is at [http://localhost:8000](http://localhost:8000). Health: `GET /health`.
+
+`docs/demo_script.md` lists four saved questions that answer immediately when every model provider is down. The first is `Demo: what does section 149 cover?`
+
+Do not delete the Qdrant `documents` collection. Rebuilding it is a separate, explicit job.
+
+## Tests
+
+Backend, inside the running container:
+
+```powershell
+docker compose exec -T backend sh -c "ruff check . && ruff format --check . && pytest -q"
 ```
 
-### 4. Setup Environment Variables
-Create a `.env` file in root directory:
-GROQ_API_KEY=your_groq_api_key_here
-Get your free API key at: https://console.groq.com
+Frontend, on the host:
 
-### 5. Add FBR Documents
-Place FBR PDF documents in `data/raw/` folder.
-Download from: https://www.fbr.gov.pk
-
-### 6. Build Knowledge Base
-```bash
-python src/embeddings.py
-```
-Note: This takes 20-40 minutes on first run.
-
-### 7. Run DaleelAI
-```bash
-streamlit run src/app.py
+```powershell
+cd frontend
+npm test
+npm run typecheck
+npm run lint
 ```
 
----
+## Docs
 
-## ✨ Key Features
+| Doc | What it decides |
+|---|---|
+| [docs/PLAN.md](docs/PLAN.md) | Scope and roadmap |
+| [docs/SPECS.md](docs/SPECS.md) | Field names and formats |
+| [docs/adr/](docs/adr/) | Architecture decisions |
+| [docs/report/log.md](docs/report/log.md) | What was built, what broke, what was learned |
+| [docs/demo_script.md](docs/demo_script.md) | Demo-day questions |
 
-### Evidence-Based Answers
-Every answer comes directly from official FBR documents.
-No hallucinations — if information is not found,
-system explicitly says so.
-
-### Source Citations
-Every response includes exact document name and 
-page number for verification.
-
-### Responsible AI
-System never guesses. When information is unavailable,
-it directs users to FBR helpline: 051-111-772-772
-
-### Comprehensive Coverage
-Covers Income Tax, Sales Tax, Federal Excise,
-Customs, NTN Registration, GST Filing and more.
-
----
-
-## 📚 Data Sources
-
-All data sourced from official FBR website:
-https://www.fbr.gov.pk
-
-- Income Tax Ordinance 2001
-- Sales Tax Act 1990
-- Sales Tax Rules 2006
-- Income Tax Rules 2002
-- Federal Excise Act 2005
-- Tax Laws Amendment Ordinance 2025
-- 80+ additional FBR documents
-
-All documents are publicly available and open source.
-
----
-
-## ⚠️ Disclaimer
-
-DaleelAI provides guidance based on official FBR documents
-for informational purposes only. This is not legal or 
-financial advice. For complex matters, consult a qualified
-tax consultant or CA.
-
-FBR Official Helpline: 051-111-772-772
-FBR Website: https://www.fbr.gov.pk
-
----
-
-## 👨‍💻 Developer
-
-Built with ❤️ for Pakistani entrepreneurs and freelancers.
-
-*"Making tax compliance accessible for every Pakistani"*
-
+OpenAPI: `contracts/openapi.json`.

@@ -13,9 +13,22 @@ type Copy = (key: CopyKey) => string
 const STORAGE_KEY = "daleelai.checklists"
 const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
 
-export default function ChecklistsPage({ copy, language }: { copy: Copy; language: UiLanguage }) {
+export default function ChecklistsPage({
+  copy,
+  language,
+  preferredTemplate = "",
+}: {
+  copy: Copy
+  language: UiLanguage
+  preferredTemplate?: string
+}) {
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
-  const [templateId, setTemplateId] = useState("")
+  const [templateId, setTemplateId] = useState(preferredTemplate)
+  const [appliedTemplate, setAppliedTemplate] = useState(preferredTemplate)
+  if (preferredTemplate && preferredTemplate !== appliedTemplate) {
+    setAppliedTemplate(preferredTemplate)
+    setTemplateId(preferredTemplate)
+  }
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<Checklist | null>(() => readSaved())
   const [loadError, setLoadError] = useState(false)
@@ -127,6 +140,21 @@ export default function ChecklistsPage({ copy, language }: { copy: Copy; languag
           <p className="mt-1 text-sm text-muted">
             {copy("checklistProgress")}: {Math.round(saved.progress * 100)}%. {copy("checklistSaved")}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => window.print()} className="min-h-11 border border-rule px-3 text-sm">
+              {copy("checklistPrint")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const text = saved.steps.map((step) => `${step.done ? "[x]" : "[ ]"} ${step.title}`).join("\n")
+                void navigator.clipboard.writeText(text).catch(() => undefined)
+              }}
+              className="min-h-11 border border-rule px-3 text-sm"
+            >
+              {copy("checklistShare")}
+            </button>
+          </div>
           <ul className="mt-3 grid gap-3">
             {saved.steps.map((step) => (
               <li key={step.id} className="border border-rule px-3 py-3">

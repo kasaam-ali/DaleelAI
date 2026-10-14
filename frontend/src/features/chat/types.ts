@@ -7,6 +7,7 @@ export type Turn = {
   status: string
   draft: string
   sources: Source[]
+  intent: string | null
   final: FinalData | null
   error: string | null
   messageId: string | null

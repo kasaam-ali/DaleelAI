@@ -14,7 +14,8 @@ Built, broke, learned. Newest entry first. A new session should read this file, 
 | 5 Notice and checklists | Built. Notice uploads are read in memory, personal numbers are redacted before any model call, and the five checklists save progress for the session. |
 | 6 Expert finder | Built. Word TF-IDF logistic regression is served as int8 ONNX. Human-written macro-F1 is 0.986. The Find an Expert page, city filter, and retrieval domain boost are in. SetFit and zero-shot mDeBERTa were not trained: the image has no torch. |
 | 7 Updates agent | Built. Saved replay and a live fetch option, the updates feed, crawl change detection, and the privacy page are in. A scrape or crawl that returns nothing leaves the previous rows in place. |
-| 8-9 | Not started |
+| 8 Polish | Built. Agent steps and copy on the answer card, a notice countdown, an expert hand-off filtered by domain, filer and calculator comparison bars, the Individual NTN checklist link, and checklist print and share. |
+| 9 Evaluation and demo | Built. The question file is 100 English, 100 Roman Urdu, and 40 special cases. The ablation table is a read-only sample. v1.0, headers, rerank, and verification were not re-run, so `documents` stayed in place. Saved demo answers and `docs/demo_script.md` cover a provider outage. |
 
 Deferred on purpose:
 - Railway deploy and RAM measurement (PLAN Phase 0 step 9): measure RAM locally with `docker stats` at the end of Phase 1, when the embedding and reranker models are loaded; deploy to Railway in Phase 3 (M1).
@@ -23,10 +24,34 @@ Deferred on purpose:
 
 ### Next
 1. Collection `documents` still has 18,600 points. Do not delete it. Do not resume the documents indexer unless the chunks change.
-2. Still open: confidence fitted on the dev set, reranker comparison, and eval set v1. `web_pages` is 30 points: the original seed, saved SECP, SRB, and BRA pages, and the three replay notices. `documents` is still 18,600. Do not delete it.
+2. Eval set v1 is in `backend/eval/datasets/answers.jsonl`. The ablation sample is read-only. Confidence fitted on the dev set is still open. `web_pages` is 30 points. `documents` is still 18,600. Do not delete it.
 3. Phase 3 deploy is still open: backend on Railway, frontend on Vercel. The chat page on the host is `http://localhost:5174/`.
 4. Every LLM role tries Groq, then `GEMINI_API_KEY` (3.8 then 2.5), then the same Gemini models on `GEMINI_API_KEY_2`, then OpenRouter. If every judge is down after draft tokens, the stream ends with `verified: false`, confidence low, `final`, and `done`.
 5. The served classifier is the word TF-IDF model in `backend/ml/reports/classifier_metrics.json`. The ONNX file is gitignored. A checkout without that file uses the keyword rules. The same model tags each new FBR update.
+
+## 2026-10-14: README for v2
+
+### Built
+The root README now describes DaleelAI v2: the seven features, the running stack, the measured Recall@5 sample, and the local start and test commands. It no longer describes the Streamlit and Chroma app as the current system.
+
+### Broke
+Nothing in the running app. MRR is still not in the ablation file, so the README does not publish an MRR number.
+
+### Learned
+The old README was the v1 pitch. A portfolio reader would have followed the wrong quick start.
+
+## 2026-10-14: Polish, ablation, and demo safety
+
+### Built
+Chat answers can be copied, and Agent steps shows the intent, the search query, how many hits were kept, the top rerank score, verification, and latency. A notice shows days left and opens Find an Expert already filtered to that domain. The filer comparison and the calculator draw a bar, and both link to the Individual NTN checklist. A checklist can be printed or copied.
+
+The question file has 240 rows (dev 80, test 160), all marked synthetic, with no invented page numbers. A read-only sample of 8 test questions, one per gold section, scored dense recall at 5 as 0.625, hybrid as 0.75, and parent expansion as 0.75. Web coverage on that sample was 1.0, which is not ordinance recall. Documents stayed 18,600 before and after. v1.0, a header-free index, the cross-encoder, and verification were not re-run. Saved demo answers skip the model gateway. ADRs 0002 through 0009 sit beside the classifier record in 0001.
+
+### Broke
+The ablation cannot rebuild earlier chunking stages without replacing the 18,600 document points, so those rows stay `not_rerun`. The cross-encoder was not loaded, so a cold model download would not start.
+
+### Learned
+Query-time switches (dense only, hybrid, parent text, web coverage) can be measured on the index that is already there. Anything that needs a second `documents` index has to wait.
 
 ## 2026-10-14: Updates agent
 

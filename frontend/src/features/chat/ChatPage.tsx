@@ -72,6 +72,7 @@ export default function ChatPage({
       status: copy("stepWorking"),
       draft: "",
       sources: [],
+      intent: null,
       final: null,
       error: null,
       messageId: null,
@@ -119,6 +120,7 @@ export default function ChatPage({
         ...current,
         messageId: event.data.message_id,
         taxYear: event.data.tax_year,
+        intent: event.data.intent,
       }))
     } else if (event.event === "step" && event.data.status === "start") {
       patch(id, (current) => ({ ...current, status: copy(STEPS[event.data.node] ?? "stepWorking") }))

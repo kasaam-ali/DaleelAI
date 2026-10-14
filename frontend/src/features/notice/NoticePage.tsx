@@ -14,7 +14,7 @@ export default function NoticePage({
 }: {
   copy: Copy
   language: UiLanguage
-  onFindExpert?: (query: string) => void
+  onFindExpert?: (category: string) => void
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<NoticeExplanation | null>(null)
@@ -71,7 +71,15 @@ export default function NoticePage({
           {result.deadline ? (
             <p className="mt-2 text-sm">
               {copy("noticeDeadline")}: {result.deadline}
-              {explanation.days_left != null ? ` (${copy("noticeDays")}: ${explanation.days_left})` : ""}
+            </p>
+          ) : null}
+          {explanation.days_left != null ? (
+            <p
+              className={`mt-2 inline-block border border-rule px-2 py-1 text-sm ${
+                explanation.days_left <= 7 ? "text-low" : "text-ink"
+              }`}
+            >
+              {copy("noticeCountdown")}: {explanation.days_left}
             </p>
           ) : null}
           {explanation.recommend_expert ? <p className="mt-2 text-sm">{copy("noticeExpert")}</p> : null}
@@ -79,9 +87,9 @@ export default function NoticePage({
             <button
               type="button"
               className="mt-3 min-h-11 border border-rule px-3 text-sm"
-              onClick={() => onFindExpert(`${result.expert_category ?? ""} notice`)}
+              onClick={() => onFindExpert(result.expert_category ?? "")}
             >
-              {copy("noticeFindExpert")} ({result.expert_category})
+              {copy("noticeFindMatching")} ({result.expert_category})
             </button>
           ) : null}
           <ul className="mt-3 grid gap-1 text-sm">

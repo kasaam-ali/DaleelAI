@@ -163,6 +163,7 @@ export default function AnswerSlip({
             </div>
           ) : null}
 
+          <AgentSteps turn={turn} copy={copy} />
           <p className="mt-5 max-w-[68ch] text-sm text-muted">{copy("disclaimer")}</p>
 
           {turn.messageId ? (
@@ -213,6 +214,81 @@ export default function AnswerSlip({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function AgentSteps({ turn, copy }: { turn: Turn; copy: Copy }) {
+  const [note, setNote] = useState<string | null>(null)
+  const trace = turn.final?.trace
+  const answer = turn.final?.answer || turn.draft
+
+  async function copyAnswer() {
+    try {
+      await navigator.clipboard.writeText(answer)
+      setNote(copy("copied"))
+    } catch {
+      setNote(copy("shareFailed"))
+    }
+  }
+
+  async function shareAnswer() {
+    const payload = { title: "DaleelAI", text: answer }
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share(payload)
+        return
+      } catch {
+        return
+      }
+    }
+    await copyAnswer()
+  }
+
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void copyAnswer()} className="min-h-11 border border-rule px-3 text-sm">
+          {copy("copyAnswer")}
+        </button>
+        <button type="button" onClick={() => void shareAnswer()} className="min-h-11 border border-rule px-3 text-sm">
+          {copy("shareAnswer")}
+        </button>
+      </div>
+      {note ? <p className="mt-2 text-sm text-muted">{note}</p> : null}
+      <details className="mt-3 border border-rule bg-paper px-3 py-2 text-sm">
+        <summary className="min-h-11 cursor-pointer">{copy("agentSteps")}</summary>
+        {trace ? (
+          <dl className="mt-2 grid gap-1">
+            <div>
+              <dt className="inline text-muted">{copy("stepIntent")} </dt>
+              <dd className="inline">{trace.intent}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{copy("stepQuery")} </dt>
+              <dd className="inline">{trace.search_query}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{copy("stepRetrieved")} </dt>
+              <dd className="inline">{trace.retrieved ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{copy("stepRerank")} </dt>
+              <dd className="inline">{trace.rerank_top ?? copy("stepNone")}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{copy("stepVerified")} </dt>
+              <dd className="inline">{trace.verified ? copy("stepYes") : copy("stepNo")}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{copy("stepLatency")} </dt>
+              <dd className="inline">{trace.latency_ms ?? 0} ms</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-2 text-muted">{turn.intent ?? copy("stepNone")}</p>
+        )}
+      </details>
+    </div>
   )
 }
 

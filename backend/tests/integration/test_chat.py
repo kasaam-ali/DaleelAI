@@ -284,3 +284,17 @@ def test_streamed_draft_finishes_when_verification_fails():
     assert events[3][1]["verified"] is False
     assert events[3][1]["confidence"] == "low"
     assert events[3][1]["answer"] == "Salary is taxed."
+
+
+def test_demo_question_returns_the_saved_answer_without_a_model():
+    llm = ScriptedLLM(router_payload())
+    response = make_client(llm).post(
+        "/api/v1/chat",
+        json={"message": "Demo: what does section 149 cover?", "tax_year": "TY2027"},
+    )
+    events = parse_sse(response.text)
+    assert [name for name, _data in events] == ["meta", "token", "final", "done"]
+    assert events[-2][1]["cached"] is True
+    assert events[-2][1]["model"] == "demo-cache"
+    assert events[-2][1]["trace"]["intent"] == "qa"
+    assert llm.calls == 0

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { findExperts, type ExpertFind } from "../../api/experts"
 import type { CopyKey } from "../../i18n"
 
@@ -9,16 +9,51 @@ const CITIES = ["", "Karachi", "Lahore", "Islamabad"]
 export default function ExpertsPage({
   copy,
   initialQuery = "",
+  initialCategory = null,
 }: {
   copy: Copy
   initialQuery?: string
+  initialCategory?: string | null
 }) {
   const [query, setQuery] = useState(initialQuery)
   const [city, setCity] = useState("")
-  const [category, setCategory] = useState<string | null>(null)
+  const [category, setCategory] = useState<string | null>(initialCategory)
   const [result, setResult] = useState<ExpertFind | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const handoffReady = Boolean(initialQuery.trim() && initialCategory)
+  const [busy, setBusy] = useState(handoffReady)
+  const copyRef = useRef(copy)
+  const handoff = `${initialQuery}\0${initialCategory ?? ""}`
+  const [appliedHandoff, setAppliedHandoff] = useState("")
+  if (initialQuery.trim() && initialCategory && handoff !== appliedHandoff) {
+    setAppliedHandoff(handoff)
+    setQuery(initialQuery)
+    setCategory(initialCategory)
+  }
+
+  useEffect(() => {
+    copyRef.current = copy
+  }, [copy])
+
+  useEffect(() => {
+    if (!initialQuery.trim() || !initialCategory) return
+    let active = true
+    findExperts(initialQuery.trim(), "", initialCategory)
+      .then((next) => {
+        if (active) setResult(next)
+      })
+      .catch((caught) => {
+        if (!active) return
+        setResult(null)
+        setError(caught instanceof Error ? caught.message : copyRef.current("expertsFailed"))
+      })
+      .finally(() => {
+        if (active) setBusy(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [initialQuery, initialCategory])
 
   async function search(nextCategory: string | null) {
     if (!query.trim()) return

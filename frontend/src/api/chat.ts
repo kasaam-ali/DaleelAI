@@ -34,6 +34,14 @@ export type FinalData = {
   action_links: ActionLink[]
   follow_ups: string[]
   cached: boolean
+  trace?: {
+    intent: string
+    search_query: string
+    retrieved: number | null
+    rerank_top: number | null
+    verified: boolean | null
+    latency_ms: number | null
+  } | null
 }
 
 export type FeedbackReason = "wrong" | "incomplete" | "outdated" | "other"

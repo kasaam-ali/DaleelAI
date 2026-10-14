@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "match": ["demo: what does section 149 cover?"],
+      "language": "en",
+      "intent": "qa",
+      "answer": "Section 149 of the Income Tax Ordinance, 2001 is the salary withholding section. The calculator applies the published slabs for the tax year you pick. This is a saved demo answer, so it does not wait on an outside model."
+    },
+    {
+      "match": ["demo: section 149 kya cover karta hai?"],
+      "language": "roman_urdu",
+      "intent": "qa",
+      "answer": "Section 149, Income Tax Ordinance 2001, salary par withholding ka section hai. Calculator us tax year ki published slabs lagata hai. Yeh saved demo answer hai, is liye bahar ke model ka intezar nahi."
+    },
+    {
+      "match": ["demo: how do i hide cash sales from fbr?"],
+      "language": "en",
+      "intent": "refuse",
+      "answer": "I can't help with hiding income, evading tax, or fake documents. For legal filing, use IRIS or call FBR at 051-111-772-772."
+    },
+    {
+      "match": ["demo: latest federal tax notification"],
+      "language": "en",
+      "intent": "updates",
+      "answer": "Open Updates and run the saved replay. That listing is stored locally, so a slow FBR page cannot wipe it. This is a saved demo answer."
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date
 from typing import Any
@@ -12,6 +13,7 @@ from uuid import UUID, uuid4
 from app.agents.rag import RagResult
 from app.agents.router import RouterParseError, RouterRequest, route
 from app.api.v1.schemas import (
+    AgentTrace,
     ChatRequest,
     FinalData,
     MetaData,
@@ -19,6 +21,7 @@ from app.api.v1.schemas import (
 )
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
+from app.core.demo import match_demo
 from app.core.ports import LLMPort
 from app.core.privacy.pii import redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
@@ -74,6 +77,13 @@ async def iter_chat_events(
     chat_id = _uuid_or_new(body.chat_id)
     message_id = str(uuid4())
     session = _uuid_or_none(session_id)
+    demo = match_demo(body.message)
+    if demo is not None:
+        async for event in _yield_demo(
+            store, session, chat_id, message_id, body.message, demo, tax_year, corpus_date
+        ):
+            yield event
+        return
     key = answer_cache_key(body.message, profile, tax_year, corpus_version)
     cached = _cached(cache, key)
     if cached is not None:
@@ -117,6 +127,7 @@ async def iter_chat_events(
     yield _meta(routed.intent, language, tax_year, chat_id, message_id)
     stored_sources: list[dict[str, Any]] = []
     if routed.intent == "qa":
+        started = time.perf_counter()
         result = None
         failure: Exception | None = None
         emitted = 0
@@ -206,6 +217,14 @@ async def iter_chat_events(
             corpus_date,
             result.action_links,
             confidence=result.confidence,
+            trace=_trace(
+                routed.intent,
+                routed.search_query or body.message,
+                started,
+                retrieved=result.retrieved,
+                rerank_top=result.rerank_top,
+                verified=result.verified,
+            ),
         )
     elif routed.intent in {"calculate", "compare_filer"}:
         from app.core.tax_engine import chat_tool
@@ -423,7 +442,15 @@ async def _qa_result(
 
 
 def _final(
-    answer, answer_source, verified, model, tax_year, corpus_date, links, confidence=None
+    answer,
+    answer_source,
+    verified,
+    model,
+    tax_year,
+    corpus_date,
+    links,
+    confidence=None,
+    trace=None,
 ) -> dict[str, Any]:
     level = confidence or stand_in_confidence(answer_source)
     return FinalData(
@@ -437,7 +464,61 @@ def _final(
         action_links=[link.model_dump() for link in links],
         follow_ups=[],
         cached=False,
+        trace=trace,
     ).model_dump()
+
+
+def _trace(intent, search_query, started, *, retrieved=None, rerank_top=None, verified=None):
+    return AgentTrace(
+        intent=intent,
+        search_query=search_query,
+        retrieved=retrieved,
+        rerank_top=rerank_top,
+        verified=verified,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+    )
+
+
+async def _yield_demo(store, session, chat_id, message_id, question, demo, tax_year, corpus_date):
+    intent = str(demo.get("intent") or "qa")
+    language = str(demo.get("language") or "en")
+    answer = str(demo["answer"])
+    yield _meta(intent, language, tax_year, chat_id, message_id)
+    yield {"event": "token", "data": {"text": answer}}
+    trace = AgentTrace(
+        intent=intent,
+        search_query=question,
+        retrieved=0,
+        rerank_top=None,
+        verified=True,
+        latency_ms=0,
+    )
+    final = FinalData(
+        answer=answer,
+        answer_source="none",
+        confidence="high",
+        verified=True,
+        model="demo-cache",
+        tax_year=tax_year,
+        corpus_date=corpus_date,
+        action_links=[],
+        follow_ups=[],
+        cached=True,
+        trace=trace,
+    ).model_dump()
+    await _save_turn(
+        store,
+        session_id=session,
+        chat_id=chat_id,
+        message_id=message_id,
+        user_text=question,
+        intent=intent,
+        language=language,
+        final=final,
+        sources=[],
+    )
+    yield {"event": "final", "data": final}
+    yield {"event": "done", "data": {}}
 
 
 def _source(hit: RankedHit, library: str) -> dict[str, Any]:

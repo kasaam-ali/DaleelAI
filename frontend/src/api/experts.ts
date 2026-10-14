@@ -61,6 +61,38 @@ type Score = {
   confusion_matrix: { labels: string[]; matrix: number[][] }
 }
 
+export type AblationStage = {
+  name: string
+  status: string
+  recall_at_5: number | null
+  coverage: number | null
+  mean_latency_ms: number | null
+  rows: number
+  reason: string
+}
+
+export type AblationReport = {
+  sample_size: number
+  documents_unchanged: boolean
+  dataset: {
+    total: number
+    en: number
+    roman_urdu: number
+    special: number
+    dev: number
+    test: number
+  }
+  stages: AblationStage[]
+}
+
+export async function ablationReport(): Promise<AblationReport> {
+  const response = await fetch(`${API_URL}/api/v1/evaluation/ablation`, {
+    signal: AbortSignal.timeout(15000),
+  })
+  if (!response.ok) throw new Error("missing")
+  return (await response.json()) as AblationReport
+}
+
 export async function classifierReport(): Promise<ClassifierReport> {
   const response = await fetch(`${API_URL}/api/v1/evaluation/classifier`, {
     signal: AbortSignal.timeout(15000),

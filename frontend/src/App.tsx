@@ -33,6 +33,8 @@ export default function App() {
     "chat" | "calculator" | "filer" | "notice" | "checklist" | "experts" | "evaluation" | "updates" | "privacy"
   >("chat")
   const [expertQuery, setExpertQuery] = useState("")
+  const [expertCategory, setExpertCategory] = useState<string | null>(null)
+  const [checklistTemplate, setChecklistTemplate] = useState("")
   const copy = (key: CopyKey) => t(language, key)
 
   function changeLanguage(next: UiLanguage) {
@@ -123,20 +125,41 @@ export default function App() {
           <div className={view === "chat" ? "" : "hidden"}>
             <ChatPage language={language} profile={profile} copy={copy} />
           </div>
-          {view === "calculator" ? <CalculatorPage copy={copy} /> : null}
-          {view === "filer" ? <FilerPage copy={copy} /> : null}
+          {view === "calculator" ? (
+            <CalculatorPage
+              copy={copy}
+              onOpenChecklist={(templateId) => {
+                setChecklistTemplate(templateId)
+                setView("checklist")
+              }}
+            />
+          ) : null}
+          {view === "filer" ? (
+            <FilerPage
+              copy={copy}
+              onOpenChecklist={(templateId) => {
+                setChecklistTemplate(templateId)
+                setView("checklist")
+              }}
+            />
+          ) : null}
           {view === "notice" ? (
             <NoticePage
               copy={copy}
               language={language}
-              onFindExpert={(query) => {
-                setExpertQuery(query)
+              onFindExpert={(category) => {
+                setExpertQuery(`${category} notice`)
+                setExpertCategory(category)
                 setView("experts")
               }}
             />
           ) : null}
-          {view === "checklist" ? <ChecklistsPage copy={copy} language={language} /> : null}
-          {view === "experts" ? <ExpertsPage copy={copy} initialQuery={expertQuery} /> : null}
+          {view === "checklist" ? (
+            <ChecklistsPage copy={copy} language={language} preferredTemplate={checklistTemplate} />
+          ) : null}
+          {view === "experts" ? (
+            <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
+          ) : null}
           {view === "updates" ? <UpdatesPage copy={copy} /> : null}
           {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
           {view === "privacy" ? <PrivacyPage copy={copy} /> : null}

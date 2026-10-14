@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { compareFiler, type FilerComparison, type TaxYear } from "../../api/tax"
 import type { CopyKey } from "../../i18n"
 import { formatPkr } from "../../lib/money"
+import { CompareBars } from "../tax/CompareBars"
 
 type Copy = (key: CopyKey) => string
 
@@ -16,7 +17,13 @@ const TYPES = [
 
 const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
 
-export default function FilerPage({ copy }: { copy: Copy }) {
+export default function FilerPage({
+  copy,
+  onOpenChecklist,
+}: {
+  copy: Copy
+  onOpenChecklist?: (templateId: string) => void
+}) {
   const [taxYear, setTaxYear] = useState<TaxYear>("TY2027")
   const [type, setType] = useState<(typeof TYPES)[number]>("property_purchase")
   const [amount, setAmount] = useState("10000000")
@@ -141,9 +148,24 @@ export default function FilerPage({ copy }: { copy: Copy }) {
               ))}
             </tbody>
           </table>
+          <CompareBars
+            leftLabel={copy("filerBar")}
+            left={result.filer_total}
+            rightLabel={copy("nonFilerBar")}
+            right={result.non_filer_total}
+          />
           <p className="mt-3 text-sm">
             {copy("extraIfNotFiler")} {formatPkr(result.savings)}
           </p>
+          {onOpenChecklist ? (
+            <button
+              type="button"
+              onClick={() => onOpenChecklist("ntn_individual")}
+              className="mt-3 min-h-11 border border-rule px-3 text-sm"
+            >
+              {copy("becomeFiler")}
+            </button>
+          ) : null}
           <p className="mt-1 text-sm text-muted">
             {copy("rulesVersion")} {result.rules_version}
           </p>

@@ -1,0 +1,90 @@
+{
+  "measured_at": "2026-10-14",
+  "sample_size": 8,
+  "documents_before": 18600,
+  "documents_after": 18600,
+  "documents_unchanged": true,
+  "error": null,
+  "dataset": {
+    "total": 240,
+    "en": 120,
+    "roman_urdu": 120,
+    "special": 40,
+    "dev": 80,
+    "test": 160
+  },
+  "stages": [
+    {
+      "name": "v1.0 baseline",
+      "status": "not_rerun",
+      "recall_at_5": null,
+      "coverage": null,
+      "mean_latency_ms": null,
+      "rows": 0,
+      "reason": "Rebuilding the first index would replace the 18,600 document points. This pass only ran queries. The documents collection was not rebuilt."
+    },
+    {
+      "name": "dense",
+      "status": "measured",
+      "recall_at_5": 0.625,
+      "coverage": null,
+      "mean_latency_ms": 167,
+      "rows": 8,
+      "reason": "Dense-only query. Top 5 checked for the gold section."
+    },
+    {
+      "name": "+headers",
+      "status": "not_rerun",
+      "recall_at_5": null,
+      "coverage": null,
+      "mean_latency_ms": null,
+      "rows": 0,
+      "reason": "Headers are already in the live chunks. A header-free index would be a second collection. This pass only ran queries. The documents collection was not rebuilt."
+    },
+    {
+      "name": "+BM25 hybrid",
+      "status": "measured",
+      "recall_at_5": 0.75,
+      "coverage": null,
+      "mean_latency_ms": 90,
+      "rows": 8,
+      "reason": "Dense plus BM25 with RRF and the tax-year filter. Same gold-section check."
+    },
+    {
+      "name": "+rerank",
+      "status": "not_rerun",
+      "recall_at_5": null,
+      "coverage": null,
+      "mean_latency_ms": null,
+      "rows": 0,
+      "reason": "The cross-encoder was not loaded, so a cold download would not start."
+    },
+    {
+      "name": "+parent expansion",
+      "status": "measured",
+      "recall_at_5": 0.75,
+      "coverage": null,
+      "mean_latency_ms": 90,
+      "rows": 8,
+      "reason": "Same hybrid hits, plus the parent section text already stored in Postgres."
+    },
+    {
+      "name": "+verification",
+      "status": "not_rerun",
+      "recall_at_5": null,
+      "coverage": null,
+      "mean_latency_ms": null,
+      "rows": 0,
+      "reason": "Verification calls an outside model. This pass did not spend those calls."
+    },
+    {
+      "name": "+web fallback",
+      "status": "measured",
+      "recall_at_5": null,
+      "coverage": 1.0,
+      "mean_latency_ms": 44,
+      "rows": 8,
+      "reason": "Share of the sample with any web_pages hit. Coverage, not ordinance recall."
+    }
+  ]
+}

@@ -657,6 +657,22 @@
         }
       }
     },
+    "/api/v1/evaluation/ablation": {
+      "get": {
+        "summary": "Ablation Report",
+        "operationId": "ablation_report_api_v1_evaluation_ablation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/experts/upsert": {
       "post": {
         "summary": "Experts Upsert",

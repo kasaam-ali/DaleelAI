@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+  CHAT_KEY,
   EMPTY_PROFILE,
   PROFILE_KEY,
   SESSION_KEY,
+  clearLocalHistory,
   readProfile,
   readSessionId,
   sanitizeProfile,
@@ -17,6 +19,9 @@ function memory(): StorageLike & { data: Map<string, string> } {
     getItem: (key) => data.get(key) ?? null,
     setItem: (key, value) => {
       data.set(key, value)
+    },
+    removeItem: (key) => {
+      data.delete(key)
     },
   }
 }
@@ -48,6 +53,16 @@ describe("session", () => {
       filer_status: null,
       province: "sindh",
     })
+  })
+
+  it("replaces the session and drops the open chat", () => {
+    const store = memory()
+    const first = readSessionId(store)
+    store.setItem(CHAT_KEY, "chat-1")
+    const next = clearLocalHistory(store)
+    expect(next).not.toBe(first)
+    expect(store.data.get(SESSION_KEY)).toBe(next)
+    expect(store.data.has(CHAT_KEY)).toBe(false)
   })
 
   it("round-trips a profile and ignores broken JSON", () => {

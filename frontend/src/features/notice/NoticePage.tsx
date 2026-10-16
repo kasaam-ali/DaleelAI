@@ -41,10 +41,10 @@ export default function NoticePage({
 
   const explanation = result?.explanation
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("noticeTitle")}</h2>
+    <section>
+      <h2 className="page-title">{copy("noticeTitle")}</h2>
       <p className="mt-2 max-w-[46ch] text-muted">{copy("noticeHelp")}</p>
-      <form onSubmit={onSubmit} className="mt-4 grid gap-3">
+      <form onSubmit={onSubmit} className="panel mt-4 grid gap-3 px-4 py-4">
         <label className="text-sm">
           {copy("noticeFile")}
           <input
@@ -60,7 +60,7 @@ export default function NoticePage({
       </form>
       {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
       {result && explanation ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="panel mt-6 px-4 py-4">
           <p className="text-lg">{explanation.summary}</p>
           <p className="mt-2">{explanation.why_received}</p>
           <p className="mt-3 text-sm text-muted">

@@ -8,6 +8,10 @@ from app.adapters.postgres_schema import SCHEMA
 from app.core.privacy.pii import redact_pii
 
 
+class ChatAccessDenied(Exception):
+    """The chat id belongs to a different session."""
+
+
 class PostgresStore:
     def __init__(self, database_url: str, connect=None) -> None:
         self.database_url = database_url
@@ -430,6 +434,110 @@ class PostgresStore:
                 )
                 return {row[0]: row[1] for row in cur.fetchall()}
 
+    def chat_owner(self, chat_id: str) -> str | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT session_id::text FROM chats WHERE id = %s",
+                    (_uuid(chat_id),),
+                )
+                row = cur.fetchone()
+        return row[0] if row else None
+
+    def list_chats(self, session_id: str) -> list[dict[str, Any]]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT c.id::text,
+                           COALESCE((
+                             SELECT left(m.content, 60)
+                             FROM messages m
+                             WHERE m.chat_id = c.id AND m.role = 'user'
+                             ORDER BY m.created_at ASC
+                             LIMIT 1
+                           ), ''),
+                           c.created_at,
+                           COALESCE((
+                             SELECT max(m.created_at)
+                             FROM messages m
+                             WHERE m.chat_id = c.id
+                           ), c.created_at)
+                    FROM chats c
+                    WHERE c.session_id = %s
+                    ORDER BY 4 DESC
+                    LIMIT 50
+                    """,
+                    (_uuid(session_id),),
+                )
+                rows = cur.fetchall()
+        return [
+            {
+                "id": row[0],
+                "title": row[1],
+                "created_at": _iso(row[2]),
+                "updated_at": _iso(row[3]),
+            }
+            for row in rows
+        ]
+
+    def get_chat(self, session_id: str, chat_id: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT c.id::text,
+                           COALESCE((
+                             SELECT left(m.content, 60)
+                             FROM messages m
+                             WHERE m.chat_id = c.id AND m.role = 'user'
+                             ORDER BY m.created_at ASC
+                             LIMIT 1
+                           ), ''),
+                           c.created_at,
+                           COALESCE((
+                             SELECT max(m.created_at)
+                             FROM messages m
+                             WHERE m.chat_id = c.id
+                           ), c.created_at)
+                    FROM chats c
+                    WHERE c.id = %s AND c.session_id = %s
+                    """,
+                    (_uuid(chat_id), _uuid(session_id)),
+                )
+                chat = cur.fetchone()
+                if chat is None:
+                    return None
+                cur.execute(
+                    """
+                    SELECT m.id::text, m.role, m.content, m.intent, m.language, m.tax_year,
+                           m.sources, m.answer_source, m.confidence, m.verified, m.model,
+                           m.created_at, f.rating, f.reason
+                    FROM messages m
+                    LEFT JOIN LATERAL (
+                      SELECT rating, reason
+                      FROM feedback
+                      WHERE message_id = m.id
+                      ORDER BY created_at DESC
+                      LIMIT 1
+                    ) f ON true
+                    WHERE m.chat_id = %s
+                    ORDER BY m.created_at ASC
+                    """,
+                    (_uuid(chat_id),),
+                )
+                messages = [_message_row(row) for row in cur.fetchall()]
+        return {
+            "id": chat[0],
+            "title": chat[1],
+            "created_at": _iso(chat[2]),
+            "updated_at": _iso(chat[3]),
+            "messages": messages,
+        }
+
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:
         cur.execute("SELECT id FROM messages WHERE id = %s", (_uuid(message_id),))
         if cur.fetchone():
@@ -456,13 +564,18 @@ class PostgresStore:
         )
 
     def _ensure_chat(self, cur, chat_id: str, session_id: str) -> None:
-        cur.execute(
-            """
-            INSERT INTO chats (id, session_id) VALUES (%s, %s)
-            ON CONFLICT (id) DO NOTHING
-            """,
-            (_uuid(chat_id), _uuid(session_id)),
-        )
+        chat_uuid = _uuid(chat_id)
+        session_uuid = _uuid(session_id)
+        cur.execute("SELECT session_id FROM chats WHERE id = %s", (chat_uuid,))
+        row = cur.fetchone()
+        if row is None:
+            cur.execute(
+                "INSERT INTO chats (id, session_id) VALUES (%s, %s)",
+                (chat_uuid, session_uuid),
+            )
+            return
+        if row[0] != session_uuid:
+            raise ChatAccessDenied()
 
     def _open(self):
         if self._connect is not None:
@@ -474,6 +587,42 @@ class PostgresStore:
 
 def _uuid(value: str) -> uuid.UUID:
     return uuid.UUID(value)
+
+
+def _iso(value: Any) -> str:
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _sources(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _message_row(row: tuple) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "role": row[1],
+        "content": row[2],
+        "intent": row[3],
+        "language": row[4],
+        "tax_year": row[5],
+        "sources": _sources(row[6]),
+        "answer_source": row[7],
+        "confidence": row[8],
+        "verified": row[9],
+        "model": row[10],
+        "created_at": _iso(row[11]),
+        "feedback": row[12],
+        "feedback_reason": row[13],
+    }
 
 
 def _notification_row(row: tuple) -> dict[str, Any]:

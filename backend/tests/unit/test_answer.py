@@ -2,7 +2,12 @@ import json
 
 import pytest
 
-from app.agents.answer import generate_answer, verify_answer
+from app.agents.answer import (
+    finalize_supported_answer,
+    generate_answer,
+    sanitize_answer,
+    verify_answer,
+)
 from app.core.budget import CallBudget, CallBudgetExceeded
 from app.core.cache import CachingLLM, MemoryCache, answer_cache_key
 from app.core.ports import AllProvidersUnavailable, LLMResult
@@ -107,7 +112,58 @@ async def test_web_mode_adds_the_website_note_and_empty_context_skips_the_call()
         budget=budget,
     )
     assert "official website" in llm.messages[0].content
+    assert "Roman Urdu" in llm.messages[0].content
+    assert "Nastaliq" in llm.messages[0].content
     assert budget.used == 1
+
+
+def test_freelancer_answer_also_names_section_114():
+    draft = "Upwork par IT services ke export par Section 154A ki withholding lagti hai."
+    text = finalize_supported_answer(
+        draft,
+        blocks(),
+        question=(
+            "Main Upwork pe freelancer hoon, foreign clients ko IT services deta hoon. "
+            "Kitna tax banta hai aur kaun si section?"
+        ),
+        search_query="section 154A export of IT services",
+        language="roman_urdu",
+    )
+
+    assert "154A" in text
+    assert "114" in text
+
+
+def test_online_clothes_names_181_and_drops_plot_sections():
+    draft = (
+        "diye gaye documents mein online clothes bechne walon ke liye EasyPaisa par NTN ki "
+        "zaroorat ke mutaliq koi khaas maloomat ya sections mojood nahi hain. "
+        "Seller par Section 236C aur buyer par Section 236K lagta hai. Munafa Section 37(1A) hai."
+    )
+    text = finalize_supported_answer(
+        draft,
+        [ContextBlock(parent_id="s181", text="Section 181 Taxpayer registration.")],
+        question="Main online clothes bechta hoon EasyPaisa pe. NTN chahiye?",
+        search_query="section 181 NTN registration",
+        language="roman_urdu",
+    )
+
+    assert "181" in text
+    assert "236C" not in text
+    assert "236K" not in text
+    assert "37(1A)" not in text
+    assert "maloomat" not in text.lower()
+
+
+def test_sanitize_drops_fake_clauses_and_nastaliq():
+    mixed = "Section 154A 332-(1A) ke mutabiq 1 percent hai."
+    assert "332-(1A)" not in sanitize_answer(mixed, "roman_urdu")
+    nastaliq = "فری لانسر پر سیکشن 154A لاگو ہوتا ہے۔"
+    assert not any("\u0600" <= ch <= "\u06FF" for ch in sanitize_answer(nastaliq, "roman_urdu"))
+
+
+def plain_blocks() -> list[ContextBlock]:
+    return [ContextBlock(parent_id="web", text="A fee schedule on a website page.")]
 
 
 async def test_more_than_half_unsupported_is_replaced():
@@ -124,7 +180,7 @@ async def test_more_than_half_unsupported_is_replaced():
     checked = await verify_answer(
         ScriptedLLM(json.dumps(labels)),
         draft=draft,
-        blocks=blocks(),
+        blocks=plain_blocks(),
         mode="verified",
         budget=budget,
     )
@@ -133,6 +189,28 @@ async def test_more_than_half_unsupported_is_replaced():
     assert checked.verified is False
     assert checked.answer == ABSTAIN_SENTENCE
     assert budget.used == 1
+
+
+async def test_statutory_blocks_keep_the_draft_instead_of_abstaining():
+    draft = "Salary is taxed under section 149 [1]. The rate is 90 percent. File on Mars."
+    labels = {
+        "sentences": [
+            {"sentence": "Salary is taxed under section 149 [1].", "supported": True},
+            {"sentence": "The rate is 90 percent.", "supported": False},
+            {"sentence": "File on Mars.", "supported": False},
+        ]
+    }
+
+    checked = await verify_answer(
+        ScriptedLLM(json.dumps(labels)),
+        draft=draft,
+        blocks=blocks(),
+        mode="verified",
+    )
+
+    assert checked.replaced is False
+    assert checked.answer == draft
+    assert ABSTAIN_SENTENCE not in checked.answer
 
 
 async def test_one_unsupported_sentence_is_kept_and_web_is_never_verified():
@@ -204,6 +282,12 @@ async def test_llm_cache_skips_the_second_call():
     assert first.text == second.text == "cached body"
     assert inner.calls == ["fast"]
     assert caching.hits == 1
+
+
+def test_answer_cache_expires_after_the_ttl():
+    cache = MemoryCache(ttl_s=0)
+    cache.put("k", {"answer": "kept"})
+    assert cache.get("k") is None
 
 
 async def test_providers_down_is_not_caught_by_generate():

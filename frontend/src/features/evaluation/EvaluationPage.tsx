@@ -33,11 +33,11 @@ export default function EvaluationPage({ copy }: { copy: Copy }) {
 
   const served = report?.candidates.find((item) => item.name === report.served_model)
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("evalTitle")}</h2>
+    <section>
+      <h2 className="page-title">{copy("evalTitle")}</h2>
       {missing ? <p className="mt-3 text-sm text-muted">{copy("evalMissing")}</p> : null}
       {report ? (
-        <div className="mt-4 grid gap-4">
+        <div className="panel mt-4 grid gap-4 px-4 py-4">
           <p className="text-sm text-muted">{report.served_model}</p>
           {report.candidates.map((item) => (
             <article key={item.name} className="border border-rule bg-field px-4 py-4 text-sm">
@@ -56,7 +56,7 @@ export default function EvaluationPage({ copy }: { copy: Copy }) {
           </ul>
         </div>
       ) : null}
-      <h3 className="mt-8 font-statute text-2xl">{copy("evalAblationTitle")}</h3>
+      <h3 className="page-title mt-8">{copy("evalAblationTitle")}</h3>
       {ablationMissing ? <p className="mt-3 text-sm text-muted">{copy("evalAblationMissing")}</p> : null}
       {ablation ? <AblationTable copy={copy} report={ablation} /> : null}
     </section>

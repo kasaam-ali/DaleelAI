@@ -1,3 +1,5 @@
+import asyncio
+import time
 from types import SimpleNamespace
 
 import litellm
@@ -146,12 +148,53 @@ async def test_stream_yields_provider_deltas(monkeypatch):
     assert info["model"] == "groq/big"
 
 
-async def test_stream_drops_a_partial_model_and_uses_the_next(monkeypatch):
+async def test_complete_cuts_a_slow_model_at_the_shared_timeout(monkeypatch):
+    async def fake_acompletion(model, **kwargs):
+        await asyncio.sleep(2)
+        return ok_response(f"late from {model}")
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    config = ModelsConfig(
+        roles={"reasoning": ["groq/big", "gemini/flash"]},
+        retry=RetryConfig(attempts=1, cooldown_s=60, timeout_s=0.2),
+    )
+    started = time.monotonic()
+    with pytest.raises(AllProvidersUnavailable) as error:
+        await LiteLLMGateway(config, clock=FakeClock()).complete("reasoning", MESSAGES)
+    assert time.monotonic() - started < 1
+    assert error.value.role == "reasoning"
+    assert any("timeout" in item.lower() for item in error.value.errors)
+
+
+async def test_stream_cuts_a_slow_model_at_the_shared_timeout(monkeypatch):
+    async def fake_acompletion(model, **kwargs):
+        assert kwargs["stream_timeout"] <= 0.2
+        await asyncio.sleep(2)
+
+        async def chunks():
+            if False:
+                yield None
+
+        return chunks()
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    config = ModelsConfig(
+        roles={"reasoning": ["groq/big", "gemini/flash"]},
+        retry=RetryConfig(attempts=1, cooldown_s=60, timeout_s=0.2),
+    )
+    started = time.monotonic()
+    with pytest.raises(AllProvidersUnavailable) as error:
+        gateway = LiteLLMGateway(config, clock=FakeClock())
+        _ = [piece async for piece in gateway.stream("reasoning", MESSAGES)]
+    assert time.monotonic() - started < 1
+    assert error.value.role == "reasoning"
+    assert any("timeout" in item for item in error.value.errors)
+
+
+async def test_stream_falls_through_when_a_model_fails_before_text(monkeypatch):
     async def fake_acompletion(model, **kwargs):
         async def chunks():
             if model.startswith("groq/"):
-                piece = SimpleNamespace(delta=SimpleNamespace(content="Hel"))
-                yield SimpleNamespace(choices=[piece])
                 raise RuntimeError("dropped")
             piece = SimpleNamespace(delta=SimpleNamespace(content="lo"))
             yield SimpleNamespace(choices=[piece])
@@ -165,6 +208,26 @@ async def test_stream_drops_a_partial_model_and_uses_the_next(monkeypatch):
     assert parts == ["lo"]
     assert info["model"] == "gemini/flash"
     assert info["fallback"] is True
+
+
+async def test_stream_does_not_append_the_next_model_after_a_partial(monkeypatch):
+    async def fake_acompletion(model, **kwargs):
+        async def chunks():
+            piece = SimpleNamespace(delta=SimpleNamespace(content="Hel"))
+            yield SimpleNamespace(choices=[piece])
+            raise RuntimeError("dropped")
+
+        return chunks()
+
+    monkeypatch.setattr(llm_litellm.litellm, "acompletion", fake_acompletion)
+    info: dict = {}
+    parts: list[str] = []
+    with pytest.raises(RuntimeError, match="dropped"):
+        async for piece in make_gateway().stream("reasoning", MESSAGES, info=info):
+            parts.append(piece)
+
+    assert parts == ["Hel"]
+    assert info["model"] == "groq/big"
 
 
 def _key_name(entry: str) -> str:

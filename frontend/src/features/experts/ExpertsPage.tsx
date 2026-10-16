@@ -71,11 +71,11 @@ export default function ExpertsPage({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("expertsTitle")}</h2>
+    <section>
+      <h2 className="page-title">{copy("expertsTitle")}</h2>
       <p className="mt-2 max-w-[48ch] text-muted">{copy("expertsHelp")}</p>
       <form
-        className="mt-4 grid gap-3"
+        className="panel mt-4 grid gap-3 px-4 py-4"
         onSubmit={(event) => {
           event.preventDefault()
           void search(category)

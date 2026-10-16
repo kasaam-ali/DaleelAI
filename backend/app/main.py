@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,7 +18,22 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 def create_app(container: Container | None = None) -> FastAPI:
     container = container or build_container()
-    app = FastAPI(title="DaleelAI API", version=APP_VERSION)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        qa = container.qa
+        adapters = container.settings.adapters
+        if (
+            qa is not None
+            and hasattr(qa, "warm")
+            and adapters.llm != "fake"
+            and adapters.embedder == "fastembed"
+            and adapters.reranker == "fastembed"
+        ):
+            await asyncio.to_thread(qa.warm)
+        yield
+
+    app = FastAPI(title="DaleelAI API", version=APP_VERSION, lifespan=lifespan)
     app.state.container = container
     app.add_middleware(
         CORSMiddleware,

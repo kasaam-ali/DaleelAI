@@ -177,3 +177,48 @@ async function errorMessage(response: Response): Promise<string> {
   }
   return `Request failed (${response.status})`
 }
+
+export type ChatSummary = {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export type StoredMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  intent: string | null
+  language: string | null
+  tax_year: string | null
+  sources: Source[]
+  answer_source: "verified" | "web" | "none" | null
+  confidence: "high" | "medium" | "low" | null
+  verified: boolean | null
+  model: string | null
+  created_at: string
+  feedback: "up" | "down" | null
+  feedback_reason: FeedbackReason | null
+}
+
+export type ChatDetail = ChatSummary & {
+  messages: StoredMessage[]
+}
+
+export async function listChats(sessionId: string): Promise<ChatSummary[]> {
+  const response = await fetch(`${API_URL}/api/v1/chats`, {
+    headers: { "X-Session-Id": sessionId },
+  })
+  if (!response.ok) throw new Error(await errorMessage(response))
+  const body = (await response.json()) as { chats: ChatSummary[] }
+  return body.chats
+}
+
+export async function getChat(sessionId: string, chatId: string): Promise<ChatDetail> {
+  const response = await fetch(`${API_URL}/api/v1/chats/${chatId}`, {
+    headers: { "X-Session-Id": sessionId },
+  })
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return (await response.json()) as ChatDetail
+}

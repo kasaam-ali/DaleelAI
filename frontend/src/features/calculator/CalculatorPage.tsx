@@ -73,8 +73,8 @@ export default function CalculatorPage({
   }
 
   return (
-    <section className="mt-8" aria-labelledby="calculator-title">
-      <h2 id="calculator-title" className="text-base font-medium">
+    <section aria-labelledby="calculator-title">
+      <h2 id="calculator-title" className="page-title">
         {copy("calcTitle")}
       </h2>
       <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("calcHelp")}</p>
@@ -94,13 +94,16 @@ export default function CalculatorPage({
               setTool(id)
               setResult(null)
             }}
-            className={`min-h-11 px-3 text-sm ${tool === id ? "bg-ink text-paper" : "border border-rule"}`}
+            className={`min-h-11 rounded-full px-4 text-sm ${tool === id ? "bg-ink text-paper" : "border border-rule bg-field"}`}
           >
             {copy(label)}
           </button>
         ))}
       </div>
-      <form onSubmit={(event) => void onSubmit(event)} className="mt-4 grid gap-4">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+      <form onSubmit={(event) => void onSubmit(event)} className="panel grid gap-4 px-4 py-4">
+        <fieldset className="grid gap-4">
+          <legend className="text-sm font-medium">{copy("yourDetails")}</legend>
         <label className="text-sm">
           {copy("taxYear")}
           <select
@@ -168,20 +171,28 @@ export default function CalculatorPage({
             </select>
           </label>
         ) : null}
+        </fieldset>
         <button
           type="submit"
           disabled={busy}
-          className="min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
+          className="min-h-11 justify-self-start bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
         >
           {busy ? copy("calculating") : copy("calculate")}
         </button>
       </form>
+      <div>
       {error ? (
-        <p className="mt-4 text-sm text-low" role="alert">
+        <p className="text-sm text-low" role="alert">
           {error}
         </p>
       ) : null}
-      {result ? <Result result={result} copy={copy} onOpenChecklist={onOpenChecklist} /> : null}
+      {result ? (
+        <Result result={result} copy={copy} onOpenChecklist={onOpenChecklist} />
+      ) : (
+        <div className="panel px-4 py-8 text-sm text-muted">{copy("calcPending")}</div>
+      )}
+      </div>
+      </div>
     </section>
   )
 }
@@ -197,8 +208,9 @@ function Result({
 }) {
   const change = result.compared_to
   return (
-    <div className="mt-6 border border-rule bg-field px-4 py-4">
-      <p className="text-lg">{formatPkr(result.total_tax)}</p>
+    <div className="panel tabular px-5 py-5">
+      <p className="text-xs font-medium tracking-[0.14em] text-muted">{result.tax_year}</p>
+      <p className="mt-2 font-statute text-4xl leading-none tracking-tight">{formatPkr(result.total_tax)}</p>
       {change ? (
         <CompareBars
           leftLabel={result.tax_year}

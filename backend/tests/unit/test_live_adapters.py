@@ -1,6 +1,9 @@
+from fastapi.testclient import TestClient
+
 from app.adapters.postgres_sections import PostgresSections
 from app.adapters.qdrant_search import coerce_scores, hit_from_payload
 from app.container import build_container
+from app.main import create_app
 from app.settings import Adapters, Settings
 
 
@@ -12,6 +15,30 @@ def test_qdrant_runner_does_not_connect_until_a_question():
     assert container.qa is not None
     assert container.qa.search._client is None
     assert container.qa.rerank._model is None
+
+
+def test_warm_loads_search_and_rerank_together():
+    settings = Settings(adapters=Adapters(llm="fake", vector_store="qdrant"))
+    qa = build_container(settings).qa
+    called: list[str] = []
+    qa.search.warm = lambda: called.append("search")
+    qa.rerank.warm = lambda: called.append("rerank")
+
+    qa.warm()
+
+    assert set(called) == {"search", "rerank"}
+
+
+def test_fake_llm_app_does_not_warm_models():
+    settings = Settings(adapters=Adapters(llm="fake", vector_store="qdrant"))
+    container = build_container(settings)
+
+    def fail():
+        raise AssertionError("warmed")
+
+    container.qa.warm = fail
+    with TestClient(create_app(container)):
+        pass
 
 
 def test_memory_adapter_keeps_the_fake_qa_runner_empty():

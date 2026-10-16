@@ -30,18 +30,24 @@ export default function ProfilePanel({
   profile,
   copy,
   onChange,
+  compact = false,
 }: {
   profile: Profile
   copy: Copy
   onChange: (patch: Partial<Profile>) => void
+  compact?: boolean
 }) {
   return (
-    <section className="mt-8" aria-labelledby="filing-details">
-      <h2 id="filing-details" className="text-base font-medium">
-        {copy("profileTitle")}
-      </h2>
-      <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("profileHelp")}</p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+    <section className={compact ? "mt-2" : "mt-8"} aria-labelledby={compact ? undefined : "filing-details"}>
+      {compact ? null : (
+        <>
+          <h2 id="filing-details" className="text-base font-medium">
+            {copy("profileTitle")}
+          </h2>
+          <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("profileHelp")}</p>
+        </>
+      )}
+      <div className={compact ? "grid gap-3" : "mt-4 grid gap-4 sm:grid-cols-3"}>
         <Field
           id="taxpayer-type"
           label={copy("taxpayerType")}

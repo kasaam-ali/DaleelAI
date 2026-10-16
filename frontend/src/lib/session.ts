@@ -25,6 +25,7 @@ export const THEME_KEY = "daleelai.theme"
 export type StorageLike = {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
+  removeItem(key: string): void
 }
 
 const TAXPAYER = new Set<TaxpayerType>(["salaried", "freelancer", "business", "company"])
@@ -58,6 +59,13 @@ export function readSessionId(storage: StorageLike): string {
   if (existing) return existing
   const created = crypto.randomUUID()
   storage.setItem(SESSION_KEY, created)
+  return created
+}
+
+export function clearLocalHistory(storage: StorageLike): string {
+  const created = crypto.randomUUID()
+  storage.setItem(SESSION_KEY, created)
+  storage.removeItem(CHAT_KEY)
   return created
 }
 

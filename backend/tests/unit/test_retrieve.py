@@ -47,6 +47,16 @@ async def test_query_without_synonyms_is_searched_once():
     assert ranked[0][0].chunk_id == "s149"
 
 
+async def test_statutory_query_skips_synonym_expansion():
+    query = "immovable property sale seller advance tax Section 236C"
+    search = RecordingSearch({query: [hit("s236c")]})
+
+    ranked = await retrieve(search, query, collection="documents", tax_year="TY2027")
+
+    assert [call["query"] for call in search.calls] == [query]
+    assert ranked[0][0].chunk_id == "s236c"
+
+
 def test_rerank_keeps_six_and_ignores_hits_past_the_pool():
     hits = [hit(f"c{i}", text=f"text-{i}") for i in range(40)]
 
@@ -57,6 +67,20 @@ def test_rerank_keeps_six_and_ignores_hits_past_the_pool():
     ranked = rerank("salary", hits, score, pool=30, keep=6)
 
     assert [item[0].chunk_id for item in ranked] == ["c29", "c28", "c27", "c26", "c25", "c24"]
+
+
+def test_rerank_scores_the_opening_of_a_long_chunk():
+    long = "HEAD " + ("x" * 2000)
+    seen: list[str] = []
+
+    def score(_query: str, texts: list[str]) -> list[float]:
+        seen.extend(texts)
+        return [0.5]
+
+    rerank("salary", [hit("a", text=long)], score, pool=1, keep=1)
+
+    assert seen[0].startswith("HEAD ")
+    assert len(seen[0]) == 400
 
 
 def test_rerank_rejects_a_short_score_list():

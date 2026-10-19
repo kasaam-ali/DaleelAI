@@ -79,7 +79,7 @@ export default function AnswerSlip({
       {kind && final ? (
         <RefusalCard
           kind={kind}
-          reason={final.answer}
+          reason={localizedError(final.answer, language)}
           authority={final.action_links.find((link) => link.authority)?.authority ?? null}
           query={final.trace?.search_query ?? null}
           retrieved={final.trace?.retrieved ?? null}

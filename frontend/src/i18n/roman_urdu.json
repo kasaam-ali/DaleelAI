@@ -321,10 +321,10 @@
   "newChatTitle": "Pakistan ke federal tax law ke bare mein poochain.",
   "newChatPlaceholder": "English ya Roman Urdu mein tax ka sawal likhein...",
   "answersUse": "Jawab in par based hain",
-  "editFiling": "Edit",
+  "editFiling": "Badlein",
   "suggestFreelance": "Freelance aur IT export",
   "suggestProperty": "Property · capital gain",
-  "suggestFiler": "Filer status",
+  "suggestFiler": "Filer ki haisiyat",
   "suggestLate": "Deadlines aur penalties",
   "trustCited": "Section ka hawala deta hai",
   "trustRoman": "Roman Urdu samajhta hai",
@@ -332,7 +332,7 @@
   "searchChats": "Chats dhoondein",
   "searchPlaceholder": "Chats dhoondein",
   "searchEmpty": "Koi chat nahi mili.",
-  "searchLabel": "Chats",
+  "searchLabel": "Chat ki fehrist",
   "historyToday": "Aaj",
   "historyYesterday": "Kal",
   "historyPrevious7": "Pichle 7 din",
@@ -345,7 +345,7 @@
   "deleteChatTitle": "Yeh chat mita dein?",
   "deleteChatBody": "aur us ke jawab is device se mit jayenge. Yeh wapas nahi hoga.",
   "deleteChatConfirm": "Chat mitaein",
-  "deleteChatCancel": "Cancel",
+  "deleteChatCancel": "Rehne dein",
   "linkCopied": "Link copy ho gaya.",
   "linkCopyFailed": "Link copy nahi ho saka.",
   "renameFailed": "Chat ka naam nahi badla.",
@@ -354,5 +354,5 @@
   "searchMove": "move karne ke liye",
   "searchOpenKey": "kholne ke liye",
   "searchCloseKey": "band karne ke liye",
-  "taxYearLabel": "Tax year"
+  "taxYearLabel": "Tax saal"
 }

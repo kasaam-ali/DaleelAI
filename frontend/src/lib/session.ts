@@ -81,6 +81,16 @@ export function clearLocalHistory(storage: StorageLike): string {
   return created
 }
 
+/** Deletes the session on the server, then rotates the local id. A failed delete keeps the id. */
+export async function clearStoredHistory(
+  storage: StorageLike,
+  sessionId: string,
+  remove: (sessionId: string) => Promise<void>,
+): Promise<string> {
+  await remove(sessionId)
+  return clearLocalHistory(storage)
+}
+
 export function readCorpusDates(storage: StorageLike): Record<string, string> {
   const raw = storage.getItem(CORPUS_DATES_KEY)
   if (!raw) return {}

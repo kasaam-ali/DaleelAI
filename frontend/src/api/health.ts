@@ -10,7 +10,7 @@ export type DependencyCheck = {
 }
 
 export type Health = {
-  status: "ok"
+  status: "ok" | "degraded"
   version: string
   env: string
   corpus_version: string
@@ -28,9 +28,12 @@ export type Health = {
 
 export type ServiceState = "checking" | "online" | "degraded" | "offline"
 
-export function serviceState(online: boolean, health: { error: boolean; ok: boolean }): ServiceState {
+export function serviceState(
+  online: boolean,
+  health: { error: boolean; ok: boolean; status?: string | null },
+): ServiceState {
   if (!online) return "offline"
-  if (health.error) return "degraded"
+  if (health.error || (health.ok && health.status === "degraded")) return "degraded"
   if (health.ok) return "online"
   return "checking"
 }

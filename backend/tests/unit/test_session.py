@@ -90,6 +90,45 @@ def test_delete_session_is_503_without_storage():
     }
 
 
+def test_ensure_locks_the_schema_and_runs_once():
+    class Cursor:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def execute(self, sql, params=None):
+            self.calls.append(sql)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class Conn:
+        def __init__(self) -> None:
+            self.cursor_obj = Cursor()
+
+        def cursor(self):
+            return self.cursor_obj
+
+        def commit(self):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    conn = Conn()
+    store = PostgresStore("postgresql://example", connect=lambda: conn)
+    store.ensure()
+    store.ensure()
+    locks = [sql for sql in conn.cursor_obj.calls if "pg_advisory_lock" in sql]
+    assert locks == ["SELECT pg_advisory_lock(%s)"]
+    assert any("CREATE TABLE IF NOT EXISTS sessions" in sql for sql in conn.cursor_obj.calls)
+
+
 def test_postgres_delete_session_is_one_transaction_scoped_to_the_session():
     class Cursor:
         def __init__(self) -> None:

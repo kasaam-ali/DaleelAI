@@ -1,5 +1,6 @@
 """Updates feed, notification ingest, and web crawl ingest."""
 
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Header, Query, Request
@@ -87,6 +88,11 @@ def updates_replay(
     return _replay(request)
 
 
+@router.get("/updates/replay", response_model=None)
+def updates_replay_get() -> JSONResponse:
+    return _error(405, "method_not_allowed", "Replay accepts POST.")
+
+
 def _replay(request: Request) -> NotificationIngestResponse | JSONResponse:
     indexer, _web = _pair(request)
     try:
@@ -102,7 +108,13 @@ def _replay(request: Request) -> NotificationIngestResponse | JSONResponse:
 
 @router.get("/updates/{item_id}", response_model=None)
 def updates_one(item_id: str, request: Request) -> JSONResponse:
-    row = _store(request).get_notification(item_id)
+    if item_id == "replay":
+        return _error(405, "method_not_allowed", "Replay accepts POST.")
+    try:
+        parsed = str(uuid.UUID(item_id))
+    except (ValueError, TypeError):
+        return _error(422, "invalid_request", "Update id must be a UUID.")
+    row = _store(request).get_notification(parsed)
     if row is None:
         return _error(404, "not_found", "That update was not found.")
     return JSONResponse(_public(row))

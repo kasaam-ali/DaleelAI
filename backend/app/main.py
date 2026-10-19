@@ -1,6 +1,7 @@
 """Builds the FastAPI app: CORS, /health, the /api/v1 routes, and model warmup."""
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from app.container import Container, build_container
 from app.version import APP_VERSION
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+log = logging.getLogger(__name__)
 
 
 def create_app(container: Container | None = None) -> FastAPI:
@@ -23,8 +25,18 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        store = container.feedback
+        if store is not None and hasattr(store, "ensure"):
+            try:
+                await asyncio.to_thread(store.ensure)
+            except Exception:
+                log.warning("schema setup failed", exc_info=True)
         qa = container.qa
         adapters = container.settings.adapters
+        if adapters.vector_store == "qdrant":
+            from app.core.updates.indexer import warm_indexer
+
+            await asyncio.to_thread(warm_indexer)
         if (
             qa is not None
             and hasattr(qa, "warm")

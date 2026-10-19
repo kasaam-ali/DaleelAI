@@ -5,6 +5,7 @@ import time
 from fastapi.testclient import TestClient
 
 from app.api import health as health_module
+from app.api.health import overall_status
 from app.api.health_checks import CHECK_NAMES, check_embeddings, check_llm, collect_checks
 from app.container import build_container
 from app.main import create_app
@@ -74,6 +75,13 @@ def test_embeddings_follow_the_local_cache(monkeypatch, tmp_path):
     assert check_embeddings(Settings(adapters=Adapters(embedder="fake"))) == "ok"
 
 
+def test_postgres_down_marks_the_service_degraded():
+    down = {"status": "down", "latency_ms": 1}
+    ok = {"status": "ok", "latency_ms": 1}
+    assert overall_status({"postgres": down, "qdrant": ok}) == "degraded"
+    assert overall_status({"postgres": ok, "qdrant": down, "llm": down}) == "ok"
+
+
 def test_health_reports_checks_without_waiting_on_them():
     health_module._cached.clear()
     settings = Settings(
@@ -86,7 +94,7 @@ def test_health_reports_checks_without_waiting_on_them():
     assert time.perf_counter() - started < 1.0
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ok"
+    assert body["status"] == "degraded"
     assert body["corpus_date"] == CORPUS_DATE
     assert set(body["checks"]) == {"api", "qdrant", "postgres", "llm", "embeddings"}
     assert body["checks"]["api"]["status"] == "ok"

@@ -27,14 +27,17 @@ export default function UpdatesPage({ copy, language }: { copy: Copy; language: 
     }
   }
 
+  const internalToken = import.meta.env.VITE_INTERNAL_TOKEN ?? ""
+
   async function replay() {
     setBusy(true)
     setError(null)
     try {
-      await replayUpdates()
+      await replayUpdates(internalToken)
       setResult(await listUpdates(domain))
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : copy("updatesFailed"))
+      const message = caught instanceof Error ? caught.message : copy("updatesFailed")
+      setError(message === "The internal token does not match." ? copy("updatesToken") : message)
     } finally {
       setBusy(false)
     }
@@ -65,9 +68,11 @@ export default function UpdatesPage({ copy, language }: { copy: Copy; language: 
         <button type="button" disabled={busy} className="min-h-11 border border-rule px-3 text-sm" onClick={() => void load()}>
           {copy("updatesRefresh")}
         </button>
-        <button type="button" disabled={busy} className="min-h-11 bg-seal px-4 text-paper" onClick={() => void replay()}>
-          {copy("updatesReplay")}
-        </button>
+        {internalToken ? (
+          <button type="button" disabled={busy} className="min-h-11 bg-seal px-4 text-paper" onClick={() => void replay()}>
+            {copy("updatesReplay")}
+          </button>
+        ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
       {result ? (

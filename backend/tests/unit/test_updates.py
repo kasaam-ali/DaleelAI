@@ -161,6 +161,18 @@ def test_replay_feed_domain_filter_and_chat_card():
     )
     assert blocked.status_code == 400
     assert blocked.json()["error"]["code"] == "off_list"
+    replay_get = client.get("/api/v1/updates/replay")
+    assert replay_get.status_code == 405
+    assert replay_get.json()["error"]["code"] == "method_not_allowed"
+    bad_id = client.get("/api/v1/updates/not-a-uuid")
+    assert bad_id.status_code == 422
+    assert bad_id.json()["error"] == {
+        "code": "invalid_request",
+        "message": "Update id must be a UUID.",
+    }
+    missing = client.get("/api/v1/updates/11111111-1111-1111-1111-111111111111")
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "not_found"
 
     class Scripted:
         async def complete(self, role, messages, **kwargs):

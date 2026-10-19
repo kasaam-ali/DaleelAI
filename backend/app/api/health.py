@@ -28,7 +28,7 @@ class DependencyChecks(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "degraded"]
     version: str
     env: str
     corpus_version: str
@@ -52,6 +52,14 @@ def _cache_key(settings) -> str:
     )
 
 
+def overall_status(checks: dict) -> Literal["ok", "degraded"]:
+    """Postgres stores the chats. If it is down, the service is degraded."""
+    postgres = checks.get("postgres") or {}
+    if postgres.get("status") == "down":
+        return "degraded"
+    return "ok"
+
+
 async def checks_for(container) -> dict:
     settings = container.settings
     key = _cache_key(settings)
@@ -70,7 +78,7 @@ async def health(request: Request) -> HealthResponse:
     settings = container.settings
     checks = await checks_for(container)
     return HealthResponse(
-        status="ok",
+        status=overall_status(checks),
         version=APP_VERSION,
         env=settings.env,
         corpus_version=container.corpus_version,

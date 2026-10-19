@@ -1,6 +1,7 @@
 """Postgres writes for chat turns, feedback, and schema setup. Reads stay in other adapters."""
 
 import json
+import threading
 import uuid
 from typing import Any
 
@@ -12,21 +13,34 @@ class ChatAccessDenied(Exception):
     """The chat id belongs to a different session."""
 
 
+# One lock so two workers cannot CREATE the same table at the same time.
+_SCHEMA_LOCK = 726_001_307
+
+
 class PostgresStore:
     def __init__(self, database_url: str, connect=None) -> None:
         self.database_url = database_url
         self._connect = connect
         self._ready = False
+        self._lock = threading.Lock()
 
     def ensure(self) -> None:
         if self._ready:
             return
-        with self._open() as conn:
-            with conn.cursor() as cur:
-                for statement in SCHEMA:
-                    cur.execute(statement)
-            conn.commit()
-        self._ready = True
+        with self._lock:
+            if self._ready:
+                return
+            with self._open() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT pg_advisory_lock(%s)", (_SCHEMA_LOCK,))
+                    try:
+                        for statement in SCHEMA:
+                            cur.execute(statement)
+                        conn.commit()
+                    finally:
+                        cur.execute("SELECT pg_advisory_unlock(%s)", (_SCHEMA_LOCK,))
+                        conn.commit()
+            self._ready = True
 
     def save_turn(
         self,

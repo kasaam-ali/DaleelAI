@@ -1,6 +1,6 @@
 /** Amount validation and network-error copy for the calculator. */
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { mapCalcError, wholeRupees } from "./validate"
 
 describe("wholeRupees", () => {
@@ -24,9 +24,13 @@ describe("wholeRupees", () => {
 
 describe("mapCalcError", () => {
   it("turns a failed fetch into a plain message and a retry", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const mapped = mapCalcError(new TypeError("Failed to fetch"), "Could not reach the tax service.", "Could not calculate.")
     expect(mapped.retry).toBe(true)
-    expect(mapped.message).toBe("Could not reach the tax service. (Failed to fetch)")
+    expect(mapped.message).toBe("Could not reach the tax service.")
+    expect(mapped.message).not.toContain("Failed to fetch")
+    expect(spy).toHaveBeenCalledWith("Calculator request failed: Failed to fetch")
+    spy.mockRestore()
   })
 
   it("keeps a service message without offering retry", () => {

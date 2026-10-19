@@ -20,6 +20,7 @@ export function mapCalcError(
     name === "TimeoutError" ||
     /failed to fetch|networkerror|load failed|timed out|timeout/i.test(`${name} ${reason}`)
   if (!network) return { message: reason || fallback, retry: false }
-  const why = reason || name
-  return { message: why ? `${unreachable} (${why})` : unreachable, retry: true }
+  const why = reason || name || "network error"
+  console.error(`Calculator request failed: ${why}`)
+  return { message: unreachable, retry: true }
 }

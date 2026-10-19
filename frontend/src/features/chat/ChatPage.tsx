@@ -26,7 +26,7 @@ import {
   type UiLanguage,
 } from "../../lib/session"
 import AnswerHeader from "./AnswerHeader"
-import AnswerSlip from "./AnswerSlip"
+import AnswerSlip, { SourcesRail } from "./AnswerSlip"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
 import EmptyState from "./EmptyState"
@@ -468,14 +468,19 @@ export default function ChatPage({
             turns.map((turn) => {
               const streaming = Boolean(turn.draft) || turn.sources.length > 0
               return (
-              <div key={turn.id} className="rise-in mt-6">
-                <div className="flex justify-end">
-                  <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
-                    {turn.question}
-                  </p>
+              <div
+                key={turn.id}
+                className="rise-in mt-6 w-full xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-10"
+              >
+                <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                  <div className="flex justify-end">
+                    <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
+                      {turn.question}
+                    </p>
+                  </div>
+                  {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
                 </div>
-                {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
-                <div className="mt-4 flex gap-3">
+                <div className="mt-4 flex min-w-0 gap-3 xl:col-start-1 xl:row-start-2">
                   <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center bg-seal text-seal-ink" aria-hidden="true">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
                       <path d="M6 5.5h7.2L17 9.2V18.5H6v-13z" strokeLinejoin="round" />
@@ -519,7 +524,6 @@ export default function ChatPage({
                     {!turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn)) ? (
                       <AnswerSlip
                         turn={turn}
-                        language={language}
                         copy={copy}
                         onAsk={(question) => void ask(question)}
                         onFeedback={(rating, reason) => {
@@ -529,6 +533,12 @@ export default function ChatPage({
                     ) : null}
                   </div>
                 </div>
+                <SourcesRail
+                  turn={turn}
+                  language={language}
+                  copy={copy}
+                  className="xl:col-start-2 xl:row-start-2 xl:mt-4"
+                />
               </div>
               )
             })

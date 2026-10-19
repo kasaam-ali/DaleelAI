@@ -20,7 +20,15 @@ function Mark({ status }: { status: StepStatus }) {
   return <span aria-hidden="true" className="mt-1 inline-block h-3 w-3 rounded-full border border-rule" />
 }
 
-export default function StatusSteps({ phases, copy }: { phases: StepStatus[]; copy: Copy }) {
+export default function StatusSteps({
+  phases,
+  copy,
+  skeleton = true,
+}: {
+  phases: StepStatus[]
+  copy: Copy
+  skeleton?: boolean
+}) {
   return (
     <div data-motion-slot="status-steps">
       <p className="text-sm font-medium text-ink">{copy("checkingLibrary")}</p>
@@ -40,16 +48,20 @@ export default function StatusSteps({ phases, copy }: { phases: StepStatus[]; co
           )
         })}
       </ol>
-      <div className="mt-4 grid grid-cols-4 gap-2" aria-hidden="true">
-        {LABELS.map((label) => (
-          <div key={label} className="waiting h-16" />
-        ))}
-      </div>
-      <div className="mt-3 grid gap-2" aria-hidden="true">
-        <div className="waiting h-4 w-4/5" />
-        <div className="waiting h-4 w-full" />
-        <div className="waiting h-4 w-2/3" />
-      </div>
+      {skeleton ? (
+        <>
+          <div className="mt-4 grid grid-cols-4 gap-2" aria-hidden="true">
+            {LABELS.map((label) => (
+              <div key={label} className="waiting h-16" />
+            ))}
+          </div>
+          <div className="mt-3 grid gap-2" aria-hidden="true">
+            <div className="waiting h-4 w-4/5" />
+            <div className="waiting h-4 w-full" />
+            <div className="waiting h-4 w-2/3" />
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }

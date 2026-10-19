@@ -16,8 +16,10 @@ import { redactPii } from "../../lib/pii"
 import {
   asReplyLanguage,
   readAnswerLanguage,
+  readOfflineQueue,
   readSessionId,
   writeAnswerLanguage,
+  writeOfflineQueue,
   type AnswerLanguage,
   type Profile,
   type ReplyLanguage,
@@ -69,16 +71,22 @@ export default function ChatPage({
 }) {
   const [draft, setDraft] = useState("")
   const [formError, setFormError] = useState<string | null>(null)
-  const [bucket, setBucket] = useState<{ id: string | null; turns: Turn[] }>({ id: chatId, turns: [] })
+  const [queuedItems] = useState(() => readOfflineQueue(localStorage))
+  const queueRef = useRef(queuedItems)
+  const [bucket, setBucket] = useState<{ id: string | null; turns: Turn[] }>(() => ({
+    id: chatId,
+    turns: queuedItems.map((item) => blankTurn(item.id, item.text, false, true)),
+  }))
   const [busy, setBusy] = useState(false)
   const [away, setAway] = useState(false)
   const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguage>("auto")
-  const [queuedCount, setQueuedCount] = useState(0)
+  const [queuedCount, setQueuedCount] = useState(queuedItems.length)
   const online = useOnline()
   const answerLanguageRef = useRef<AnswerLanguage>("auto")
   const runRef = useRef(0)
-  const queueRef = useRef<{ id: string; text: string }[]>([])
   const retryRef = useRef<{ timer: number | null; attempt: number }>({ timer: null, attempt: 0 })
+  const stopRequested = useRef(false)
+  const liveTurn = useRef<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const abortRef = useRef<AbortController | null>(null)
@@ -87,6 +95,12 @@ export default function ChatPage({
   chatIdRef.current = chatId
   const busyRef = useRef(busy)
   busyRef.current = busy
+
+  function rememberQueue() {
+    writeOfflineQueue(localStorage, queueRef.current)
+    setQueuedCount(queueRef.current.length)
+  }
+
   const turns =
     bucket.id === chatId || (born.current !== null && bucket.id === born.current) ? bucket.turns : []
 
@@ -120,11 +134,11 @@ export default function ChatPage({
       .then((detail) => {
         if (cancelled || born.current === chatId) return
         const loaded = turnsFromHistory(detail.messages)
-        setBucket((current) => keepLiveTurns(current, chatId, loaded))
+        setBucket((current) => keepLiveTurns(current, chatId, loaded, queueRef.current))
       })
       .catch(() => {
         if (cancelled || born.current === chatId) return
-        setBucket((current) => keepLiveTurns(current, chatId, []))
+        setBucket((current) => keepLiveTurns(current, chatId, [], queueRef.current))
       })
     return () => {
       cancelled = true
@@ -196,7 +210,7 @@ export default function ChatPage({
         setTurns((prev) => [...prev, blankTurn(id, message, message !== raw, true)])
       }
       if (!queueRef.current.some((item) => item.id === id)) queueRef.current.push({ id, text: message })
-      setQueuedCount(queueRef.current.length)
+      rememberQueue()
       return
     }
     if (!replacing) setDraft("")
@@ -209,6 +223,7 @@ export default function ChatPage({
         sources: [],
         phases: [...PENDING_PHASES],
         queued: false,
+        stopped: false,
         autoRetryIn: null,
         final: null,
         error: null,
@@ -220,6 +235,8 @@ export default function ChatPage({
     }
     const run = ++runRef.current
     const live = () => runRef.current === run
+    stopRequested.current = false
+    liveTurn.current = id
     abortRef.current?.abort()
     setBusy(true)
     const controller = new AbortController()
@@ -247,20 +264,34 @@ export default function ChatPage({
         patch(id, (current) => ({ ...current, status: "", error: { ...error, message: messageText } }))
         if (canAutoRetry(error)) scheduleRetry(id, message)
       } else {
-        patch(id, (current) => ({ ...current, status: "" }))
+        patch(id, (current) => ({
+          ...current,
+          status: "",
+          stopped: stopRequested.current || current.stopped,
+        }))
       }
     } finally {
       if (live()) setBusy(false)
     }
   }
 
+  function shownAnswerLanguage(turn: Turn, last: boolean): ReplyLanguage | null {
+    if (turn.replyLanguage) return turn.replyLanguage
+    if (last && answerLanguage !== "auto") return answerLanguage
+    return turn.detectedLanguage
+  }
+
   function chooseAnswerLanguage(next: ReplyLanguage, turn: Turn) {
-    const active = answerLanguageRef.current === "auto" ? turn.detectedLanguage : answerLanguageRef.current
+    const last = turns[turns.length - 1]?.id === turn.id
+    const active =
+      turn.replyLanguage ??
+      (last && answerLanguageRef.current !== "auto" ? answerLanguageRef.current : turn.detectedLanguage)
     if (next === active) return
     answerLanguageRef.current = next
     setAnswerLanguage(next)
     const openChat = chatIdRef.current
     if (openChat) writeAnswerLanguage(localStorage, openChat, next)
+    patch(turn.id, (current) => ({ ...current, replyLanguage: next }))
     void ask(turn.question, { language: next, replaceId: turn.id })
   }
 
@@ -283,16 +314,16 @@ export default function ChatPage({
     if (!online) return
     const pending = queueRef.current.splice(0)
     if (pending.length === 0) return
-    setQueuedCount(0)
-    let stopped = false
+    rememberQueue()
+    let cancelFlush = false
     void (async () => {
       for (const item of pending) {
-        if (stopped) return
+        if (cancelFlush) return
         await askRef.current(item.text, { replaceId: item.id, flush: true })
       }
     })()
     return () => {
-      stopped = true
+      cancelFlush = true
     }
   }, [online])
 
@@ -382,7 +413,10 @@ export default function ChatPage({
   }
 
   function stop() {
+    stopRequested.current = true
+    const id = liveTurn.current
     abortRef.current?.abort()
+    if (id) patch(id, (current) => ({ ...current, status: "", stopped: true }))
     setBusy(false)
   }
 
@@ -415,7 +449,9 @@ export default function ChatPage({
           {turns.length === 0 ? (
             <EmptyState copy={copy} />
           ) : (
-            turns.map((turn) => (
+            turns.map((turn) => {
+              const streaming = Boolean(turn.draft) || turn.sources.length > 0
+              return (
               <div key={turn.id} className="rise-in mt-6">
                 <div className="flex justify-end">
                   <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
@@ -431,16 +467,29 @@ export default function ChatPage({
                     </svg>
                   </span>
                   <div className="min-w-0 flex-1">
-                    {turn.id === turns[turns.length - 1]?.id ? (
-                      <AnswerHeader
-                        detected={turn.detectedLanguage}
-                        selected={answerLanguage === "auto" ? turn.detectedLanguage : answerLanguage}
-                        copy={copy}
-                        onSelect={(next) => chooseAnswerLanguage(next, turn)}
-                      />
-                    ) : null}
+                    <AnswerHeader
+                      detected={turn.detectedLanguage}
+                      selected={shownAnswerLanguage(turn, turn.id === turns[turns.length - 1]?.id)}
+                      copy={copy}
+                      onSelect={(next) => chooseAnswerLanguage(next, turn)}
+                    />
                     {turn.queued ? <p className="text-sm text-muted">{copy("queued")}</p> : null}
-                    {showSteps(turn) ? <StatusSteps phases={turn.phases} copy={copy} /> : null}
+                    {showSteps(turn) ? (
+                      <StatusSteps phases={turn.phases} copy={copy} skeleton={!streaming} />
+                    ) : null}
+                    {turn.stopped && !turn.final && !turn.error ? (
+                      <div data-motion-slot="stopped" role="status" className="border border-rule bg-field px-4 py-4">
+                        <h3 className="font-statute text-lg font-medium">{copy("stoppedTitle")}</h3>
+                        <p className="mt-2 text-sm text-muted">{copy("stoppedDetail")}</p>
+                        <button
+                          type="button"
+                          onClick={() => retryNow(turn)}
+                          className="mt-4 min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink"
+                        >
+                          {copy("retry")}
+                        </button>
+                      </div>
+                    ) : null}
                     {turn.error ? (
                       <ErrorCard
                         error={turn.error}
@@ -451,7 +500,7 @@ export default function ChatPage({
                         onCancel={() => cancelAutoRetry(turn.id)}
                       />
                     ) : null}
-                    {!turn.queued && !turn.error && !showSteps(turn) ? (
+                    {!turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn)) ? (
                       <AnswerSlip
                         turn={turn}
                         language={language}
@@ -465,7 +514,8 @@ export default function ChatPage({
                   </div>
                 </div>
               </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>
@@ -499,7 +549,9 @@ export default function ChatPage({
 }
 
 function showSteps(turn: Turn): boolean {
-  return !turn.queued && !turn.error && !turn.final && !turn.draft && turn.sources.length === 0 && !turn.toolCard
+  if (turn.queued || turn.error || turn.stopped || turn.final || turn.toolCard) return false
+  if (turn.draft || turn.sources.length > 0) return turn.phases[3] !== "done"
+  return true
 }
 
 function blankTurn(id: string, question: string, redacted: boolean, queued: boolean): Turn {
@@ -514,6 +566,8 @@ function blankTurn(id: string, question: string, redacted: boolean, queued: bool
     detectedLanguage: null,
     phases: [...PENDING_PHASES],
     queued,
+    stopped: false,
+    replyLanguage: null,
     autoRetryIn: null,
     final: null,
     error: null,
@@ -530,13 +584,26 @@ function keepLiveTurns(
   current: { id: string | null; turns: Turn[] },
   chatId: string,
   loaded: Turn[],
+  queued: { id: string; text: string }[],
 ): { id: string | null; turns: Turn[] } {
   const live = current.id === chatId || current.id === null
   const currentHasAnswer = current.turns.some((turn) => turn.draft || turn.final || turn.status || turn.error)
   const loadedHasAnswer = loaded.some((turn) => turn.draft || turn.final)
-  if (live && currentHasAnswer && !loadedHasAnswer) return { id: chatId, turns: current.turns }
-  if (live && current.turns.length > 0 && loaded.length === 0) return { id: chatId, turns: current.turns }
-  return { id: chatId, turns: loaded }
+  const base =
+    live && currentHasAnswer && !loadedHasAnswer
+      ? current.turns
+      : live && current.turns.length > 0 && loaded.length === 0
+        ? current.turns
+        : loaded
+  return { id: chatId, turns: mergeQueued(base, queued) }
+}
+
+function mergeQueued(turns: Turn[], queued: { id: string; text: string }[]): Turn[] {
+  const ids = new Set(turns.map((turn) => turn.id))
+  const extra = queued
+    .filter((item) => !ids.has(item.id))
+    .map((item) => blankTurn(item.id, item.text, false, true))
+  return extra.length === 0 ? turns : [...turns, ...extra]
 }
 
 function turnsFromHistory(messages: StoredMessage[]): Turn[] {
@@ -594,6 +661,8 @@ function historyTurn(question: StoredMessage, answer: StoredMessage | null): Tur
     detectedLanguage: asReplyLanguage(answer?.language ?? question.language),
     phases: [...PENDING_PHASES],
     queued: false,
+    stopped: false,
+    replyLanguage: null,
     autoRetryIn: null,
     final,
     error: null,

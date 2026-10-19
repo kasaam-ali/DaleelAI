@@ -37,7 +37,7 @@ export default function AnswerSlip({
   const library = final && cited ? final.answer_source : "none"
   const verified = Boolean(final?.verified) && cited
   const confidence = final && cited ? final.confidence : "low"
-  const kind = final ? refusalKind(turn.intent, final.answer_source) : null
+  const kind = final ? refusalKind(turn.intent, final.answer_source, final.model) : null
   const text = final ? annotatePkr(final.answer) : turn.draft
   const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
 

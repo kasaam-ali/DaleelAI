@@ -15,6 +15,8 @@ export type Turn = {
   detectedLanguage: "en" | "roman_urdu" | null
   phases: StepStatus[]
   queued: boolean
+  stopped: boolean
+  replyLanguage: "en" | "roman_urdu" | null
   autoRetryIn: number | null
   final: FinalData | null
   error: TurnError | null

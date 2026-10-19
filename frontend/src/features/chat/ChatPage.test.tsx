@@ -12,6 +12,8 @@ const script = vi.hoisted(() => ({
   intent: "qa",
   answerSource: "verified" as "verified" | "web" | "none",
   sources: [] as Source[],
+  model: "test",
+  hang: false,
   fail: null as null | { status: number; code: string; message: string },
 }))
 
@@ -25,7 +27,8 @@ const history: {
 } = { release: null, fail: null }
 
 vi.mock("../../api/chat", () => ({
-  streamChat: vi.fn(async (body: { message?: string }, _session: string, onEvent: (event: SseEvent) => void) => {
+  streamChat: vi.fn(
+    async (body: { message?: string }, _session: string, onEvent: (event: SseEvent) => void, signal?: AbortSignal) => {
     if (script.fail) {
       const failure = Object.assign(new Error(script.fail.message), {
         status: script.fail.status,
@@ -45,6 +48,18 @@ vi.mock("../../api/chat", () => ({
         tax_year: "TY2027",
       },
     })
+    if (script.hang) {
+      await new Promise<void>((_resolve, reject) => {
+        if (signal?.aborted) {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }))
+          return
+        }
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }))
+        })
+      })
+      return
+    }
     if (script.sources.length > 0) onEvent({ event: "sources", data: { sources: script.sources } })
     await new Promise<void>((resolve) => {
       events.release = resolve
@@ -57,7 +72,7 @@ vi.mock("../../api/chat", () => ({
         answer_source: script.answerSource,
         confidence: "medium",
         verified: false,
-        model: "test",
+        model: script.model,
         tax_year: "TY2027",
         corpus_date: "2026-01-01",
         action_links: [],
@@ -74,7 +89,8 @@ vi.mock("../../api/chat", () => ({
       },
     })
     onEvent({ event: "done", data: {} })
-  }),
+  },
+  ),
   getChat: vi.fn(
     () =>
       new Promise((resolve, reject) => {
@@ -126,7 +142,10 @@ describe("ChatPage live answer", () => {
     script.intent = "qa"
     script.answerSource = "verified"
     script.sources = []
+    script.model = "test"
+    script.hang = false
     script.fail = null
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
     window.dispatchEvent(new Event("online"))
     localStorage.clear()
     vi.useRealTimers()
@@ -420,6 +439,153 @@ describe("ChatPage live answer", () => {
     expect(host.textContent).toContain("offlineBanner")
     expect(vi.mocked(streamChat)).not.toHaveBeenCalled()
     await act(async () => {
+      window.dispatchEvent(new Event("online"))
+      await Promise.resolve()
+    })
+    expect(vi.mocked(streamChat)).toHaveBeenCalled()
+    const sent = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
+    expect(sent.message).toBe("What does section 149 cover?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("keeps a saved demo answer instead of an evidence refusal", async () => {
+    script.intent = "qa"
+    script.answerSource = "none"
+    script.model = "demo-cache"
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("Demo: section 149 kya cover karta hai?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    expect(host.textContent).toContain("Section 149 covers the rule.")
+    expect(host.textContent).not.toContain("refusalEvidenceTitle")
+  })
+
+  it("shows a stopped answer with retry instead of a frozen skeleton", async () => {
+    script.hang = true
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("What does section 149 cover?")
+    expect(host.textContent).toContain("checkingLibrary")
+    const stop = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "stop")
+    await act(async () => {
+      stop?.click()
+      await Promise.resolve()
+    })
+    expect(host.textContent).toContain("stoppedTitle")
+    expect(host.textContent).toContain("retry")
+    expect(host.textContent).not.toContain("checkingLibrary")
+    script.hang = false
+    const retry = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "retry")
+    await act(async () => {
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(vi.mocked(streamChat).mock.calls.length).toBeGreaterThan(1)
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    expect(host.textContent).toContain("Section 149 covers the rule.")
+  })
+
+  it("keeps the citation step visible after the first token", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("What does section 149 cover?")
+    await act(async () => {
+      events.onEvent?.({ event: "token", data: { text: "Section 149" } })
+      events.onEvent?.({ event: "step", data: { node: "verify", status: "start" } })
+      await Promise.resolve()
+    })
+    expect(host.textContent).toContain("Section 149")
+    expect(host.textContent).toContain("stepCheck")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("re-asks an earlier message in the language that was chosen", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("What does section 149 cover?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    await send("How is salary taxed?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    const groups = host.querySelectorAll('[role="radiogroup"]')
+    expect(groups.length).toBe(2)
+    const roman = Array.from(groups[0].querySelectorAll("button")).find((button) => button.textContent === "Roman Urdu")
+    vi.mocked(streamChat).mockClear()
+    await act(async () => {
+      roman?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await Promise.resolve()
+    })
+    const again = vi.mocked(streamChat).mock.calls[0]?.[0] as { language: string; message: string }
+    expect(again.language).toBe("roman_urdu")
+    expect(again.message).toBe("What does section 149 cover?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("restores a queued question after a reload while offline", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event("offline"))
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("What does section 149 cover?")
+    expect(localStorage.getItem("daleelai.offline_queue") ?? "").toContain("What does section 149 cover?")
+    await act(async () => {
+      root.unmount()
+    })
+    host.remove()
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false })
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    expect(host.textContent).toContain("queued")
+    expect(host.textContent).toContain("What does section 149 cover?")
+    expect(vi.mocked(streamChat)).not.toHaveBeenCalled()
+    await act(async () => {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
       window.dispatchEvent(new Event("online"))
       await Promise.resolve()
     })

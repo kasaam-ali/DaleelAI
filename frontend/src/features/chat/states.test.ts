@@ -23,6 +23,7 @@ describe("chat states", () => {
 
   it("maps each limit onto its card", () => {
     expect(refusalKind("qa", "none")).toBe("evidence")
+    expect(refusalKind("qa", "none", "demo-cache")).toBeNull()
     expect(refusalKind("out_of_scope", "verified")).toBe("scope")
     expect(refusalKind("chitchat", "none")).toBe("scope")
     expect(refusalKind("refuse", "none")).toBe("declined")

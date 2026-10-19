@@ -121,7 +121,7 @@ export default function AnswerSlip({
                 <div>
                   <dt className="text-xs text-muted">{copy("verified")}</dt>
                   <dd className={`text-sm ${verified ? "text-seal" : "text-low"}`}>
-                    {verified ? copy("verified") : copy("notVerified")}
+                    {verified ? copy("verifiedYes") : copy("notVerified")}
                   </dd>
                 </div>
                 <div>

@@ -6,9 +6,7 @@ import {
   sendFeedback,
   streamChat,
   type FeedbackReason,
-  type FinalData,
   type SseEvent,
-  type StoredMessage,
 } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import { localizedError } from "../../i18n/errors"
@@ -16,8 +14,10 @@ import { redactPii } from "../../lib/pii"
 import {
   asReplyLanguage,
   readAnswerLanguage,
+  readCorpusDates,
   readOfflineQueue,
   readSessionId,
+  rememberCorpusDate,
   writeAnswerLanguage,
   writeOfflineQueue,
   type AnswerLanguage,
@@ -32,6 +32,7 @@ import Composer from "./Composer"
 import EmptyState from "./EmptyState"
 import ErrorCard from "./ErrorCard"
 import { asTurnError, canAutoRetry, retryDelayMs } from "./failure"
+import { turnsFromHistory } from "./history"
 import OfflineBanner from "./OfflineBanner"
 import StatusSteps from "./StatusSteps"
 import { PENDING_PHASES, reducePhases } from "./steps"
@@ -133,8 +134,18 @@ export default function ChatPage({
     getChat(sessionId, chatId)
       .then((detail) => {
         if (cancelled || born.current === chatId) return
-        const loaded = turnsFromHistory(detail.messages)
-        setBucket((current) => keepLiveTurns(current, chatId, loaded, queueRef.current))
+        setBucket((current) => {
+          const dates = { ...readCorpusDates(localStorage) }
+          for (const turn of current.turns) {
+            if (turn.messageId && turn.final?.corpus_date) dates[turn.messageId] = turn.final.corpus_date
+          }
+          return keepLiveTurns(
+            current,
+            chatId,
+            turnsFromHistory(detail.messages, dates),
+            queueRef.current,
+          )
+        })
       })
       .catch(() => {
         if (cancelled || born.current === chatId) return
@@ -355,13 +366,18 @@ export default function ChatPage({
     } else if (event.event === "sources") {
       patch(id, (current) => ({ ...current, sources: event.data.sources }))
     } else if (event.event === "final") {
-      patch(id, (current) => ({
-        ...current,
-        final: event.data,
-        draft: event.data.answer,
-        taxYear: event.data.tax_year,
-        status: "",
-      }))
+      patch(id, (current) => {
+        if (current.messageId && event.data.corpus_date) {
+          rememberCorpusDate(localStorage, current.messageId, event.data.corpus_date)
+        }
+        return {
+          ...current,
+          final: event.data,
+          draft: event.data.answer,
+          taxYear: event.data.tax_year,
+          status: "",
+        }
+      })
     } else if (event.event === "error") {
       patch(id, (current) => ({
         ...current,
@@ -604,73 +620,4 @@ function mergeQueued(turns: Turn[], queued: { id: string; text: string }[]): Tur
     .filter((item) => !ids.has(item.id))
     .map((item) => blankTurn(item.id, item.text, false, true))
   return extra.length === 0 ? turns : [...turns, ...extra]
-}
-
-function turnsFromHistory(messages: StoredMessage[]): Turn[] {
-  const turns: Turn[] = []
-  let question: StoredMessage | null = null
-  for (const message of messages) {
-    if (message.role === "user") {
-      if (question) turns.push(historyTurn(question, null))
-      question = message
-    } else if (question) {
-      turns.push(historyTurn(question, message))
-      question = null
-    }
-  }
-  if (question) turns.push(historyTurn(question, null))
-  return turns
-}
-
-function historyTurn(question: StoredMessage, answer: StoredMessage | null): Turn {
-  const source = answer?.answer_source
-  const confidence = answer?.confidence
-  const final: FinalData | null =
-    answer && (source === "verified" || source === "web" || source === "none")
-      ? {
-          answer: answer.content,
-          answer_source: source,
-          confidence: confidence === "high" || confidence === "low" ? confidence : "medium",
-          verified: Boolean(answer.verified),
-          model: answer.model ?? "",
-          tax_year: answer.tax_year ?? "",
-          corpus_date: "",
-          action_links: [],
-          follow_ups: [],
-          cached: false,
-          trace: answer.intent
-            ? {
-                intent: answer.intent,
-                search_query: "",
-                retrieved: null,
-                rerank_top: null,
-                verified: answer.verified,
-                latency_ms: null,
-              }
-            : null,
-        }
-      : null
-  return {
-    id: question.id,
-    question: question.content,
-    redacted: false,
-    status: "",
-    draft: answer?.content ?? "",
-    sources: answer?.sources ?? [],
-    intent: answer?.intent ?? null,
-    detectedLanguage: asReplyLanguage(answer?.language ?? question.language),
-    phases: [...PENDING_PHASES],
-    queued: false,
-    stopped: false,
-    replyLanguage: null,
-    autoRetryIn: null,
-    final,
-    error: null,
-    messageId: answer?.id ?? null,
-    taxYear: answer?.tax_year ?? null,
-    feedback: answer?.feedback ?? null,
-    feedbackNote: null,
-    toolNote: false,
-    toolCard: null,
-  }
 }

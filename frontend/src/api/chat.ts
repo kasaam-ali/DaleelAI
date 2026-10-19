@@ -209,6 +209,7 @@ export type StoredMessage = {
   confidence: "high" | "medium" | "low" | null
   verified: boolean | null
   model: string | null
+  corpus_date?: string | null
   created_at: string
   feedback: "up" | "down" | null
   feedback_reason: FeedbackReason | null

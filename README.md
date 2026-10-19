@@ -63,18 +63,51 @@ Latest local run: **211** backend tests and **39** frontend tests.
 
 ## Quick start
 
-Docker Desktop is required. From the repo root:
+Two ways to run it. The local way needs no Docker, no database, and no model key. Cited ordinance search needs the Docker stack and a provider key.
 
-```powershell
-copy .env.example .env
+### Local (calculator, checklists, experts, updates, keyword chat)
+
+Python 3.12 and Node 20 or newer. From the repo root, with [uv](https://docs.astral.sh/uv/) installed:
+
+```bash
+cd backend
+uv sync
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+In a second terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Health: `GET http://127.0.0.1:8000/health`.
+
+Leave `DATABASE_URL` and `QDRANT_URL` empty. The API then keeps checklists, feedback, and the updates replay in memory, and it does not open Qdrant. With no provider key, the router uses keyword rules. A question the rules do not recognize says the ordinance library is not connected. These saved questions still answer:
+
+- `Demo: what does section 149 cover?`
+- `Demo: section 149 kya cover karta hai?`
+- `Demo: how do I hide cash sales from fbr?`
+- `Demo: latest federal tax notification`
+
+`backend/models/classifier.onnx` is not in git. A missing file uses the keyword classifier. The metrics report is still served.
+
+### Full stack (Docker)
+
+Docker Desktop is required for Postgres, Qdrant, and the indexed library. From the repo root:
+
+```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-Put provider keys only in the local `.env`. That file is gitignored. The app is at [http://localhost:5173](http://localhost:5173). The API is at [http://localhost:8000](http://localhost:8000). Health: `GET /health`.
+On Windows PowerShell, `copy .env.example .env` does the same copy. Put provider keys only in the local `.env`. That file is gitignored. Compose sets the database and Qdrant URLs inside the containers, so those two lines in `.env` can stay empty.
 
-Four saved questions answer immediately when every model provider is down. The first is `Demo: what does section 149 cover?`
+The app is at [http://localhost:5173](http://localhost:5173). The API is at [http://localhost:8000](http://localhost:8000).
 
-Do not delete the Qdrant `documents` collection. Rebuilding it is a separate, explicit job.
+Do not delete the Qdrant `documents` collection. Rebuilding it is a separate, explicit job. Do not print API keys. The v1 Streamlit chain used to log a key prefix; it no longer does.
 
 ## Tests
 

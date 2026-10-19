@@ -2,10 +2,9 @@ import { useState, type FormEvent } from "react"
 import { explainNotice, type NoticeExplanation } from "../../api/phase5"
 import type { CopyKey } from "../../i18n"
 import type { UiLanguage } from "../../lib/session"
+import { primary, secondary } from "../../ui/styles"
 
 type Copy = (key: CopyKey) => string
-
-const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
 
 export default function NoticePage({
   copy,
@@ -41,26 +40,34 @@ export default function NoticePage({
 
   const explanation = result?.explanation
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("noticeTitle")}</h2>
-      <p className="mt-2 max-w-[46ch] text-muted">{copy("noticeHelp")}</p>
-      <form onSubmit={onSubmit} className="mt-4 grid gap-3">
-        <label className="text-sm">
-          {copy("noticeFile")}
+    <section>
+      <h2 className="font-statute text-3xl tracking-tight">{copy("noticeTitle")}</h2>
+      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-muted">{copy("noticeHelp")}</p>
+      <form onSubmit={(event) => void onSubmit(event)} className="mt-5 grid gap-3">
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-rule bg-field px-4 py-8 text-center">
+          <span className="text-sm font-medium">{file ? file.name : copy("noticeFile")}</span>
+          <span className="mt-1 text-sm text-muted">{copy("noticeDrop")}</span>
           <input
-            className={inputClass}
+            className="sr-only"
             type="file"
             accept="application/pdf,image/png,image/jpeg"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null)
+              setError(null)
+            }}
           />
         </label>
-        <button type="submit" disabled={busy} className="min-h-11 bg-seal px-4 text-paper">
-          {copy("noticeExplain")}
+        <button type="submit" disabled={busy} className={`${primary} w-full sm:w-auto`}>
+          {busy ? copy("noticeReading") : copy("noticeExplain")}
         </button>
       </form>
-      {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
+      {error ? (
+        <p className="mt-3 text-sm text-low" role="alert">
+          {error}
+        </p>
+      ) : null}
       {result && explanation ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="mt-6 rounded-2xl border border-rule bg-field px-5 py-5 shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
           <p className="text-lg">{explanation.summary}</p>
           <p className="mt-2">{explanation.why_received}</p>
           <p className="mt-3 text-sm text-muted">
@@ -86,7 +93,7 @@ export default function NoticePage({
           {result.expert_category && onFindExpert ? (
             <button
               type="button"
-              className="mt-3 min-h-11 border border-rule px-3 text-sm"
+              className={`${secondary} mt-3`}
               onClick={() => onFindExpert(result.expert_category ?? "")}
             >
               {copy("noticeFindMatching")} ({result.expert_category})

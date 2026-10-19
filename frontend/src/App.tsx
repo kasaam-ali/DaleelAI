@@ -23,19 +23,42 @@ import {
   type UiLanguage,
 } from "./lib/session"
 
+type View =
+  | "chat"
+  | "calculator"
+  | "filer"
+  | "notice"
+  | "checklist"
+  | "experts"
+  | "evaluation"
+  | "updates"
+  | "privacy"
+
+const NAV: { id: View; label: CopyKey }[] = [
+  { id: "chat", label: "navChat" },
+  { id: "calculator", label: "navCalculator" },
+  { id: "filer", label: "navFiler" },
+  { id: "notice", label: "navNotice" },
+  { id: "checklist", label: "navChecklist" },
+  { id: "experts", label: "navExperts" },
+  { id: "updates", label: "navUpdates" },
+  { id: "evaluation", label: "navEvaluation" },
+  { id: "privacy", label: "navPrivacy" },
+]
+
 export default function App() {
   const [language, setLanguage] = useState<UiLanguage>(() => readLanguage(localStorage))
   const [profile, setProfile] = useState<Profile>(() => readProfile(localStorage))
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
-  const [view, setView] = useState<
-    "chat" | "calculator" | "filer" | "notice" | "checklist" | "experts" | "evaluation" | "updates" | "privacy"
-  >("chat")
+  const [view, setView] = useState<View>("chat")
+  const [menuOpen, setMenuOpen] = useState(false)
   const [expertQuery, setExpertQuery] = useState("")
   const [expertCategory, setExpertCategory] = useState<string | null>(null)
   const [checklistTemplate, setChecklistTemplate] = useState("")
   const copy = (key: CopyKey) => t(language, key)
+  const pageTitle = copy(NAV.find((item) => item.id === view)?.label ?? "navChat")
 
   function changeLanguage(next: UiLanguage) {
     setLanguage(next)
@@ -50,6 +73,19 @@ export default function App() {
     writeProfile(localStorage, profile)
   }, [profile])
 
+  useEffect(() => {
+    document.documentElement.lang = language === "roman_urdu" ? "ur" : "en"
+  }, [language])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [menuOpen])
+
   function changeTheme() {
     const next = theme === "dark" ? "light" : "dark"
     setTheme(next)
@@ -57,25 +93,69 @@ export default function App() {
     localStorage.setItem(THEME_KEY, next)
   }
 
+  function openView(next: View) {
+    setView(next)
+    setMenuOpen(false)
+  }
+
   return (
-    <div className="min-h-dvh bg-paper font-civic text-ink">
+    <div className="min-h-dvh bg-paper font-civic text-ink md:grid md:h-dvh md:grid-cols-[272px_minmax(0,1fr)] md:overflow-hidden">
       <a
         href="#ask"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-10 focus:bg-field focus:px-3 focus:py-2"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-field focus:px-3 focus:py-2"
       >
         {copy("skipToQuestion")}
       </a>
-      <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-        <header>
-          <h1 className="font-statute text-5xl leading-none">{copy("product")}</h1>
-          <p className="mt-3 max-w-[36ch] text-lg leading-7">{copy("lede")}</p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+      {menuOpen ? (
+        <button
+          type="button"
+          className="no-print fixed inset-0 z-30 bg-ink/40 md:hidden"
+          aria-label={copy("closeMenu")}
+          onClick={() => setMenuOpen(false)}
+        />
+      ) : null}
+      <aside
+        id="app-nav"
+        className={`no-print ${
+          menuOpen ? "fixed inset-y-0 left-0 z-40 flex w-[min(20rem,88vw)]" : "hidden"
+        } flex-col bg-sidebar text-sidebar-ink md:static md:flex md:h-dvh md:w-auto md:overflow-y-auto`}
+      >
+        <div className="flex items-center gap-3 px-5 pt-6 pb-4">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gold/20 font-statute text-xl text-gold">
+            D
+          </span>
+          <div>
+            <p className="font-statute text-2xl leading-none tracking-tight">{copy("product")}</p>
+            <p className="mt-1 text-xs tracking-wide text-sidebar-muted">FBR · SECP</p>
+          </div>
+        </div>
+        <nav aria-label={copy("navLabel")} className="grid gap-1 px-3">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={view === item.id ? "page" : undefined}
+              onClick={() => openView(item.id)}
+              className={`min-h-11 rounded-xl px-3 text-left text-sm transition ${
+                view === item.id
+                  ? "bg-sidebar-ink font-semibold text-sidebar"
+                  : "text-sidebar-muted hover:bg-white/5 hover:text-sidebar-ink"
+              }`}
+            >
+              {copy(item.label)}
+            </button>
+          ))}
+        </nav>
+        <div className="mt-auto border-t border-white/10 px-4 py-4">
+          <div className="mb-4 flex flex-wrap gap-2">
             <span className="sr-only">{copy("languageLabel")}</span>
             <button
               type="button"
               aria-pressed={language === "en"}
               onClick={() => changeLanguage("en")}
-              className={`min-h-11 px-3 text-sm ${language === "en" ? "bg-ink text-paper" : "border border-rule"}`}
+              className={`min-h-11 rounded-full px-3 text-sm ${
+                language === "en" ? "bg-sidebar-ink text-sidebar" : "border border-white/20 text-sidebar-ink"
+              }`}
             >
               {copy("english")}
             </button>
@@ -83,86 +163,114 @@ export default function App() {
               type="button"
               aria-pressed={language === "roman_urdu"}
               onClick={() => changeLanguage("roman_urdu")}
-              className={`min-h-11 px-3 text-sm ${language === "roman_urdu" ? "bg-ink text-paper" : "border border-rule"}`}
+              className={`min-h-11 rounded-full px-3 text-sm ${
+                language === "roman_urdu"
+                  ? "bg-sidebar-ink text-sidebar"
+                  : "border border-white/20 text-sidebar-ink"
+              }`}
             >
               {copy("romanUrdu")}
             </button>
-            <button type="button" onClick={changeTheme} className="min-h-11 border border-rule px-3 text-sm">
+          </div>
+          <ProfilePanel profile={profile} copy={copy} onChange={changeProfile} compact />
+        </div>
+      </aside>
+      <div className="flex min-h-dvh min-w-0 flex-col md:h-dvh">
+        <header className="no-print sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-rule bg-paper/90 px-4 py-3 backdrop-blur sm:px-6">
+          <button
+            type="button"
+            className="inline-flex min-h-11 items-center rounded-xl border border-rule px-3 text-sm md:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="app-nav"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? copy("closeMenu") : copy("menu")}
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-statute text-xl leading-none">{pageTitle}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="sr-only">{copy("languageLabel")}</span>
+            <button
+              type="button"
+              aria-pressed={language === "en"}
+              onClick={() => changeLanguage("en")}
+              className={`min-h-11 rounded-full px-3 text-sm md:hidden ${
+                language === "en" ? "bg-ink text-paper" : "border border-rule"
+              }`}
+            >
+              {copy("english")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={language === "roman_urdu"}
+              onClick={() => changeLanguage("roman_urdu")}
+              className={`min-h-11 rounded-full px-3 text-sm md:hidden ${
+                language === "roman_urdu" ? "bg-ink text-paper" : "border border-rule"
+              }`}
+            >
+              {copy("romanUrdu")}
+            </button>
+            <button
+              type="button"
+              onClick={changeTheme}
+              className="min-h-11 rounded-full border border-rule px-3 text-sm"
+            >
               {theme === "dark" ? copy("themeToLight") : copy("themeToDark")}
             </button>
-            {(
-              [
-                ["chat", "navChat"],
-                ["calculator", "navCalculator"],
-                ["filer", "navFiler"],
-                ["notice", "navNotice"],
-                ["checklist", "navChecklist"],
-                ["experts", "navExperts"],
-                ["updates", "navUpdates"],
-                ["evaluation", "navEvaluation"],
-                ["privacy", "navPrivacy"],
-              ] as const
-            ).map(([item, label]) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={view === item}
-                onClick={() => setView(item)}
-                className={`min-h-11 px-3 text-sm ${view === item ? "bg-ink text-paper" : "border border-rule"}`}
-              >
-                {copy(label)}
-              </button>
-            ))}
+            <ServiceStatus copy={copy} />
           </div>
-          <ServiceStatus copy={copy} />
         </header>
-        <ProfilePanel
-          profile={profile}
-          copy={copy}
-          onChange={changeProfile}
-        />
-        <main>
-          <div className={view === "chat" ? "" : "hidden"}>
+        <main
+          className={
+            view === "chat" ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto"
+          }
+        >
+          <div className={view === "chat" ? "h-full" : "hidden"}>
             <ChatPage language={language} profile={profile} copy={copy} />
           </div>
-          {view === "calculator" ? (
-            <CalculatorPage
-              copy={copy}
-              onOpenChecklist={(templateId) => {
-                setChecklistTemplate(templateId)
-                setView("checklist")
-              }}
-            />
-          ) : null}
-          {view === "filer" ? (
-            <FilerPage
-              copy={copy}
-              onOpenChecklist={(templateId) => {
-                setChecklistTemplate(templateId)
-                setView("checklist")
-              }}
-            />
-          ) : null}
-          {view === "notice" ? (
-            <NoticePage
-              copy={copy}
-              language={language}
-              onFindExpert={(category) => {
-                setExpertQuery(`${category} notice`)
-                setExpertCategory(category)
-                setView("experts")
-              }}
-            />
-          ) : null}
-          {view === "checklist" ? (
-            <ChecklistsPage copy={copy} language={language} preferredTemplate={checklistTemplate} />
-          ) : null}
-          {view === "experts" ? (
-            <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
-          ) : null}
-          {view === "updates" ? <UpdatesPage copy={copy} /> : null}
-          {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
-          {view === "privacy" ? <PrivacyPage copy={copy} /> : null}
+          {view === "chat" ? null : (
+            <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+              {view === "calculator" ? (
+                <CalculatorPage
+                  copy={copy}
+                  onOpenChecklist={(templateId) => {
+                    setChecklistTemplate(templateId)
+                    setView("checklist")
+                  }}
+                />
+              ) : null}
+              {view === "filer" ? (
+                <FilerPage
+                  copy={copy}
+                  onOpenChecklist={(templateId) => {
+                    setChecklistTemplate(templateId)
+                    setView("checklist")
+                  }}
+                />
+              ) : null}
+              {view === "notice" ? (
+                <NoticePage
+                  copy={copy}
+                  language={language}
+                  onFindExpert={(category) => {
+                    setExpertQuery(`${category} notice`)
+                    setExpertCategory(category)
+                    setView("experts")
+                  }}
+                />
+              ) : null}
+              {view === "checklist" ? (
+                <ChecklistsPage copy={copy} language={language} preferredTemplate={checklistTemplate} />
+              ) : null}
+              {view === "experts" ? (
+                <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
+              ) : null}
+              {view === "updates" ? <UpdatesPage copy={copy} /> : null}
+              {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
+              {view === "privacy" ? <PrivacyPage copy={copy} /> : null}
+            </div>
+          )}
         </main>
       </div>
     </div>
@@ -171,10 +279,22 @@ export default function App() {
 
 function ServiceStatus({ copy }: { copy: (key: CopyKey) => string }) {
   const health = useHealth()
-  const text = health.isPending
-    ? copy("serviceChecking")
-    : health.isError
-      ? copy("serviceUnreachable")
-      : copy("serviceReachable")
-  return <p className="mt-4 text-sm text-muted">{text}</p>
+  const state = health.isPending ? "checking" : health.isError ? "down" : "up"
+  const text =
+    state === "checking"
+      ? copy("serviceChecking")
+      : state === "down"
+        ? copy("serviceUnreachable")
+        : copy("serviceReachable")
+  return (
+    <p className="hidden items-center gap-2 text-sm text-muted lg:flex" role="status">
+      <span
+        className={`h-2 w-2 rounded-full ${
+          state === "up" ? "bg-seal" : state === "down" ? "bg-low" : "bg-gold"
+        }`}
+        aria-hidden="true"
+      />
+      {text}
+    </p>
+  )
 }

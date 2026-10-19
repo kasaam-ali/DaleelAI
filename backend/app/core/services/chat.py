@@ -430,7 +430,11 @@ async def _qa_result(
 ) -> RagResult:
     if qa is None:
         return RagResult(
-            answer=ABSTAIN_SENTENCE,
+            answer=(
+                f"{ABSTAIN_SENTENCE} The ordinance library is not connected on this machine, "
+                "so this reply is not a cited answer. The calculator, checklists, and expert "
+                "finder still run locally."
+            ),
             answer_source="none",
             verified=False,
             replaced=False,

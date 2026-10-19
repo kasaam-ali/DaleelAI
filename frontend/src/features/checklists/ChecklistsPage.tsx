@@ -8,10 +8,11 @@ import {
 } from "../../api/phase5"
 import type { CopyKey } from "../../i18n"
 import type { UiLanguage } from "../../lib/session"
+import { field, primary, secondary } from "../../ui/styles"
 
 type Copy = (key: CopyKey) => string
 const STORAGE_KEY = "daleelai.checklists"
-const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
+const inputClass = field
 
 export default function ChecklistsPage({
   copy,
@@ -33,6 +34,7 @@ export default function ChecklistsPage({
   const [saved, setSaved] = useState<Checklist | null>(() => readSaved())
   const [loadError, setLoadError] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function ChecklistsPage({
     setSaved(optimistic)
     writeSaved(optimistic)
     try {
-      const next = await markChecklistStep(saved.id, stepId, done)
+      const next = await markChecklistStep(saved.id, stepId, done, language)
       setSaved(next)
       writeSaved(next)
     } catch (caught) {
@@ -88,9 +90,9 @@ export default function ChecklistsPage({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("checklistTitle")}</h2>
-      <p className="mt-2 max-w-[46ch] text-muted">{copy("checklistHelp")}</p>
+    <section>
+      <h2 className="font-statute text-3xl tracking-tight">{copy("checklistTitle")}</h2>
+      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-muted">{copy("checklistHelp")}</p>
       <div className="mt-4 grid gap-3">
         <label className="text-sm">
           {copy("checklistTitle")}
@@ -128,36 +130,48 @@ export default function ChecklistsPage({
             </select>
           </label>
         ))}
-        <button type="button" disabled={busy} onClick={onStart} className="min-h-11 bg-seal px-4 text-paper">
+        <button type="button" disabled={busy || !templateId} onClick={() => void onStart()} className={`${primary} w-full sm:w-auto`}>
           {copy("checklistStart")}
         </button>
       </div>
-      {loadError ? <p className="mt-3 text-sm text-low">{copy("checklistFailed")}</p> : null}
-      {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
+      {loadError ? (
+        <p className="mt-3 text-sm text-low" role="alert">
+          {copy("checklistFailed")}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="mt-3 text-sm text-low" role="alert">
+          {error}
+        </p>
+      ) : null}
       {saved ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="mt-6 rounded-2xl border border-rule bg-field px-5 py-5 shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
           <p className="text-lg">{saved.title}</p>
           <p className="mt-1 text-sm text-muted">
             {copy("checklistProgress")}: {Math.round(saved.progress * 100)}%. {copy("checklistSaved")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => window.print()} className="min-h-11 border border-rule px-3 text-sm">
+            <button type="button" onClick={() => window.print()} className={secondary}>
               {copy("checklistPrint")}
             </button>
             <button
               type="button"
               onClick={() => {
                 const text = saved.steps.map((step) => `${step.done ? "[x]" : "[ ]"} ${step.title}`).join("\n")
-                void navigator.clipboard.writeText(text).catch(() => undefined)
+                void navigator.clipboard.writeText(text).then(
+                  () => setCopied(copy("checklistCopied")),
+                  () => setCopied(copy("shareFailed")),
+                )
               }}
-              className="min-h-11 border border-rule px-3 text-sm"
+              className={secondary}
             >
               {copy("checklistShare")}
             </button>
           </div>
+          {copied ? <p className="mt-2 text-sm text-muted">{copied}</p> : null}
           <ul className="mt-3 grid gap-3">
             {saved.steps.map((step) => (
-              <li key={step.id} className="border border-rule px-3 py-3">
+              <li key={step.id} className="rounded-xl border border-rule bg-paper px-3 py-3">
                 <label className="flex min-h-11 items-start gap-3 text-sm">
                   <input
                     type="checkbox"

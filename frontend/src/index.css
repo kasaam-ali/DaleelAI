@@ -1,30 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #e8eef2;
-  --field: #f7fafb;
-  --ink: #1b2830;
-  --muted: #31424c;
-  --rule: #c5d0d8;
-  --seal: #0c5c48;
+  --paper: #f6f3ec;
+  --field: #fffcf8;
+  --ink: #1a1814;
+  --muted: #5e584e;
+  --rule: #e3dcd0;
+  --seal: #0d6b4f;
   --seal-ink: #f3fbf7;
-  --web: #7a4108;
-  --low: #8e2f2f;
-  --focus: #0c5c48;
+  --web: #8a5a10;
+  --low: #9d2c2c;
+  --focus: #0d6b4f;
+  --sidebar: #10241c;
+  --sidebar-ink: #f6f3ec;
+  --sidebar-muted: #c5d1ca;
+  --gold: #d4b483;
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --paper: #12181c;
-  --field: #1c252c;
-  --ink: #e8eef2;
-  --muted: #c5d0d6;
-  --rule: #314049;
+  --paper: #101614;
+  --field: #18211d;
+  --ink: #f3f6f4;
+  --muted: #c5d1ca;
+  --rule: #2c3a34;
   --seal: #8ee0c4;
   --seal-ink: #06241c;
   --web: #f0c48a;
   --low: #ffb4ae;
   --focus: #8ee0c4;
+  --sidebar: #0b1210;
+  --sidebar-ink: #f3f6f4;
+  --sidebar-muted: #b7c7be;
+  --gold: #e4c48a;
   color-scheme: dark;
 }
 
@@ -41,6 +49,10 @@
   --color-web: var(--web);
   --color-low: var(--low);
   --color-focus: var(--focus);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-gold: var(--gold);
 }
 
 html {
@@ -127,5 +139,20 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .seal-in {
     animation: none;
+  }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  html {
+    background: white;
   }
 }

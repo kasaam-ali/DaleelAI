@@ -93,7 +93,7 @@ def patch_step(
             checklist_id,
             step_id,
             body.done,
-            "en",
+            body.language,
             _repo(request),
             session,
         )

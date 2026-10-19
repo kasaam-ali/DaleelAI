@@ -8,12 +8,13 @@ import {
 } from "../../api/tax"
 import type { CopyKey } from "../../i18n"
 import { formatPkr } from "../../lib/money"
+import { chip, field, primary, secondary } from "../../ui/styles"
 import { CompareBars } from "../tax/CompareBars"
 
 type Copy = (key: CopyKey) => string
 type Tool = "salary" | "freelancer" | "property"
 
-const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
+const inputClass = field
 
 export default function CalculatorPage({
   copy,
@@ -73,11 +74,11 @@ export default function CalculatorPage({
   }
 
   return (
-    <section className="mt-8" aria-labelledby="calculator-title">
-      <h2 id="calculator-title" className="text-base font-medium">
+    <section aria-labelledby="calculator-title">
+      <h2 id="calculator-title" className="font-statute text-3xl tracking-tight">
         {copy("calcTitle")}
       </h2>
-      <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("calcHelp")}</p>
+      <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted">{copy("calcHelp")}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {(
           [
@@ -94,7 +95,7 @@ export default function CalculatorPage({
               setTool(id)
               setResult(null)
             }}
-            className={`min-h-11 px-3 text-sm ${tool === id ? "bg-ink text-paper" : "border border-rule"}`}
+            className={chip(tool === id)}
           >
             {copy(label)}
           </button>
@@ -171,7 +172,7 @@ export default function CalculatorPage({
         <button
           type="submit"
           disabled={busy}
-          className="min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
+          className={`${primary} w-full sm:w-auto`}
         >
           {busy ? copy("calculating") : copy("calculate")}
         </button>
@@ -197,8 +198,12 @@ function Result({
 }) {
   const change = result.compared_to
   return (
-    <div className="mt-6 border border-rule bg-field px-4 py-4">
-      <p className="text-lg">{formatPkr(result.total_tax)}</p>
+    <div className="mt-6 rounded-2xl border border-rule bg-field px-5 py-5 shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
+      <p className="text-xs font-medium tracking-wide text-muted">{copy("calcTitle")}</p>
+      <p className="num mt-1 font-statute text-4xl tracking-tight">{formatPkr(result.total_tax)}</p>
+      <p className="mt-1 text-sm text-muted">
+        {copy("effectiveRate")} {(result.effective_rate * 100).toFixed(2)}%
+      </p>
       {change ? (
         <CompareBars
           leftLabel={result.tax_year}
@@ -229,7 +234,7 @@ function Result({
         <button
           type="button"
           onClick={() => onOpenChecklist("ntn_individual")}
-          className="mt-3 min-h-11 border border-rule px-3 text-sm"
+          className={`${secondary} mt-3`}
         >
           {copy("becomeFiler")}
         </button>

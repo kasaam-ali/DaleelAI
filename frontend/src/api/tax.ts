@@ -1,3 +1,5 @@
+/** Calls the salary, freelancer, property, and filer comparison routes. */
+
 import { API_URL } from "./client"
 
 export type TaxYear = "TY2026" | "TY2027"

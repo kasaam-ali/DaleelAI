@@ -1,3 +1,5 @@
+"""GET /health reports the version, corpus, tax years, and which models are configured."""
+
 from typing import Literal
 
 from fastapi import APIRouter, Request

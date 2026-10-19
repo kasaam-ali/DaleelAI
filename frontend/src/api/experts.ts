@@ -1,3 +1,5 @@
+/** Finds a public expert and loads the classifier report. */
+
 import { API_URL } from "./client"
 
 export type ExpertFind = {

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import time
 from typing import Any
 
 from app.core.ports import ChatMessage, LLMPort, LLMResult, Role
@@ -12,13 +13,16 @@ def answer_cache_key(
     profile: dict[str, Any] | None,
     tax_year: str,
     corpus_version: str,
+    language: str = "",
 ) -> str:
+    """Normalized redacted question, language, and tax year. Profile stays out of the answer."""
     raw = json.dumps(
         {
             "question": " ".join(question.strip().lower().split()),
-            "profile": profile or {},
+            "language": language or "",
             "tax_year": tax_year,
             "corpus_version": corpus_version,
+            "profile": profile or {},
         },
         sort_keys=True,
         ensure_ascii=False,
@@ -49,14 +53,24 @@ def llm_cache_key(
 
 
 class MemoryCache:
-    def __init__(self) -> None:
+    """In-memory cache. Answer entries expire after 24 hours."""
+
+    def __init__(self, ttl_s: float = 24 * 60 * 60) -> None:
         self.data: dict[str, dict[str, Any]] = {}
+        self.expires: dict[str, float] = {}
+        self.ttl_s = ttl_s
 
     def get(self, key: str) -> dict[str, Any] | None:
+        exp = self.expires.get(key)
+        if exp is not None and time.monotonic() >= exp:
+            self.data.pop(key, None)
+            self.expires.pop(key, None)
+            return None
         return self.data.get(key)
 
     def put(self, key: str, payload: dict[str, Any]) -> None:
         self.data[key] = payload
+        self.expires[key] = time.monotonic() + self.ttl_s
 
 
 class CachingLLM:

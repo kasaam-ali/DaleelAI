@@ -7,11 +7,20 @@ from app.agents.rag import (
     RagResult,
     _abstain,
     _blocks,
+    _live_hits,
+    _ranked_many,
     _result,
+    _search_queries,
+    _topic_statutes,
+    _wanted_sections,
+    attach_cross_reference,
+    local_fast_answer,
     run_qa,
     settle_band,
+    statute_note,
 )
 from app.core.budget import CallBudget
+from app.core.retrieval.rewrite import retrieval_keep, usable_web_hits
 from app.core.retrieval.sufficiency import web_is_sufficient
 
 
@@ -67,12 +76,26 @@ async def _invoke_graph(
     domain_boost: float = 1.2,
     token_budget: int = 6000,
     on_delta=None,
+    on_sources=None,
+    on_status=None,
+    live_search=None,
 ) -> RagResult:
     from langgraph.graph import END, START, StateGraph
 
-    from app.core.retrieval.synonyms import expand_search_query
-
     rules = link_rules or []
+    fast = await local_fast_answer(
+        search,
+        request,
+        rules=rules,
+        domain=domain,
+        k=k,
+        domain_boost=domain_boost,
+        on_delta=on_delta,
+        on_sources=on_sources,
+        on_status=on_status,
+    )
+    if fast is not None:
+        return fast
     budget = budget or CallBudget()
     box: dict = {
         "queries": [request.search_query],
@@ -90,23 +113,32 @@ async def _invoke_graph(
     }
 
     async def rewrite(_state):
-        box["expanded"] = expand_search_query(request.search_query)
+        box["queries"] = await _search_queries(llm, request, budget)
         return {}
 
     async def retrieve_node(_state):
-        box["fused"] = await _fused(
+        box["ranked"] = await _ranked_many(
             search,
+            score,
             box["queries"],
             collection="documents",
             tax_year=request.tax_year,
             domain=domain,
             k=k,
+            keep=retrieval_keep(keep, len(box["queries"])),
             domain_boost=domain_boost,
+            prefer=_wanted_sections(request),
+            note_covers=bool(statute_note(request)),
         )
+        box["fused"] = [hit for hit, _score in box["ranked"]]
+        # The property note is the answer. Emit it before expansion and the model.
+        spoken = statute_note(request)
+        if spoken and box["ranked"] and on_delta is not None:
+            await on_delta(spoken)
+            box["note_sent"] = True
         return {}
 
     async def rerank_node(_state):
-        box["ranked"] = await _rerank_hits(score, request.search_query, box["fused"], k, keep)
         return {}
 
     async def expand_node(_state):
@@ -114,6 +146,14 @@ async def _invoke_graph(
         return {}
 
     async def sufficiency(_state):
+        if statute_note(request) and box["ranked"]:
+            box["blocks"] = await _blocks(box["ranked"], sections, token_budget)
+            box["mode"] = "verified"
+            return {"next": "generate"}
+        if _topic_statutes(box["ranked"], request):
+            box["blocks"] = await _blocks(box["ranked"], sections, token_budget)
+            box["mode"] = "verified"
+            return {"next": "generate"}
         band, ranked, queries = await settle_band(
             llm,
             search,
@@ -126,13 +166,14 @@ async def _invoke_graph(
             borderline_at=borderline_at,
             domain=domain,
             k=k,
-            keep=keep,
+            keep=retrieval_keep(keep, len(box["queries"])),
             domain_boost=domain_boost,
             token_budget=token_budget,
+            queries=box["queries"],
         )
         box["ranked"] = ranked
         box["queries"] = queries
-        if band == "sufficient":
+        if band == "sufficient" or _topic_statutes(ranked, request):
             box["blocks"] = await _blocks(ranked, sections, token_budget)
             box["mode"] = "verified"
             return {"next": "generate"}
@@ -142,16 +183,19 @@ async def _invoke_graph(
         if not web_enabled:
             box["mode"] = "none"
             return {"next": "links"}
-        fused = await _fused(
-            search,
-            box["queries"],
-            collection="web_pages",
-            tax_year=None,
-            domain=domain,
-            k=k,
-            domain_boost=domain_boost,
+        ranked = usable_web_hits(
+            await _ranked_many(
+                search,
+                score,
+                box["queries"],
+                collection="web_pages",
+                tax_year=None,
+                domain=domain,
+                k=k,
+                keep=web_keep,
+                domain_boost=domain_boost,
+            )
         )
-        ranked = await _rerank_hits(score, box["queries"][0], fused, k, web_keep)
         box["web_ranked"] = ranked
         top = ranked[0][1] if ranked else None
         if web_is_sufficient(top, minimum=web_minimum):
@@ -159,16 +203,37 @@ async def _invoke_graph(
             box["blocks"] = await _blocks(ranked, sections, token_budget)
             box["mode"] = "web"
             return {"next": "generate"}
+        live_ranked = await _live_hits(live_search, box["queries"])
+        if live_ranked:
+            box["ranked"] = live_ranked
+            box["web_ranked"] = live_ranked
+            box["blocks"] = await _blocks(live_ranked, sections, token_budget)
+            box["mode"] = "web"
+            return {"next": "generate"}
         box["mode"] = "none"
         return {"next": "links"}
 
     async def generate(_state):
+        from app.agents.answer import generate_answer
+        from app.agents.rag import _emit_sources
+
+        spoken = statute_note(request)
+        if spoken and box["mode"] != "none":
+            await _emit_sources(on_sources, box["ranked"], box["mode"])
+            box["blocks"] = attach_cross_reference(box["blocks"], request)
+            if on_delta is not None and not box.get("note_sent"):
+                await on_delta(spoken)
+            box["draft"] = spoken
+            box["model"] = "none"
+            return {}
+
         if box["mode"] == "none" or budget.remaining() < 2:
             box["mode"] = "none"
             box["draft"] = ""
             return {}
-        from app.agents.answer import generate_answer
 
+        await _emit_sources(on_sources, box["ranked"], box["mode"])
+        box["blocks"] = attach_cross_reference(box["blocks"], request)
         generated = await generate_answer(
             llm,
             question=request.question,
@@ -187,8 +252,24 @@ async def _invoke_graph(
     async def verify(_state):
         if box["mode"] == "none":
             return {}
-        from app.agents.answer import verify_answer
+        from app.agents.answer import (
+            blocks_mention_statute,
+            finalize_supported_answer,
+            verify_answer,
+        )
 
+        if blocks_mention_statute(box["blocks"]):
+            box["draft"] = finalize_supported_answer(
+                box["draft"],
+                box["blocks"],
+                question=request.question,
+                search_query=request.search_query,
+                language=request.language,
+            )
+            box["verified"] = False
+            box["replaced"] = False
+            box["confidence"] = "medium"
+            return {}
         checked = await verify_answer(
             llm,
             draft=box["draft"],
@@ -196,7 +277,13 @@ async def _invoke_graph(
             mode=box["mode"],
             budget=budget,
         )
-        box["draft"] = checked.answer
+        box["draft"] = finalize_supported_answer(
+            checked.answer,
+            box["blocks"],
+            question=request.question,
+            search_query=request.search_query,
+            language=request.language,
+        )
         box["verified"] = checked.verified
         box["replaced"] = checked.replaced
         box["confidence"] = checked.confidence
@@ -204,6 +291,9 @@ async def _invoke_graph(
 
     async def links(_state):
         if box["mode"] == "none":
+            from app.agents.rag import _emit_sources
+
+            await _emit_sources(on_sources, box["web_ranked"], "web")
             box["result"] = _abstain(request, rules, box["web_ranked"])
             return {}
         box["result"] = _result(
@@ -249,34 +339,3 @@ async def _invoke_graph(
     graph.add_edge("links", END)
     await graph.compile().ainvoke({"next": "rewrite"})
     return box["result"]
-
-
-async def _fused(search, queries, *, collection, tax_year, domain, k, domain_boost):
-    from app.core.retrieval.retrieve import retrieve
-
-    merged = []
-    seen: set[str] = set()
-    for query in queries:
-        fused = await retrieve(
-            search,
-            query,
-            collection=collection,
-            tax_year=tax_year,
-            domain=domain,
-            k=k,
-            domain_boost=domain_boost,
-        )
-        for hit, _score in fused:
-            if hit.chunk_id in seen:
-                continue
-            seen.add(hit.chunk_id)
-            merged.append(hit)
-    return merged
-
-
-async def _rerank_hits(score, query: str, hits, pool: int, keep: int):
-    import asyncio
-
-    from app.core.retrieval.rerank import rerank
-
-    return await asyncio.to_thread(rerank, query, hits, score, pool=pool, keep=keep)

@@ -34,6 +34,38 @@ class Profile(BaseModel):
     city: str | None = None
 
 
+class StoredChatMessage(BaseModel):
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    intent: str | None = None
+    language: str | None = None
+    tax_year: str | None = None
+    sources: list[dict[str, Any]] = Field(default_factory=list)
+    answer_source: AnswerSource | None = None
+    confidence: Confidence | None = None
+    verified: bool | None = None
+    model: str | None = None
+    created_at: str
+    feedback: Literal["up", "down"] | None = None
+    feedback_reason: str | None = None
+
+
+class ChatSummary(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class ChatListResponse(BaseModel):
+    chats: list[ChatSummary]
+
+
+class ChatDetail(ChatSummary):
+    messages: list[StoredChatMessage]
+
+
 class ChatRequest(BaseModel):
     chat_id: str | None = None
     message: str = Field(min_length=1, max_length=2000)

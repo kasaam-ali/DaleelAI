@@ -1,3 +1,5 @@
+/** The shape of one question and its answer on screen. */
+
 import type { FinalData, Source } from "../../api/chat"
 
 export type Turn = {

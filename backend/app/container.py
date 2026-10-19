@@ -1,3 +1,5 @@
+"""Picks the live or fake adapters this process uses."""
+
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date

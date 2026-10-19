@@ -1,3 +1,5 @@
+/** Checks the comparison bar widths. */
+
 import { describe, expect, it } from "vitest"
 import { widthPercent } from "./bars"
 

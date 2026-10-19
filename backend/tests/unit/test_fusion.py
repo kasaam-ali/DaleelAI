@@ -1,3 +1,5 @@
+"""Checks reciprocal rank fusion and the domain boost."""
+
 from app.core.retrieval.fusion import RankedHit, fuse_hits, rrf_fuse
 
 

@@ -1,3 +1,5 @@
+"""v1 Streamlit chat. The React app replaced this screen after M1."""
+
 import sys
 from pathlib import Path
 import streamlit as st
@@ -22,9 +24,16 @@ st.set_page_config(
 # ================================
 st.markdown("""
 <style>
+    .stApp, [data-testid="stAppViewContainer"], section.main .block-container {
+        min-height: 100vh;
+    }
+    section.main .block-container {
+        padding-top: 1.25rem;
+        padding-bottom: 7rem;
+    }
     .main-header {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        padding: 2rem;
+        padding: 3.25rem 2rem;
         border-radius: 12px;
         text-align: center;
         margin-bottom: 2rem;

@@ -6,6 +6,7 @@ from app.adapters.qdrant_search import QdrantHybridSearch
 from app.agents.rag import RagRequest
 from app.agents.rag_graph import run_qa_graph
 from app.core.retrieval.action_links import load_action_links
+from app.core.retrieval.live_web import fetch_official_snippets
 from app.settings import CONFIG_DIR, Settings
 
 
@@ -24,7 +25,17 @@ class LiveQa:
         self.sections = PostgresSections(settings.database_url)
         self._rules = None
 
-    async def __call__(self, body, routed, tax_year: str, corpus_date: str, budget, on_delta=None):
+    async def __call__(
+        self,
+        body,
+        routed,
+        tax_year: str,
+        corpus_date: str,
+        budget,
+        on_delta=None,
+        on_sources=None,
+        on_status=None,
+    ):
         if self._rules is None:
             self._rules = load_action_links(CONFIG_DIR / "action_links.yaml")
         request = RagRequest(
@@ -62,4 +73,23 @@ class LiveQa:
             token_budget=retrieval.context_tokens,
             runner=self.settings.adapters.agent_runner,
             on_delta=on_delta,
+            on_sources=on_sources,
+            on_status=on_status,
+            live_search=fetch_official_snippets,
         )
+
+    def warm(self) -> None:
+        """Load retrieval models before the first question. They are independent."""
+        import sys
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        started = time.perf_counter()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(self.search.warm), pool.submit(self.rerank.warm)]
+            for future in futures:
+                future.result()
+        sys.stderr.write(
+            f"retrieval models ready in {(time.perf_counter() - started) * 1000:.0f}ms\n"
+        )
+        sys.stderr.flush()

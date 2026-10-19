@@ -1,3 +1,5 @@
+"""Checks that an answer gets the official portal link for its topic."""
+
 from pathlib import Path
 
 from app.core.retrieval.action_links import load_action_links, match_action_links

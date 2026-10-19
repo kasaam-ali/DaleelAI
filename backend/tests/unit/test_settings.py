@@ -1,3 +1,5 @@
+"""Checks that config files load and a missing env var becomes empty."""
+
 from app.settings import expand_env, load_models_config, load_settings
 
 

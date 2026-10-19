@@ -35,4 +35,10 @@ Thumbs.db
 
 # Kept on this machine, not in the public repo
 .github/
-/docs/
+/docs/*
+!/docs/report/
+/docs/report/*
+!/docs/report/log.md
+
+# Local Qdrant snapshots. Not the live collections.
+/backups/

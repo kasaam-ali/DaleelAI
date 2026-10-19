@@ -1,6 +1,7 @@
 """Hybrid Qdrant search. The client and embedders are created on the first call."""
 
 import asyncio
+import threading
 from typing import Any
 
 from app.core.retrieval.fusion import RankedHit
@@ -37,19 +38,21 @@ class QdrantHybridSearch:
         self._client = None
         self._dense = None
         self._sparse = None
+        self._lock = threading.Lock()
 
     async def __call__(self, *, collection: str, query: str, tax_year: str | None, k: int = 30):
         return await asyncio.to_thread(self._search, collection, query, tax_year, k)
 
     def _search(self, collection: str, query: str, tax_year: str | None, k: int) -> list[RankedHit]:
-        self._ensure()
-        dense_vec, indices, values = self._embed(query)
-        try:
-            points = self._query(collection, dense_vec, indices, values, tax_year, k)
-        except Exception:
-            if collection != "documents":
-                return []
-            raise
+        with self._lock:
+            self._ensure()
+            dense_vec, indices, values = self._embed(query)
+            try:
+                points = self._query(collection, dense_vec, indices, values, tax_year, k)
+            except Exception:
+                if collection != "documents":
+                    return []
+                raise
         hits: list[RankedHit] = []
         for point in points:
             payload = dict(getattr(point, "payload", None) or {})
@@ -72,6 +75,11 @@ class QdrantHybridSearch:
         )
         self._dense = TextEmbedding(model_name=self.dense_model)
         self._sparse = SparseTextEmbedding(model_name=self.sparse_model)
+
+    def warm(self) -> None:
+        """Load the embedders and run one vector so the first question skips that cost."""
+        self._ensure()
+        self._embed("tax")
 
     def _embed(self, query: str) -> tuple[list[float], list[int], list[float]]:
         dense = next(iter(self._dense.embed([query])))

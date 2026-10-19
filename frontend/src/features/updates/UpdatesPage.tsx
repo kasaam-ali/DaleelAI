@@ -1,3 +1,5 @@
+/** FBR updates feed, with a domain filter and a saved replay. */
+
 import { useState } from "react"
 import { listUpdates, replayUpdates, type UpdateList } from "../../api/updates"
 import type { CopyKey } from "../../i18n"
@@ -38,10 +40,10 @@ export default function UpdatesPage({ copy }: { copy: Copy }) {
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("updatesTitle")}</h2>
+    <section>
+      <h2 className="page-title">{copy("updatesTitle")}</h2>
       <p className="mt-2 max-w-[48ch] text-muted">{copy("updatesHelp")}</p>
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      <div className="panel mt-4 flex flex-wrap items-end gap-3 px-4 py-4">
         <label className="text-sm">
           {copy("updatesDomain")}
           <select

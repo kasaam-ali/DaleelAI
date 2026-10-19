@@ -1,3 +1,5 @@
+"""Checks that /health returns the app version and the stored corpus hash."""
+
 from fastapi.testclient import TestClient
 
 from app.container import build_container

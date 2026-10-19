@@ -1,3 +1,5 @@
+"""The interfaces core code calls, so tests can swap in a fake."""
+
 from collections.abc import Sequence
 from typing import Any, Literal, Protocol
 

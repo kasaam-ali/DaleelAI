@@ -1,3 +1,5 @@
+"""v1 PDF reader: digital text, Tesseract when a page is scanned, then 500 character chunks."""
+
 from pathlib import Path
 import fitz
 import pytesseract

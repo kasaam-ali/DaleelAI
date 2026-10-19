@@ -1,3 +1,5 @@
+"""Reads catalog.csv and checks that each document row is valid."""
+
 import csv
 import os
 import re

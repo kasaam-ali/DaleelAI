@@ -18,14 +18,25 @@ MAX_BYTES = 10 * 1024 * 1024
 MAX_PAGES = 10
 _MIN_TEXT = 40
 
-_SECTION = re.compile(r"section\s+(\d+[A-Za-z]?(?:\(\d+[A-Za-z]?\))?)", re.IGNORECASE)
-_TAX_YEAR = re.compile(r"Tax Year\s+(20\d{2})", re.IGNORECASE)
-_DEADLINE = re.compile(r"Deadline:\s*(20\d{2}-\d{2}-\d{2})")
-_AMOUNT = re.compile(
-    r"Amount demanded:\s*Rs\.?\s*([\d,]+)",
+_SECTION = re.compile(
+    r"(?<![A-Za-z])(?:section|u\s*/\s*s\.?)\s*(\d+[A-Za-z]?(?:\(\d+[A-Za-z]?\))?)",
     re.IGNORECASE,
 )
-_OFFICE = re.compile(r"Office:\s*((?:RTO|LTU|CTO)\s+[A-Za-z]+)")
+_TAX_YEAR = re.compile(r"Tax Year\s+(20\d{2})", re.IGNORECASE)
+_DEADLINE_ISO = re.compile(r"Deadline:\s*(20\d{2}-\d{2}-\d{2})")
+_DEADLINE_DMY = re.compile(
+    r"\b(?:by|before|on or before)\s+(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b",
+    re.IGNORECASE,
+)
+_AMOUNT_LABELED = re.compile(r"Amount demanded:\s*Rs\.?\s*([\d,]+)", re.IGNORECASE)
+_AMOUNT_RS = re.compile(r"\bRs\.?\s*([\d,]+)", re.IGNORECASE)
+_OFFICE_LABEL = re.compile(r"Office:\s*((?:RTO|LTU|CTO),?\s+[A-Za-z]+)", re.IGNORECASE)
+_OFFICE_ABBR = re.compile(r"\b((?:RTO|LTU|CTO),?\s+[A-Za-z]+)\b", re.IGNORECASE)
+_OFFICE_SPELLED = re.compile(
+    r"((?:Regional Tax Office|Large Taxpayers'? Office|Corporate Tax Office),?\s+[A-Za-z]+)",
+    re.IGNORECASE,
+)
+_NONFILING = ("non-filing", "non filing", "not filed", "failure to file", "failure to furnish")
 _TYPES = (
     ("show cause", "show_cause"),
     ("penalty", "penalty"),
@@ -94,23 +105,14 @@ def mask_secrets(data: bytes, kind: str, secrets: list[str]) -> bytes:
 def parse_fields(text: str) -> dict[str, Any]:
     section = _first(_SECTION, text)
     year = _first(_TAX_YEAR, text)
-    deadline = _first(_DEADLINE, text)
-    amount_text = _first(_AMOUNT, text)
-    lowered = text.lower()
-    notice_type = "other"
-    for phrase, name in _TYPES:
-        if phrase in lowered:
-            notice_type = name
-            break
-    amount = int(amount_text.replace(",", "")) if amount_text else None
     return {
         "law": "Income Tax Ordinance, 2001",
         "section": section,
         "tax_year": f"TY{year}" if year else None,
-        "notice_type": notice_type,
-        "deadline": deadline,
-        "amount": amount,
-        "issuing_office": _first(_OFFICE, text),
+        "notice_type": _notice_type(text, section),
+        "deadline": _deadline(text),
+        "amount": _amount(text),
+        "issuing_office": _office(text),
     }
 
 
@@ -325,20 +327,25 @@ def _sources(fields: dict[str, Any], snippets: list[dict[str, Any]]) -> list[dic
 def _local_explanation(fields: dict[str, Any], language: str) -> dict[str, Any]:
     section = fields.get("section") or "the cited section"
     office = fields.get("issuing_office") or "the issuing office"
+    deadline = fields.get("deadline")
     if language == "roman_urdu":
         summary = f"Yeh notice section {section} ke tehat hai."
         why = f"{office} ne is section ke tehat jawab manga hai."
-        steps = [
-            "Notice par likhi deadline se pehle IRIS par jawab dein.",
-            "Cited section ka text padhein.",
-        ]
+        first = (
+            f"IRIS par {deadline} se pehle jawab dein."
+            if deadline
+            else "Notice par likhi deadline se pehle IRIS par jawab dein."
+        )
+        steps = [first, "Cited section ka text padhein."]
     else:
         summary = f"This notice is under section {section} of the Income Tax Ordinance, 2001."
         why = f"{office} asked for a reply under that section."
-        steps = [
-            "Reply on IRIS before the deadline printed on the notice.",
-            "Read the cited section before you reply.",
-        ]
+        first = (
+            f"Reply on IRIS by {deadline}."
+            if deadline
+            else "Reply on IRIS before the deadline printed on the notice."
+        )
+        steps = [first, "Read the cited section before you reply."]
     return {"summary": summary, "why_received": why, "next_steps": steps}
 
 
@@ -369,6 +376,50 @@ def _json_object(text: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return value if isinstance(value, dict) else None
+
+
+def _notice_type(text: str, section: str | None) -> str:
+    """114(4) asks for a return. A later penalty warning does not retype it."""
+    if section and re.match(r"114\b", section):
+        return "return_filing"
+    lowered = text.lower()
+    if any(phrase in lowered for phrase in _NONFILING):
+        return "assessment"
+    for phrase, name in _TYPES:
+        if phrase in lowered:
+            return name
+    return "other"
+
+
+def _deadline(text: str) -> str | None:
+    iso = _DEADLINE_ISO.search(text)
+    if iso:
+        return iso.group(1)
+    found = _DEADLINE_DMY.search(text)
+    if found is None:
+        return None
+    day, month, year = (int(found.group(part)) for part in (1, 2, 3))
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def _amount(text: str) -> int | None:
+    found = _AMOUNT_LABELED.search(text) or _AMOUNT_RS.search(text)
+    if found is None:
+        return None
+    digits = found.group(1).replace(",", "")
+    if not digits.isdigit():
+        return None
+    return int(digits)
+
+
+def _office(text: str) -> str | None:
+    found = _OFFICE_LABEL.search(text) or _OFFICE_ABBR.search(text) or _OFFICE_SPELLED.search(text)
+    if found is None:
+        return None
+    return re.sub(r"\s+", " ", found.group(1).replace(",", " ")).strip()
 
 
 def _first(pattern: re.Pattern[str], text: str) -> str | None:

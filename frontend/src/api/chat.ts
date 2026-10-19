@@ -1,7 +1,7 @@
 /** Streams one chat answer and loads saved chats for this session. */
 
 import { API_URL } from "./client"
-import type { Profile, UiLanguage } from "../lib/session"
+import type { AnswerLanguage, Profile } from "../lib/session"
 
 export type Source = {
   library: "verified" | "web"
@@ -71,7 +71,7 @@ export type SseEvent =
 export type ChatBody = {
   chat_id: string | null
   message: string
-  language: UiLanguage
+  language: AnswerLanguage
   tax_year: null
   profile: Profile
 }

@@ -4,6 +4,8 @@ export type TaxpayerType = "salaried" | "freelancer" | "business" | "company"
 export type FilerStatus = "filer" | "non_filer" | "unknown"
 export type Province = "punjab" | "sindh" | "kpk" | "balochistan" | "islamabad" | "gb" | "ajk"
 export type UiLanguage = "en" | "roman_urdu"
+export type AnswerLanguage = "auto" | "en" | "roman_urdu"
+export type ReplyLanguage = Exclude<AnswerLanguage, "auto">
 export type Theme = "light" | "dark"
 
 export type Profile = {
@@ -21,6 +23,7 @@ export const EMPTY_PROFILE: Profile = {
 export const SESSION_KEY = "daleelai.session_id"
 export const PROFILE_KEY = "daleelai.profile"
 export const LANGUAGE_KEY = "daleelai.language"
+export const ANSWER_LANGUAGE_KEY = "daleelai.answer_language"
 export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
 
@@ -103,4 +106,40 @@ export function writeChatId(storage: StorageLike, chatId: string): void {
 
 export function profilePayload(profile: Profile): Profile {
   return sanitizeProfile(profile)
+}
+
+const ANSWER_LANGUAGES = new Set<AnswerLanguage>(["auto", "en", "roman_urdu"])
+
+export function asReplyLanguage(value: string | null | undefined): ReplyLanguage | null {
+  return value === "en" || value === "roman_urdu" ? value : null
+}
+
+export function readAnswerLanguage(storage: StorageLike, chatId: string | null): AnswerLanguage {
+  if (!chatId) return "auto"
+  const raw = storage.getItem(ANSWER_LANGUAGE_KEY)
+  if (!raw) return "auto"
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const value = parsed[chatId]
+    return typeof value === "string" && ANSWER_LANGUAGES.has(value as AnswerLanguage)
+      ? (value as AnswerLanguage)
+      : "auto"
+  } catch {
+    return "auto"
+  }
+}
+
+export function writeAnswerLanguage(storage: StorageLike, chatId: string, language: AnswerLanguage): void {
+  let parsed: Record<string, string> = {}
+  const raw = storage.getItem(ANSWER_LANGUAGE_KEY)
+  if (raw) {
+    try {
+      const value = JSON.parse(raw) as unknown
+      if (value && typeof value === "object") parsed = value as Record<string, string>
+    } catch {
+      parsed = {}
+    }
+  }
+  parsed[chatId] = language
+  storage.setItem(ANSWER_LANGUAGE_KEY, JSON.stringify(parsed))
 }

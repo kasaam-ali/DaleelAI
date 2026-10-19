@@ -6,6 +6,7 @@ import { annotatePkr, formatPkr } from "../../lib/money"
 import { safeHref } from "../../lib/safeUrl"
 import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
+import { localizedError } from "../../i18n/errors"
 import RefusalCard from "./RefusalCard"
 import { refusalKind } from "./refusal"
 import type { Turn } from "./types"
@@ -21,11 +22,13 @@ function hasCitation(sources: Source[]): boolean {
 export default function AnswerSlip({
   turn,
   copy,
+  language,
   onFeedback,
   onAsk,
 }: {
   turn: Turn
   copy: Copy
+  language: UiLanguage
   onFeedback: (rating: "up" | "down", reason: FeedbackReason | null) => void
   onAsk: (question: string) => void
 }) {
@@ -36,7 +39,7 @@ export default function AnswerSlip({
   const verified = Boolean(final?.verified) && cited
   const confidence = final && cited ? final.confidence : "low"
   const kind = final ? refusalKind(turn.intent, final.answer_source, final.model) : null
-  const text = final ? annotatePkr(final.answer) : turn.draft
+  const text = final ? annotatePkr(localizedError(final.answer, language)) : turn.draft
   const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
 
   return (
@@ -159,7 +162,7 @@ export default function AnswerSlip({
             </div>
           ) : null}
 
-          <AgentSteps turn={turn} copy={copy} />
+          <AgentSteps turn={turn} copy={copy} language={language} />
           <p className="mt-5 max-w-[68ch] text-sm text-muted">{copy("disclaimer")}</p>
 
           {turn.messageId ? (
@@ -268,10 +271,10 @@ export function SourcesRail({
   )
 }
 
-function AgentSteps({ turn, copy }: { turn: Turn; copy: Copy }) {
+function AgentSteps({ turn, copy, language }: { turn: Turn; copy: Copy; language: UiLanguage }) {
   const [note, setNote] = useState<string | null>(null)
   const trace = turn.final?.trace
-  const answer = turn.final?.answer || turn.draft
+  const answer = localizedError(turn.final?.answer || turn.draft, language)
 
   async function copyAnswer() {
     try {

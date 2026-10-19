@@ -42,6 +42,10 @@ _INJECTION_REFUSAL = (
     "I can't ignore the rules or reveal a hidden prompt. "
     "Ask a tax question and I will answer from the ordinance."
 )
+_INJECTION_REFUSAL_RU = (
+    "Main qawaid nahi chhod sakta aur chhupa hua prompt nahi dikha sakta. "
+    "Tax ka sawal poochain, main ordinance se jawab doonga."
+)
 _REFUSAL_RU = (
     "Main income chhupane, tax se bachne, ya fake documents mein madad nahi kar sakta. "
     "Qanooni filing ke liye IRIS istemal karein ya FBR ko 051-111-772-772 par call karein."
@@ -51,7 +55,10 @@ _NOT_READY_RU = "Yeh tool abhi dastiyab nahi."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
 _CHITCHAT_RU = "Salam. Tax ka sawal poochain. Main FBR aur SECP ke sarkari sources se jawab doonga."
 _OUT_OF_SCOPE = "That is outside tax and compliance. Ask about FBR or SECP and I can help."
-_OUT_OF_SCOPE_RU = "Yeh tax aur compliance se bahar hai. FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
+_OUT_OF_SCOPE_RU = (
+    "Yeh tax aur compliance se bahar hai. "
+    "FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
+)
 _STATUTE = re.compile(r"^\d{1,3}[A-Z]{0,4}$")
 _HEADER_STATUTE = re.compile(r"\b(?:Section|Rule|Regulation)\s+(\d{1,3}[A-Z]{0,4})\b", re.I)
 log = logging.getLogger(__name__)
@@ -712,7 +719,7 @@ def _short_reply(
     roman = language == "roman_urdu"
     if intent == "refuse":
         if is_prompt_injection(message):
-            return _INJECTION_REFUSAL
+            return _INJECTION_REFUSAL_RU if roman else _INJECTION_REFUSAL
         return _REFUSAL_RU if roman else _REFUSAL
     if intent == "chitchat":
         return _CHITCHAT_RU if roman else _CHITCHAT

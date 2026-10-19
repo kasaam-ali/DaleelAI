@@ -80,8 +80,6 @@ TOPICS: tuple[TaxTopic, ...] = (
             "registry",
             "236c",
             "236k",
-            "capital gain",
-            "capital gains",
         ),
     ),
     TaxTopic(
@@ -136,7 +134,6 @@ TOPICS: tuple[TaxTopic, ...] = (
             "capital gains",
             "munafa",
             "munafe",
-            "profit",
             "bache hain",
             "section 37",
         ),
@@ -289,6 +286,10 @@ def detect_topics(text: str) -> list[TaxTopic]:
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.
     if "senior_profit" in keys:
         found = [topic for topic in found if topic.key != "capital_gain"]
+    # Cash withdrawal is Section 231AB. A capital-gain aside is not a plot sale,
+    # and the plot template must not be written into the search text.
+    if "cash" in keys and not _immovable_cue(text):
+        found = [topic for topic in found if topic.key not in {"property", "capital_gain"}]
     return found
 
 
@@ -303,8 +304,8 @@ def topics_for_note(text: str) -> list[TaxTopic]:
         cleaned = cleaned.replace(topic.query, " ")
     found = detect_topics(cleaned)
     keys = {topic.key for topic in found}
-    # Cash withdrawal is Section 231AB. "Capital gain" in that question is not a plot sale.
-    if "cash" in keys and not _immovable_cue(text):
+    # Judge the user's words, not a search template that names "plot" or "immovable".
+    if "cash" in keys and not _immovable_cue(cleaned):
         found = [topic for topic in found if topic.key != "property"]
     return found
 

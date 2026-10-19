@@ -596,5 +596,27 @@ describe("ChatPage live answer", () => {
       events.release?.()
       await Promise.resolve()
     })
+    expect(localStorage.getItem("daleelai.offline_queue")).toBeNull()
+  })
+
+  it("keeps a queued question when the send is cut off", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event("offline"))
+    })
+    await send("What does section 149 cover?")
+    script.fail = { status: 500, code: "server_error", message: "Server error." }
+    await act(async () => {
+      window.dispatchEvent(new Event("online"))
+      await Promise.resolve()
+    })
+    expect(localStorage.getItem("daleelai.offline_queue") ?? "").toContain("What does section 149 cover?")
+    expect(host.textContent).toContain("queueHeld")
+    expect(host.textContent).toContain("queued")
   })
 })

@@ -207,18 +207,18 @@ export default function ChatPage({
   async function ask(
     rawText: string,
     options?: { language?: AnswerLanguage; replaceId?: string; flush?: boolean },
-  ) {
+  ): Promise<boolean> {
     const raw = rawText.trim()
     if (!raw) {
       setFormError(copy("writeQuestion"))
-      return
+      return false
     }
     const replacing = Boolean(options?.replaceId)
-    if (busyRef.current && !replacing) return
+    if (busyRef.current && !replacing) return false
     const message = redactPii(raw)
     if (message.length > 2000) {
       setFormError(copy("tooLong"))
-      return
+      return false
     }
     const requested = options?.language ?? answerLanguageRef.current
     setFormError(null)
@@ -234,14 +234,14 @@ export default function ChatPage({
       }
       if (!queueRef.current.some((item) => item.id === id)) queueRef.current.push({ id, text: message })
       rememberQueue()
-      return
+      return false
     }
     if (!replacing) setDraft("")
     clearRetry()
     if (replacing) {
       patch(id, (current) => ({
         ...current,
-        status: "",
+        status: options?.flush ? "sending" : "",
         draft: "",
         sources: [],
         phases: [...PENDING_PHASES],
@@ -279,13 +279,37 @@ export default function ChatPage({
         },
         controller.signal,
       )
+      if (!live()) return false
+      queueRef.current = queueRef.current.filter((item) => item.id !== id)
+      rememberQueue()
+      return true
     } catch (err) {
-      if (!live()) return
+      if (!live()) return false
+      const held = Boolean(options?.flush) && !stopRequested.current
       if (!controller.signal.aborted) {
         const error = asTurnError(err, copy("answerFailed"))
         const messageText = shownError(error.message, copy("answerFailed"), language)
-        patch(id, (current) => ({ ...current, status: "", error: { ...error, message: messageText } }))
-        if (canAutoRetry(error)) scheduleRetry(id, message)
+        if (held && !queueRef.current.some((item) => item.id === id)) {
+          queueRef.current.push({ id, text: message })
+          rememberQueue()
+        }
+        patch(id, (current) => ({
+          ...current,
+          status: "",
+          queued: held,
+          error: { ...error, message: held ? copy("queueHeld") : messageText },
+        }))
+        if (!held && canAutoRetry(error)) scheduleRetry(id, message)
+      } else if (held) {
+        if (!queueRef.current.some((item) => item.id === id)) queueRef.current.push({ id, text: message })
+        rememberQueue()
+        patch(id, (current) => ({
+          ...current,
+          status: "",
+          queued: true,
+          stopped: false,
+          error: { status: null, code: "queued", message: copy("queueHeld") },
+        }))
       } else {
         patch(id, (current) => ({
           ...current,
@@ -293,6 +317,7 @@ export default function ChatPage({
           stopped: stopRequested.current || current.stopped,
         }))
       }
+      return false
     } finally {
       if (live()) setBusy(false)
     }
@@ -322,6 +347,7 @@ export default function ChatPage({
   }
 
   const askRef = useRef(ask)
+  const flushGen = useRef(0)
   const consumeLaunchRef = useRef(onLaunchConsumed)
   const launched = useRef<string | null>(null)
   useEffect(() => {
@@ -338,19 +364,15 @@ export default function ChatPage({
 
   useEffect(() => {
     if (!online) return
-    const pending = queueRef.current.splice(0)
-    if (pending.length === 0) return
-    rememberQueue()
-    let cancelFlush = false
+    const gen = ++flushGen.current
     void (async () => {
-      for (const item of pending) {
-        if (cancelFlush) return
-        await askRef.current(item.text, { replaceId: item.id, flush: true })
+      while (flushGen.current === gen && queueRef.current.length > 0) {
+        const item = queueRef.current[0]
+        const ok = await askRef.current(item.text, { replaceId: item.id, flush: true })
+        if (flushGen.current !== gen) return
+        if (!ok || queueRef.current[0]?.id === item.id) return
       }
     })()
-    return () => {
-      cancelFlush = true
-    }
   }, [online])
 
   function applyEvent(id: string, event: SseEvent) {
@@ -528,6 +550,7 @@ export default function ChatPage({
                       onSelect={(next) => chooseAnswerLanguage(next, turn)}
                     />
                     {turn.queued ? <p className="text-sm text-muted">{copy("queued")}</p> : null}
+                    {turn.status === "sending" ? <p className="text-sm text-muted">{copy("queueSending")}</p> : null}
                     {showSteps(turn) ? (
                       <StatusSteps phases={turn.phases} copy={copy} skeleton={!streaming} />
                     ) : null}
@@ -557,6 +580,7 @@ export default function ChatPage({
                     {!turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn)) ? (
                       <AnswerSlip
                         turn={turn}
+                        language={language}
                         copy={copy}
                         onAsk={(question) => void ask(question)}
                         onFeedback={(rating, reason) => {

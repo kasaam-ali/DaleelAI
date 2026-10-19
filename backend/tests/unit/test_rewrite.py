@@ -97,6 +97,15 @@ def test_cash_withdrawal_does_not_take_the_property_note():
     assert "236C" not in injected
     assert "236K" not in injected
     assert "15 lakh" not in injected
+    aside = "What is the filer vs non-filer withholding on a cash withdrawal? Any capital gain?"
+    rewritten = rewrite_search_query(aside)
+    assert "236C" not in rewritten
+    assert "236K" not in rewritten
+    assert "plot" not in rewritten.lower()
+    assert "236C" not in cross_reference_note(f"{aside} {rewritten}")
+    bank = "Bank deposit ke profit pe filer withholding kya hota hai?"
+    assert "plot" not in rewrite_search_query(bank).lower()
+    assert "236C" not in cross_reference_note(f"{bank} {rewrite_search_query(bank)}")
 
 
 def test_existing_mappings_still_fire():

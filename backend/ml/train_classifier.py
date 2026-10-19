@@ -53,6 +53,13 @@ def main() -> None:
     exported = _export(winner["model"])
     report = {
         "task": "domain|complexity",
+        "measured_at": time.strftime("%Y-%m-%d"),
+        "dataset": {
+            "train": len(train),
+            "synthetic_test": len(synthetic),
+            "human_test": len(human),
+            "kinds": _kinds(train, synthetic, human),
+        },
         "train_rows": len(train),
         "served_model": winner["name"],
         "export": exported,
@@ -82,6 +89,15 @@ def main() -> None:
         encoding="utf-8",
     )
     print(winner["name"], winner["human_test"]["macro_f1"], exported)
+
+
+def _kinds(*groups: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for rows in groups:
+        for row in rows:
+            key = f"{row['domain']}|{row['complexity']}"
+            counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _load(path: Path) -> list[dict]:

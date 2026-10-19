@@ -1,13 +1,14 @@
 /** FBR updates feed, with a domain filter and a saved replay. */
 
 import { useState } from "react"
-import { listUpdates, replayUpdates, type UpdateList } from "../../api/updates"
+import { listUpdates, replayUpdates, summaryFor, type UpdateList } from "../../api/updates"
+import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
 
 type Copy = (key: CopyKey) => string
 const DOMAINS = ["all", "income_tax", "sales_tax", "customs", "corporate_secp", "audit_notice", "property"]
 
-export default function UpdatesPage({ copy }: { copy: Copy }) {
+export default function UpdatesPage({ copy, language }: { copy: Copy; language: UiLanguage }) {
   const [domain, setDomain] = useState("all")
   const [result, setResult] = useState<UpdateList | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -80,7 +81,7 @@ export default function UpdatesPage({ copy }: { copy: Copy }) {
                 {item.domain ? `, ${item.domain}` : ""}
                 {item.published_at ? `, ${item.published_at}` : ""}
               </p>
-              <p className="mt-2 whitespace-pre-wrap">{item.summary}</p>
+              <p className="mt-2 whitespace-pre-wrap">{summaryFor(item, language)}</p>
               <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block underline">
                 {item.source_url}
               </a>

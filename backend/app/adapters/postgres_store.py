@@ -550,6 +550,41 @@ class PostgresStore:
             conn.commit()
         return deleted
 
+    def delete_session(self, session_id: str) -> None:
+        """Hard-delete one session's chats, messages, feedback, and checklists.
+
+        Messages and feedback have no session_id column; they go by join.
+        Checklist step progress is the checklists.steps JSON, so deleting
+        the checklist row removes it. One commit, including a repeat call
+        that matches nothing.
+        """
+        self.ensure()
+        session = _uuid(session_id)
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM feedback
+                    WHERE message_id IN (
+                      SELECT m.id
+                      FROM messages m
+                      JOIN chats c ON c.id = m.chat_id
+                      WHERE c.session_id = %s
+                    )
+                    """,
+                    (session,),
+                )
+                cur.execute(
+                    """
+                    DELETE FROM messages
+                    WHERE chat_id IN (SELECT id FROM chats WHERE session_id = %s)
+                    """,
+                    (session,),
+                )
+                cur.execute("DELETE FROM chats WHERE session_id = %s", (session,))
+                cur.execute("DELETE FROM checklists WHERE session_id = %s", (session,))
+            conn.commit()
+
     def rename_chat(self, session_id: str, chat_id: str, title: str) -> dict[str, Any] | None:
         self.ensure()
         with self._open() as conn:

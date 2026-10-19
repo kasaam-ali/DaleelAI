@@ -77,7 +77,17 @@ def updates_list(
 
 
 @router.post("/updates/replay", response_model=NotificationIngestResponse)
-def updates_replay(request: Request) -> NotificationIngestResponse | JSONResponse:
+def updates_replay(
+    request: Request,
+    x_internal_token: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> NotificationIngestResponse | JSONResponse:
+    if not _authorized(request, x_internal_token, authorization):
+        return _error(401, "unauthorized", "The internal token does not match.")
+    return _replay(request)
+
+
+def _replay(request: Request) -> NotificationIngestResponse | JSONResponse:
     indexer, _web = _pair(request)
     try:
         result = replay_notifications(
@@ -131,7 +141,7 @@ def notifications_replay(
 ) -> NotificationIngestResponse | JSONResponse:
     if not _authorized(request, x_internal_token, authorization):
         return _error(401, "unauthorized", "The internal token does not match.")
-    return updates_replay(request)
+    return _replay(request)
 
 
 @internal_router.post("/web/ingest", response_model=WebIngestResponse)

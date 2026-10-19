@@ -11,7 +11,15 @@
     "roman_urdu": 120,
     "special": 40,
     "dev": 80,
-    "test": 160
+    "test": 160,
+    "kinds": {
+      "answerable": 200,
+      "evasion": 8,
+      "injection": 8,
+      "provincial": 8,
+      "tax_year": 8,
+      "unanswerable": 8
+    }
   },
   "stages": [
     {

@@ -230,7 +230,7 @@ export default function App() {
             {view === "experts" ? (
               <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
             ) : null}
-            {view === "updates" ? <UpdatesPage copy={copy} /> : null}
+            {view === "updates" ? <UpdatesPage copy={copy} language={language} /> : null}
             {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
             {view === "privacy" ? <PrivacyPage copy={copy} onClearHistory={clearHistory} /> : null}
           </div>

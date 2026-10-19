@@ -70,6 +70,18 @@ def test_change_detection_keeps_pages_when_a_crawl_is_empty():
     assert gone["removed"] == ["https://www.fbr.gov.pk/"]
 
 
+def test_github_is_not_on_the_crawler_allowlist():
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "config" / "web_sources.yaml"
+    text = path.read_text(encoding="utf-8")
+    assert "github.com" not in text
+    prefixes = prefixes_for(path)
+    assert prefixes
+    assert not any("github.com" in prefix for prefix in prefixes)
+    assert not url_allowed("https://github.com/kasaam-ali/DaleelAI", prefixes)
+
+
 def test_off_list_url_is_rejected_and_empty_crawl_deletes_nothing():
     from pathlib import Path
 
@@ -99,18 +111,31 @@ def test_replay_feed_domain_filter_and_chat_card():
     client = _client(token="test-token")
     denied = client.post("/internal/notifications/ingest", json={"items": []})
     assert denied.status_code == 401
-    replayed = client.post("/api/v1/updates/replay")
+    denied_replay = client.post("/api/v1/updates/replay")
+    assert denied_replay.status_code == 401
+    assert denied_replay.json()["error"]["code"] == "unauthorized"
+    replayed = client.post(
+        "/api/v1/updates/replay",
+        headers={"X-Internal-Token": "test-token"},
+    )
     assert replayed.status_code == 200
     body = replayed.json()
     assert body["ingested"] == 3
-    again = client.post("/api/v1/updates/replay")
+    again = client.post(
+        "/api/v1/updates/replay",
+        headers={"Authorization": "Bearer test-token"},
+    )
     assert again.json()["skipped"] == 3
     sales = client.get("/api/v1/updates", params={"domain": "sales_tax"})
     assert sales.status_code == 200
     assert sales.json()["total"] == 1
-    assert sales.json()["items"][0]["doc_type"] == "circular"
-    assert "Roman" not in sales.json()["items"][0]["summary"]
-    assert "khulasa" in sales.json()["items"][0]["summary"]
+    item = sales.json()["items"][0]
+    assert item["doc_type"] == "circular"
+    assert "Roman" not in item["summary"]
+    assert "khulasa" in item["summary"]
+    assert "khulasa" in item["summary_ru"]
+    assert "khulasa" not in item["summary_en"]
+    assert item["summary"] == f"{item['summary_en']}\n\n{item['summary_ru']}"
     empty = client.post(
         "/internal/web/ingest",
         headers={"X-Internal-Token": "test-token"},

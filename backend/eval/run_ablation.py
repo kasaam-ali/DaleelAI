@@ -3,6 +3,7 @@
 import json
 import re
 import time
+from collections import Counter
 from pathlib import Path
 
 from app.adapters.postgres_sections import PostgresSections
@@ -143,6 +144,7 @@ def report_for(rows, measured, error, before, after):
         "special": sum(1 for row in rows if row["kind"] != "answerable"),
         "dev": sum(1 for row in rows if row["split"] == "dev"),
         "test": sum(1 for row in rows if row["split"] == "test"),
+        "kinds": dict(sorted(Counter(row["kind"] for row in rows).items())),
     }
     untouched = "This pass only ran queries. The documents collection was not rebuilt."
     stages = [

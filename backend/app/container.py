@@ -33,11 +33,14 @@ def build_container(settings: Settings | None = None) -> Container:
         llm: LLMPort = FakeLLM()
     else:
         llm = LiteLLMGateway(load_models_config())
-    feedback = None
     if settings.database_url:
         from app.adapters.postgres_store import PostgresStore
 
         feedback = PostgresStore(settings.database_url)
+    else:
+        from app.adapters.memory_store import MemorySessionStore
+
+        feedback = MemorySessionStore()
     from app.adapters.onnx_classifier import load_classifier
 
     model_path = Path(settings.models.classifier_path)
@@ -45,7 +48,8 @@ def build_container(settings: Settings | None = None) -> Container:
         model_path = Path(__file__).resolve().parent.parent / model_path
     classifier = load_classifier(settings.adapters.classifier, model_path)
     qa = None
-    if settings.adapters.vector_store == "qdrant":
+    # A blank URL means this process is the local demo, not a broken Qdrant client.
+    if settings.adapters.vector_store == "qdrant" and settings.qdrant.url.strip():
         from app.adapters.live_qa import LiveQa
 
         qa = LiveQa(settings, llm, classifier)

@@ -3,8 +3,11 @@ import { sendFeedback, streamChat, type FeedbackReason, type SseEvent } from "..
 import type { CopyKey } from "../../i18n"
 import { redactPii } from "../../lib/pii"
 import { readChatId, readSessionId, writeChatId, type Profile, type UiLanguage } from "../../lib/session"
+import { primary } from "../../ui/styles"
 import AnswerSlip from "./AnswerSlip"
 import type { Turn } from "./types"
+
+const SUGGESTIONS: CopyKey[] = ["suggestDemo", "suggestSalary", "suggestNtn", "suggestLawyer"]
 
 type Copy = (key: CopyKey) => string
 
@@ -36,8 +39,15 @@ export default function ChatPage({
   const chatId = useRef<string | null>(null)
   const chatLoaded = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
 
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  useEffect(() => {
+    const node = scroller.current
+    if (!node) return
+    node.scrollTop = node.scrollHeight
+  }, [turns, busy])
 
   function currentChatId(): string | null {
     if (!chatLoaded.current) {
@@ -182,39 +192,66 @@ export default function ChatPage({
   }
 
   return (
-    <div className="mt-8">
-      {turns.map((turn) => (
-        <AnswerSlip
-          key={turn.id}
-          turn={turn}
-          language={language}
-          copy={copy}
-          onAsk={(question) => void ask(question)}
-          onFeedback={(rating, reason) => {
-            if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason)
-          }}
-        />
-      ))}
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 sm:px-6">
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto py-6">
+        {turns.length === 0 ? (
+          <div className="mx-auto mt-8 max-w-xl rounded-3xl border border-rule bg-field px-6 py-8 text-center shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
+            <p className="font-statute text-3xl tracking-tight">{copy("emptyTitle")}</p>
+            <p className="mx-auto mt-3 max-w-[42ch] text-sm leading-6 text-muted">{copy("emptyBody")}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {SUGGESTIONS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => void ask(copy(key))}
+                  className="min-h-11 rounded-full border border-rule bg-paper px-3 text-left text-sm transition hover:border-seal/40"
+                >
+                  {copy(key)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {turns.map((turn) => (
+          <AnswerSlip
+            key={turn.id}
+            turn={turn}
+            language={language}
+            copy={copy}
+            onAsk={(question) => void ask(question)}
+            onFeedback={(rating, reason) => {
+              if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason)
+            }}
+          />
+        ))}
+      </div>
 
-      <form id="ask" onSubmit={onSubmit} className="sticky bottom-0 mt-8 border-t border-rule bg-paper py-4">
+      <form id="ask" onSubmit={onSubmit} className="border-t border-rule bg-paper py-4">
         <label htmlFor="question" className="block text-sm font-medium">
           {copy("questionLabel")}
         </label>
-        <textarea
-          id="question"
-          value={draft}
-          maxLength={2000}
-          onChange={(event) => {
-            setDraft(event.target.value)
-            setFormError(null)
-          }}
-          onKeyDown={onKeyDown}
-          placeholder={copy("placeholder")}
-          className="mt-2 min-h-24 w-full border border-rule bg-field px-3 py-3 text-base text-ink"
-        />
-        <p className="mt-2 text-sm text-muted">{copy("enterHint")}</p>
+        <div className="mt-2 rounded-2xl border border-rule bg-field p-2 shadow-[0_1px_2px_rgba(26,24,20,0.04)] focus-within:border-seal">
+          <textarea
+            id="question"
+            value={draft}
+            maxLength={2000}
+            onChange={(event) => {
+              setDraft(event.target.value)
+              setFormError(null)
+            }}
+            onKeyDown={onKeyDown}
+            placeholder={copy("placeholder")}
+            className="min-h-20 w-full resize-none bg-transparent px-2 py-2 text-base text-ink outline-none"
+          />
+          <div className="flex items-center justify-between gap-3 px-2 pb-1">
+            <p className="text-xs text-muted">{copy("enterHint")}</p>
+            <button type="submit" disabled={busy} className={primary}>
+              {busy ? copy("asking") : copy("ask")}
+            </button>
+          </div>
+        </div>
         {showPreview ? (
-          <p className="mt-2 max-w-[68ch] text-sm">
+          <p className="mt-2 max-w-[68ch] rounded-xl bg-field px-3 py-2 text-sm">
             {copy("redactionPreview")} {preview}
           </p>
         ) : null}
@@ -223,13 +260,6 @@ export default function ChatPage({
             {formError}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-3 min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink transition-opacity duration-150 hover:opacity-90 active:opacity-80 disabled:bg-rule disabled:text-muted"
-        >
-          {busy ? copy("asking") : copy("ask")}
-        </button>
       </form>
     </div>
   )

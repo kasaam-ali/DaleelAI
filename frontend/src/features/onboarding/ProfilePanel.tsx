@@ -30,18 +30,22 @@ export default function ProfilePanel({
   profile,
   copy,
   onChange,
+  compact = false,
 }: {
   profile: Profile
   copy: Copy
   onChange: (patch: Partial<Profile>) => void
+  compact?: boolean
 }) {
   return (
-    <section className="mt-8" aria-labelledby="filing-details">
-      <h2 id="filing-details" className="text-base font-medium">
+    <section className={compact ? "" : "mt-8"} aria-labelledby="filing-details">
+      <h2 id="filing-details" className={compact ? "text-sm font-medium text-sidebar-ink" : "text-base font-medium"}>
         {copy("profileTitle")}
       </h2>
-      <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("profileHelp")}</p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <p className={compact ? "mt-1 text-xs leading-5 text-sidebar-muted" : "mt-1 max-w-[68ch] text-sm text-muted"}>
+        {copy("profileHelp")}
+      </p>
+      <div className={compact ? "mt-3 grid gap-3" : "mt-4 grid gap-4 sm:grid-cols-3"}>
         <Field
           id="taxpayer-type"
           label={copy("taxpayerType")}
@@ -88,14 +92,14 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm">
+      <label htmlFor={id} className="mb-1 block text-sm text-inherit">
         {label}
       </label>
       <select
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
+        className="min-h-11 w-full rounded-xl border border-rule bg-field px-3 text-base text-ink"
       >
         <option value="">{choose}</option>
         {options.map((option) => (

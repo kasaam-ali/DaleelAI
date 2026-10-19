@@ -29,30 +29,33 @@ export default function AnswerSlip({
   const waiting = !text && !turn.error
 
   return (
-    <article className="mt-6 border border-rule bg-field">
-      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)]">
-        <div className="border-r border-rule px-2 py-4 text-sm text-muted">{margin(turn.sources, taxYear)}</div>
-        <div className="min-w-0 px-4 py-4">
-          <p className="text-sm text-muted">{copy("you")}</p>
-          <p className="max-w-[68ch]">{turn.question}</p>
-          {turn.redacted ? <p className="mt-1 text-sm text-muted">{copy("redactionSent")}</p> : null}
+    <article className="mt-6">
+      <div className="ml-auto max-w-[42rem] rounded-2xl rounded-br-md bg-ink px-4 py-3 text-paper">
+        <p className="text-xs tracking-wide text-paper/70">{copy("you")}</p>
+        <p className="mt-1 whitespace-pre-wrap">{turn.question}</p>
+        {turn.redacted ? <p className="mt-2 text-sm text-paper/75">{copy("redactionSent")}</p> : null}
+      </div>
+      <div className="mt-3 max-w-[42rem] rounded-2xl rounded-bl-md border border-rule bg-field px-4 py-4 shadow-[0_1px_2px_rgba(26,24,20,0.04)]">
+          {margin(turn.sources, taxYear) ? (
+            <p className="text-xs font-medium tracking-wide text-seal">{margin(turn.sources, taxYear)}</p>
+          ) : null}
 
           {turn.status ? (
-            <p className="mt-4 text-sm text-muted" aria-live="polite">
+            <p className="mt-2 text-sm text-muted" aria-live="polite">
               {turn.status}
             </p>
           ) : null}
 
           {waiting ? (
             <div className="mt-4 grid gap-2" aria-hidden="true">
-              <div className="waiting h-4 w-4/5" />
-              <div className="waiting h-4 w-full" />
-              <div className="waiting h-4 w-2/3" />
+              <div className="waiting h-3 w-4/5 rounded-full" />
+              <div className="waiting h-3 w-full rounded-full" />
+              <div className="waiting h-3 w-2/3 rounded-full" />
             </div>
           ) : null}
 
           {text ? (
-            <p className="statute mt-4 max-w-[68ch] text-lg whitespace-pre-wrap">{text}</p>
+            <p className="statute mt-3 max-w-[68ch] text-lg whitespace-pre-wrap">{text}</p>
           ) : null}
 
           {turn.error ? (
@@ -104,11 +107,10 @@ export default function AnswerSlip({
               ) : null}
             </div>
           ) : null}
-        </div>
       </div>
 
       {final ? (
-        <div className="border-t border-rule px-4 py-4">
+        <div className="mt-3 max-w-[42rem] rounded-2xl border border-rule bg-paper px-4 py-4">
           <h3 className="text-base font-medium">{copy("sources")}</h3>
           {turn.sources.length === 0 ? (
             <p className="mt-2 text-sm text-muted">{copy("noSection")}</p>

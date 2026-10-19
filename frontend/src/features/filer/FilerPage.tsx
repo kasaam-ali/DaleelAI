@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { compareFiler, type FilerComparison, type TaxYear } from "../../api/tax"
 import type { CopyKey } from "../../i18n"
 import { formatPkr } from "../../lib/money"
+import { field, primary, secondary } from "../../ui/styles"
 import { CompareBars } from "../tax/CompareBars"
 
 type Copy = (key: CopyKey) => string
@@ -15,7 +16,7 @@ const TYPES = [
   "profit_on_debt",
 ] as const
 
-const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
+const inputClass = field
 
 export default function FilerPage({
   copy,
@@ -64,11 +65,11 @@ export default function FilerPage({
   }
 
   return (
-    <section className="mt-8" aria-labelledby="filer-title">
-      <h2 id="filer-title" className="text-base font-medium">
+    <section aria-labelledby="filer-title">
+      <h2 id="filer-title" className="font-statute text-3xl tracking-tight">
         {copy("filerTitle")}
       </h2>
-      <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("filerHelp")}</p>
+      <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted">{copy("filerHelp")}</p>
       <form onSubmit={(event) => void onSubmit(event)} className="mt-4 grid gap-4">
         <label className="text-sm">
           {copy("taxYear")}
@@ -118,7 +119,7 @@ export default function FilerPage({
         <button
           type="submit"
           disabled={busy}
-          className="min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
+          className={`${primary} w-full sm:w-auto`}
         >
           {busy ? copy("calculating") : copy("compare")}
         </button>
@@ -129,7 +130,7 @@ export default function FilerPage({
         </p>
       ) : null}
       {result ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-rule bg-field px-5 py-5 shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
@@ -161,7 +162,7 @@ export default function FilerPage({
             <button
               type="button"
               onClick={() => onOpenChecklist("ntn_individual")}
-              className="mt-3 min-h-11 border border-rule px-3 text-sm"
+              className={`${secondary} mt-3`}
             >
               {copy("becomeFiler")}
             </button>

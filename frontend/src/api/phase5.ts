@@ -94,10 +94,11 @@ export async function markChecklistStep(
   checklistId: string,
   stepId: string,
   done: boolean,
+  language: string,
 ): Promise<Checklist> {
   return checklistJson(`/api/v1/checklists/${checklistId}/steps/${stepId}`, {
     method: "PATCH",
-    body: JSON.stringify({ done }),
+    body: JSON.stringify({ done, language }),
   })
 }
 

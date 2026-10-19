@@ -26,8 +26,8 @@ function Bar({ label, value, width }: { label: string; value: number; width: num
       <p className="text-sm">
         {label} {formatPkr(value)}
       </p>
-      <div className="mt-1 h-3 border border-rule bg-paper">
-        <div className="h-full bg-seal" style={{ width: `${width}%` }} />
+      <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-rule/70">
+        <div className="h-full rounded-full bg-seal" style={{ width: `${width}%` }} />
       </div>
     </div>
   )

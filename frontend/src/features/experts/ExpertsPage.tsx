@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { findExperts, type ExpertFind } from "../../api/experts"
 import type { CopyKey } from "../../i18n"
+import { domainLabel } from "../../lib/domains"
+import { field, primary, secondary } from "../../ui/styles"
 
 type Copy = (key: CopyKey) => string
-const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
+const inputClass = field
 const CITIES = ["", "Karachi", "Lahore", "Islamabad"]
 
 export default function ExpertsPage({
@@ -56,7 +58,10 @@ export default function ExpertsPage({
   }, [initialQuery, initialCategory])
 
   async function search(nextCategory: string | null) {
-    if (!query.trim()) return
+    if (!query.trim()) {
+      setError(copy("expertsNeedQuery"))
+      return
+    }
     setBusy(true)
     setError(null)
     setCategory(nextCategory)
@@ -71,14 +76,14 @@ export default function ExpertsPage({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("expertsTitle")}</h2>
-      <p className="mt-2 max-w-[48ch] text-muted">{copy("expertsHelp")}</p>
+    <section>
+      <h2 className="font-statute text-3xl tracking-tight">{copy("expertsTitle")}</h2>
+      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-muted">{copy("expertsHelp")}</p>
       <form
         className="mt-4 grid gap-3"
         onSubmit={(event) => {
           event.preventDefault()
-          void search(category)
+          void search(null)
         }}
       >
         <label className="text-sm">
@@ -95,13 +100,18 @@ export default function ExpertsPage({
             ))}
           </select>
         </label>
-        <button type="submit" disabled={busy} className="min-h-11 bg-seal px-4 text-paper">
+        <button type="submit" disabled={busy} className={`${primary} w-full sm:w-auto`}>
           {copy("expertsFind")}
         </button>
       </form>
-      {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
+      {category ? <p className="mt-3 text-sm text-muted">{domainLabel(copy, category)}</p> : null}
+      {error ? (
+        <p className="mt-3 text-sm text-low" role="alert">
+          {error}
+        </p>
+      ) : null}
       {result ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="mt-6 rounded-2xl border border-rule bg-field px-5 py-5 shadow-[0_1px_2px_rgba(26,24,20,0.04),0_18px_40px_rgba(26,24,20,0.05)]">
           <p>{result.advice}</p>
           {result.classification.low_confidence ? (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -110,10 +120,10 @@ export default function ExpertsPage({
                   <button
                     key={item}
                     type="button"
-                    className="min-h-11 border border-rule px-3 text-sm"
+                    className={secondary}
                     onClick={() => void search(item)}
                   >
-                    {item}
+                    {domainLabel(copy, item)}
                   </button>
                 ),
               )}
@@ -122,7 +132,7 @@ export default function ExpertsPage({
           {result.experts.length === 0 ? <p className="mt-3 text-sm text-muted">{copy("expertsNone")}</p> : null}
           <ul className="mt-3 grid gap-3">
             {result.experts.map((expert) => (
-              <li key={expert.id} className="border border-rule px-3 py-3 text-sm">
+              <li key={expert.id} className="rounded-xl border border-rule bg-paper px-3 py-3 text-sm">
                 <p className="font-medium">
                   {expert.name}
                   {expert.firm ? `, ${expert.firm}` : ""}

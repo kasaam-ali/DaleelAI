@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import Any
 
-import fitz
+import pymupdf as fitz
 
 from app.core.classifier import KeywordClassifier
 from app.core.ports import ChatMessage, LLMPort, Role

@@ -286,6 +286,20 @@ def test_streamed_draft_finishes_when_verification_fails():
     assert events[3][1]["answer"] == "Salary is taxed."
 
 
+def test_missing_library_says_the_reply_is_not_cited():
+    llm = ScriptedLLM(router_payload())
+    response = make_client(llm).post(
+        "/api/v1/chat",
+        json={"message": "What is section 149?", "tax_year": "TY2027"},
+    )
+
+    final = parse_sse(response.text)[-2][1]
+    assert final["answer_source"] == "none"
+    assert final["verified"] is False
+    assert "not connected" in final["answer"]
+    assert "051-111-772-772" in final["answer"]
+
+
 def test_demo_question_returns_the_saved_answer_without_a_model():
     llm = ScriptedLLM(router_payload())
     response = make_client(llm).post(

@@ -12,8 +12,6 @@ import os
 # LOAD ENV
 # ================================
 load_dotenv(Path(__file__).parent.parent / ".env")
-api_key = os.getenv("GROQ_API_KEY")
-print(f"API Key loaded: {api_key[:10] if api_key else 'NOT FOUND'}")
 
 # ================================
 # UPGRADED PROMPT — CONFIDENCE + STRUCTURE

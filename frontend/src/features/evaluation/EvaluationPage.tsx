@@ -33,14 +33,14 @@ export default function EvaluationPage({ copy }: { copy: Copy }) {
 
   const served = report?.candidates.find((item) => item.name === report.served_model)
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("evalTitle")}</h2>
+    <section>
+      <h2 className="font-statute text-3xl tracking-tight">{copy("evalTitle")}</h2>
       {missing ? <p className="mt-3 text-sm text-muted">{copy("evalMissing")}</p> : null}
       {report ? (
         <div className="mt-4 grid gap-4">
           <p className="text-sm text-muted">{report.served_model}</p>
           {report.candidates.map((item) => (
-            <article key={item.name} className="border border-rule bg-field px-4 py-4 text-sm">
+            <article key={item.name} className="rounded-2xl border border-rule bg-field px-5 py-4 text-sm">
               <h3 className="font-medium">{item.name}</h3>
               <ScoreTable copy={copy} label={copy("evalHuman")} score={item.human_test} />
               <ScoreTable copy={copy} label={copy("evalSynthetic")} score={item.synthetic_test} />

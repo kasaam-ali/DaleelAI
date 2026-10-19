@@ -350,6 +350,7 @@ class ChecklistRequest(BaseModel):
 
 class ChecklistStepPatch(BaseModel):
     done: bool
+    language: Language = "en"
 
 
 class ChecklistResponse(BaseModel):

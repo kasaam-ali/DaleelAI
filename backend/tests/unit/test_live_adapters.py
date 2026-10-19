@@ -1,11 +1,16 @@
+import uuid
+
 from app.adapters.postgres_sections import PostgresSections
 from app.adapters.qdrant_search import coerce_scores, hit_from_payload
 from app.container import build_container
-from app.settings import Adapters, Settings
+from app.settings import Adapters, QdrantSettings, Settings
 
 
 def test_qdrant_runner_does_not_connect_until_a_question():
-    settings = Settings(adapters=Adapters(llm="fake", vector_store="qdrant"))
+    settings = Settings(
+        adapters=Adapters(llm="fake", vector_store="qdrant"),
+        qdrant=QdrantSettings(url="http://qdrant:6333"),
+    )
 
     container = build_container(settings)
 
@@ -18,6 +23,23 @@ def test_memory_adapter_keeps_the_fake_qa_runner_empty():
     settings = Settings(adapters=Adapters(llm="fake", vector_store="memory"))
 
     assert build_container(settings).qa is None
+
+
+def test_blank_qdrant_url_skips_the_runner_and_keeps_feedback_in_memory():
+    settings = Settings(adapters=Adapters(llm="fake", vector_store="qdrant"), database_url="")
+
+    container = build_container(settings)
+
+    assert container.qa is None
+    saved = container.feedback.save_feedback(
+        session_id=str(uuid.uuid4()),
+        message_id=str(uuid.uuid4()),
+        rating="up",
+        reason=None,
+        comment=None,
+        share_conversation=False,
+    )
+    assert saved
 
 
 def test_payload_and_scores_are_normalized():

@@ -4,9 +4,9 @@ type Copy = (key: CopyKey) => string
 
 export default function PrivacyPage({ copy }: { copy: Copy }) {
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("privacyTitle")}</h2>
-      <div className="mt-4 grid max-w-[62ch] gap-4 text-sm leading-6">
+    <section>
+      <h2 className="font-statute text-3xl tracking-tight">{copy("privacyTitle")}</h2>
+      <div className="mt-4 grid max-w-[62ch] gap-4 rounded-2xl border border-rule bg-field px-5 py-5 text-sm leading-6">
         <p>{copy("privacyAccounts")}</p>
         <p>{copy("privacyPii")}</p>
         <p>{copy("privacySources")}</p>

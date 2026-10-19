@@ -1,8 +1,8 @@
 /** Holds language, theme, profile, and which page is open. */
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { listChats, type ChatSummary } from "./api/chat"
-import { useHealth } from "./api/health"
+import { serviceState, useBrowserOnline, useHealth } from "./api/health"
 import CalculatorPage from "./features/calculator/CalculatorPage"
 import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
@@ -68,7 +68,14 @@ export default function App() {
   const [expertCategory, setExpertCategory] = useState<string | null>(null)
   const [checklistTemplate, setChecklistTemplate] = useState("")
   const copy = (key: CopyKey) => t(language, key)
+  const online = useBrowserOnline()
   const health = useHealth()
+  const wasOnline = useRef(online)
+  const refetchHealth = health.refetch
+  useEffect(() => {
+    if (online && !wasOnline.current) void refetchHealth()
+    wasOnline.current = online
+  }, [online, refetchHealth])
 
   function changeLanguage(next: UiLanguage) {
     setLanguage(next)
@@ -151,7 +158,7 @@ export default function App() {
     setRevision((current) => current + 1)
   }
 
-  const service = health.isPending ? "checking" : health.isError ? "degraded" : "online"
+  const service = serviceState(online, { error: health.isError, ok: health.isSuccess })
 
   return (
     <AppShell

@@ -20,13 +20,11 @@ function hasCitation(sources: Source[]): boolean {
 
 export default function AnswerSlip({
   turn,
-  language,
   copy,
   onFeedback,
   onAsk,
 }: {
   turn: Turn
-  language: UiLanguage
   copy: Copy
   onFeedback: (rating: "up" | "down", reason: FeedbackReason | null) => void
   onAsk: (question: string) => void
@@ -42,7 +40,7 @@ export default function AnswerSlip({
   const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
 
   return (
-    <article className="xl:grid xl:grid-cols-[minmax(0,42rem)_17rem] xl:items-start xl:gap-10">
+    <article>
       <div className="min-w-0 max-w-[70ch]">
       {waiting ? (
         <div className="mt-2 grid gap-2" aria-hidden="true">
@@ -121,7 +119,7 @@ export default function AnswerSlip({
                 <div>
                   <dt className="text-xs text-muted">{copy("verified")}</dt>
                   <dd className={`text-sm ${verified ? "text-seal" : "text-low"}`}>
-                    {verified ? copy("verified") : copy("notVerified")}
+                    {verified ? copy("verifiedYes") : copy("notVerified")}
                   </dd>
                 </div>
                 <div>
@@ -212,46 +210,61 @@ export default function AnswerSlip({
         </div>
       ) : null}
       </div>
-      {final ? (
-        <aside className="mt-6 border-t border-rule pt-4 xl:mt-1 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-6">
-          <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("sources")}</h3>
-          {turn.sources.length === 0 ? (
-            <p className="mt-3 text-sm leading-relaxed text-muted">{copy("noSection")}</p>
-          ) : (
-            <ol className="mt-3 grid gap-4">
-              {turn.sources.map((source, index) => (
-                <li key={`${source.doc_id}-${index}`} className="border-t border-rule pt-3">
-                  <SourceLine source={source} taxYear={final.tax_year} corpusDate={final.corpus_date} copy={copy} />
+    </article>
+  )
+}
+
+export function SourcesRail({
+  turn,
+  language,
+  copy,
+  className = "",
+}: {
+  turn: Turn
+  language: UiLanguage
+  copy: Copy
+  className?: string
+}) {
+  const final = turn.final
+  if (!final) return null
+  return (
+    <aside className={`mt-6 border-t border-rule pt-4 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-6 ${className}`}>
+      <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("sources")}</h3>
+      {turn.sources.length === 0 ? (
+        <p className="mt-3 text-sm leading-relaxed text-muted">{copy("noSection")}</p>
+      ) : (
+        <ol className="mt-3 grid gap-4">
+          {turn.sources.map((source, index) => (
+            <li key={`${source.doc_id}-${index}`} className="border-t border-rule pt-3">
+              <SourceLine source={source} taxYear={final.tax_year} corpusDate={final.corpus_date} copy={copy} />
+            </li>
+          ))}
+        </ol>
+      )}
+      {final.action_links.some((link) => link.url) ? (
+        <div className="mt-5">
+          <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("officialPages")}</h3>
+          <ul className="mt-3 grid gap-2">
+            {final.action_links
+              .filter((link) => safeHref(link.url))
+              .map((link) => (
+                <li key={link.url}>
+                  <a
+                    href={safeHref(link.url) ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-seal underline decoration-rule underline-offset-4 hover:decoration-seal"
+                  >
+                    {language === "roman_urdu" && link.label_ru ? link.label_ru : link.label}
+                    <span className="text-muted"> · {link.authority}</span>
+                    <span className="sr-only"> {copy("opensOfficial")}</span>
+                  </a>
                 </li>
               ))}
-            </ol>
-          )}
-          {final.action_links.some((link) => link.url) ? (
-            <div className="mt-5">
-              <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("officialPages")}</h3>
-              <ul className="mt-3 grid gap-2">
-                {final.action_links
-                  .filter((link) => safeHref(link.url))
-                  .map((link) => (
-                    <li key={link.url}>
-                      <a
-                        href={safeHref(link.url) ?? undefined}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-seal underline decoration-rule underline-offset-4 hover:decoration-seal"
-                      >
-                        {language === "roman_urdu" && link.label_ru ? link.label_ru : link.label}
-                        <span className="text-muted"> · {link.authority}</span>
-                        <span className="sr-only"> {copy("opensOfficial")}</span>
-                      </a>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          ) : null}
-        </aside>
+          </ul>
+        </div>
       ) : null}
-    </article>
+    </aside>
   )
 }
 

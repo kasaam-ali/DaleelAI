@@ -11,6 +11,7 @@ import {
 import type { CopyKey } from "../../i18n"
 import { formatPkr } from "../../lib/money"
 import { CompareBars } from "../tax/CompareBars"
+import { mapCalcError, wholeRupees } from "./validate"
 
 type Copy = (key: CopyKey) => string
 type Tool = "salary" | "freelancer" | "property"
@@ -33,17 +34,21 @@ export default function CalculatorPage({
   const [side, setSide] = useState<"purchase" | "sale">("purchase")
   const [result, setResult] = useState<Calculation | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retry, setRetry] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    const value = Number(amount.replace(/,/g, ""))
-    if (!Number.isInteger(value) || value < 0) {
+  async function onSubmit(event?: FormEvent) {
+    event?.preventDefault()
+    const value = wholeRupees(amount)
+    if (value == null) {
+      setResult(null)
+      setRetry(false)
       setError(copy("amountWhole"))
       return
     }
     setBusy(true)
     setError(null)
+    setRetry(false)
     try {
       const next =
         tool === "salary"
@@ -68,7 +73,9 @@ export default function CalculatorPage({
       setResult(next)
     } catch (err) {
       setResult(null)
-      setError(err instanceof Error ? err.message : copy("calcFailed"))
+      const mapped = mapCalcError(err, copy("calcUnreachable"), copy("calcFailed"))
+      setError(mapped.message)
+      setRetry(mapped.retry)
     } finally {
       setBusy(false)
     }
@@ -184,9 +191,19 @@ export default function CalculatorPage({
       </form>
       <div>
       {error ? (
-        <p className="text-sm text-low" role="alert">
-          {error}
-        </p>
+        <div role="alert">
+          <p className="text-sm text-low">{error}</p>
+          {retry ? (
+            <button
+              type="button"
+              onClick={() => void onSubmit()}
+              disabled={busy}
+              className="mt-2 min-h-11 border border-rule px-3 text-sm"
+            >
+              {copy("retry")}
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {result ? (
         <Result result={result} copy={copy} onOpenChecklist={onOpenChecklist} />

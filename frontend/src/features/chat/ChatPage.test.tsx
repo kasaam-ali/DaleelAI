@@ -206,6 +206,9 @@ describe("ChatPage live answer", () => {
     expect(host.textContent).toContain("detectedRomanUrdu")
     expect(host.textContent).toContain("Roman Urdu")
     expect(host.textContent).not.toContain("اردو")
+    const checked = host.querySelector('[role="radio"][aria-checked="true"]')
+    expect(checked?.textContent).toBe("Roman Urdu")
+    expect(localStorage.getItem("daleelai.answer_language")).toContain('"chat-1":"roman_urdu"')
 
     const english = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "EN")
     await act(async () => {

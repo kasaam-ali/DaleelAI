@@ -253,17 +253,22 @@ export default function ChatPage({
     if (event.event === "meta") {
       born.current = event.data.chat_id
       setBucket((current) => ({ id: event.data.chat_id, turns: current.turns }))
-      onChatId(event.data.chat_id)
       onActivity()
+      const detected = asReplyLanguage(event.data.language)
+      if (detected && answerLanguageRef.current === "auto") {
+        answerLanguageRef.current = detected
+        setAnswerLanguage(detected)
+      }
       if (answerLanguageRef.current !== "auto") {
         writeAnswerLanguage(localStorage, event.data.chat_id, answerLanguageRef.current)
       }
+      onChatId(event.data.chat_id)
       patch(id, (current) => ({
         ...current,
         messageId: event.data.message_id,
         taxYear: event.data.tax_year,
         intent: event.data.intent,
-        detectedLanguage: asReplyLanguage(event.data.language) ?? current.detectedLanguage,
+        detectedLanguage: detected ?? current.detectedLanguage,
       }))
     } else if (event.event === "step" && event.data.status === "start") {
       patch(id, (current) => ({ ...current, status: copy(STEPS[event.data.node] ?? "stepWorking") }))

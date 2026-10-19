@@ -38,6 +38,8 @@
   "redactionPreview": "Shanakhti numbers bhejne se pehle hata diye jayenge.",
   "redactionSent": "Shanakhti numbers bhejne se pehle hata diye gaye.",
   "tooLong": "Sawal 2,000 harf se chhota rakhein.",
+  "pasteCut": "Aap ka paste 2,000 harf par kat gaya. Bhejne se pehle sawal ka akhir dekh lein.",
+  "charCount": "2,000 mein se {count} harf",
   "writeQuestion": "Pehle sawal likhein.",
   "you": "Aap",
   "libraryVerified": "Tasdeeq shuda library",

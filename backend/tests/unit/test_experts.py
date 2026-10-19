@@ -83,7 +83,9 @@ def test_low_confidence_asks_for_a_category_before_skipping_listings():
         classifier=Unsure(),
     )
     assert found["experts"] == []
+    assert found["advice_code"] == "uncertain_category"
     assert "Pick one" in found["advice"]
+    assert found["advice_ru"] != found["advice"]
 
 
 def test_city_filter_and_simple_questions_skip_listings():
@@ -103,7 +105,17 @@ def test_city_filter_and_simple_questions_skip_listings():
         category=None,
     )
     assert simple["experts"] == []
+    assert simple["advice_code"] == "simple_question"
     assert "chat" in simple["advice"]
+    assert simple["advice_ru"]
+    none = find_experts(
+        "Audit notice aya hai, appeal karni hai",
+        city="Quetta",
+        category="audit_notice",
+    )
+    assert none["experts"] == []
+    assert none["advice_code"] == "no_listing"
+    assert none["advice_ru"]
 
 
 class Scripted:
@@ -126,6 +138,8 @@ def test_find_endpoint_and_chat_card():
     assert response.status_code == 200
     body = response.json()
     assert body["experts"]
+    assert body["advice_code"] == "ok"
+    assert body["advice_ru"]
     assert all(row["city"] == "Lahore" for row in body["experts"])
     denied = client.post(
         "/internal/experts/upsert",

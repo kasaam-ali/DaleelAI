@@ -373,6 +373,8 @@ class ChecklistStep(BaseModel):
     id: str
     title: str
     detail: str
+    title_ru: str
+    detail_ru: str
     sources: list[str]
     done: bool
     link: ChecklistStepLink | None = None
@@ -386,6 +388,7 @@ class ChecklistRequest(BaseModel):
 
 class ChecklistStepPatch(BaseModel):
     done: bool
+    language: Literal["en", "roman_urdu", "urdu"] | None = None
 
 
 class ChecklistResponse(BaseModel):
@@ -435,6 +438,8 @@ class ExpertFindResponse(BaseModel):
     classification: ExpertClassification
     experts: list[ExpertListing]
     advice: str
+    advice_ru: str
+    advice_code: Literal["uncertain_category", "simple_question", "no_listing", "ok"]
     disclaimer: str
     removal_contact: str
 

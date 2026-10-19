@@ -149,7 +149,9 @@ export default function ChecklistsPage({
             <button
               type="button"
               onClick={() => {
-                const text = saved.steps.map((step) => `${step.done ? "[x]" : "[ ]"} ${step.title}`).join("\n")
+                const text = saved.steps
+                  .map((step) => `${step.done ? "[x]" : "[ ]"} ${stepText(step, language).title}`)
+                  .join("\n")
                 void navigator.clipboard.writeText(text).catch(() => undefined)
               }}
               className="min-h-11 border border-rule px-3 text-sm"
@@ -158,7 +160,9 @@ export default function ChecklistsPage({
             </button>
           </div>
           <ul className="mt-3 grid gap-3">
-            {saved.steps.map((step) => (
+            {saved.steps.map((step) => {
+              const text = stepText(step, language)
+              return (
               <li key={step.id} className="border border-rule px-3 py-3">
                 <label className="flex min-h-11 items-start gap-3 text-sm">
                   <input
@@ -168,8 +172,8 @@ export default function ChecklistsPage({
                     onChange={(event) => onToggle(step.id, event.target.checked)}
                   />
                   <span>
-                    <span className="font-medium">{step.title}</span>
-                    <span className="mt-1 block">{step.detail}</span>
+                    <span className="font-medium">{text.title}</span>
+                    <span className="mt-1 block">{text.detail}</span>
                     <span className="mt-1 block text-muted">{step.sources.join("; ")}</span>
                     {step.link ? (
                       <a href={step.link.url} target="_blank" rel="noopener noreferrer" className="underline">
@@ -179,12 +183,20 @@ export default function ChecklistsPage({
                   </span>
                 </label>
               </li>
-            ))}
+              )
+            })}
           </ul>
         </div>
       ) : null}
     </section>
   )
+}
+
+function stepText(step: Checklist["steps"][number], language: UiLanguage) {
+  if (language === "roman_urdu" && step.title_ru && step.detail_ru) {
+    return { title: step.title_ru, detail: step.detail_ru }
+  }
+  return { title: step.title, detail: step.detail }
 }
 
 function readSaved(): Checklist | null {

@@ -38,6 +38,8 @@
   "redactionPreview": "Personal details will be removed before this is sent.",
   "redactionSent": "Personal details were removed before this was sent.",
   "tooLong": "Keep the question under 2,000 characters.",
+  "pasteCut": "Your paste was cut at 2,000 characters. Check the end of your question before sending.",
+  "charCount": "{count} of 2,000 characters",
   "writeQuestion": "Write a question first.",
   "you": "You",
   "libraryVerified": "Verified library",

@@ -375,7 +375,7 @@ async def iter_chat_events(
             category=routed.params.get("category"),
             classifier=classifier,
         )
-        answer = card["advice"]
+        answer = card["advice_ru"] if language == "roman_urdu" else card["advice"]
         yield {"event": "tool_result", "data": {"card": {"type": "experts", "data": card}}}
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])

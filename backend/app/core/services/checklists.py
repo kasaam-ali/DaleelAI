@@ -10,26 +10,41 @@ _EXTRA = {
     ("ntn_individual", "work", "freelance"): {
         "id": "pseb",
         "title": "Ask PSEB about freelancer registration",
+        "title_ru": "Freelancer registration ke liye PSEB se poochain",
         "detail": (
             "Export of IT services is in section 154A. "
             "PSEB registration is separate from the NTN. "
             "Confirm the current form on the official PSEB site. No link is shown here."
+        ),
+        "detail_ru": (
+            "IT services ka export section 154A mein hai. "
+            "PSEB registration NTN se alag hai. "
+            "Current form official PSEB site par check karein. Yahan koi link nahi."
         ),
         "sources": ["Income Tax Ordinance, 2001, section 154A"],
     },
     ("sales_tax_registration", "province", "punjab"): {
         "id": "pra",
         "title": "If the supply is services, open PRA",
+        "title_ru": "Agar supply services hai to PRA kholein",
         "detail": "Punjab sales tax on services is filed with the Punjab Revenue Authority.",
+        "detail_ru": (
+            "Punjab ki services par sales tax Punjab Revenue Authority ke paas file hoti hai."
+        ),
         "sources": ["Sales Tax Act, 1990, section 14"],
         "link": {"label": "Punjab Revenue Authority", "url": "http://e.pra.punjab.gov.pk/"},
     },
     ("sales_tax_registration", "province", "sindh"): {
         "id": "srb",
         "title": "If the supply is services, check SRB",
+        "title_ru": "Agar supply services hai to SRB check karein",
         "detail": (
             "Sindh sales tax on services is with the Sindh Revenue Board. "
             "This build does not show a URL because that address is not confirmed here."
+        ),
+        "detail_ru": (
+            "Sindh ki services par sales tax Sindh Revenue Board ke paas hai. "
+            "Yeh build URL nahi dikhati kyunke woh pata yahan confirmed nahi."
         ),
         "sources": ["Sales Tax Act, 1990, section 14"],
     },
@@ -56,6 +71,7 @@ class MemoryChecklists:
         template_id: str,
         answers: dict[str, Any],
         steps: list[dict[str, Any]],
+        language: str = "en",
     ) -> str:
         checklist_id = str(uuid.uuid4())
         self.rows[checklist_id] = {
@@ -63,6 +79,7 @@ class MemoryChecklists:
             "template_id": template_id,
             "answers": answers,
             "steps": steps,
+            "language": language,
         }
         return checklist_id
 
@@ -84,7 +101,22 @@ class MemoryChecklists:
                 found = True
         if not found:
             return None
-        return row
+        return _saved_row(checklist_id, row)
+
+    def list_checklists(self, *, session_id: str) -> list[dict[str, Any]]:
+        rows = [
+            _saved_row(checklist_id, row)
+            for checklist_id, row in self.rows.items()
+            if row["session_id"] == session_id
+        ]
+        rows.reverse()
+        return rows
+
+    def get_checklist(self, *, session_id: str, checklist_id: str) -> dict[str, Any] | None:
+        row = self.rows.get(checklist_id)
+        if row is None or row["session_id"] != session_id:
+            return None
+        return _saved_row(checklist_id, row)
 
 
 memory_checklists = MemoryChecklists()
@@ -125,6 +157,7 @@ def start_checklist(
             template_id=template_id,
             answers=clean,
             steps=steps,
+            language=language,
         )
     return _public(checklist_id, template, language, steps)
 
@@ -133,7 +166,7 @@ def mark_step(
     checklist_id: str,
     step_id: str,
     done: bool,
-    language: str,
+    language: str | None,
     repo: Any,
     session_id: str,
 ) -> dict[str, Any]:
@@ -148,7 +181,23 @@ def mark_step(
     if saved is None:
         raise ChecklistError("not_found", "That checklist step was not found for this session.")
     template = _load(saved["template_id"])
-    return _public(checklist_id, template, language, saved["steps"])
+    chosen = language or saved.get("language") or "en"
+    return _public(checklist_id, template, chosen, saved["steps"])
+
+
+def list_for_session(repo: Any, session_id: str) -> list[dict[str, Any]]:
+    if repo is None or not hasattr(repo, "list_checklists"):
+        raise ChecklistError("repository_unavailable", "Checklist storage is not configured.")
+    return [_public_saved(row) for row in repo.list_checklists(session_id=session_id)]
+
+
+def get_for_session(checklist_id: str, repo: Any, session_id: str) -> dict[str, Any]:
+    if repo is None or not hasattr(repo, "get_checklist"):
+        raise ChecklistError("repository_unavailable", "Checklist storage is not configured.")
+    saved = repo.get_checklist(session_id=session_id, checklist_id=checklist_id)
+    if saved is None:
+        raise ChecklistError("not_found", "That checklist was not found.")
+    return _public_saved(saved)
 
 
 def checklist_from_chat(
@@ -210,6 +259,22 @@ def _steps(template: dict[str, Any], answers: dict[str, str]) -> list[dict[str, 
     return steps
 
 
+def _saved_row(checklist_id: str, row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": checklist_id,
+        "session_id": row["session_id"],
+        "template_id": row["template_id"],
+        "answers": row["answers"],
+        "steps": row["steps"],
+        "language": row.get("language") or "en",
+    }
+
+
+def _public_saved(row: dict[str, Any]) -> dict[str, Any]:
+    template = _load(row["template_id"])
+    return _public(row["id"], template, row.get("language") or "en", row["steps"])
+
+
 def _public(
     checklist_id: str,
     template: dict[str, Any],
@@ -217,12 +282,30 @@ def _public(
     steps: list[dict[str, Any]],
 ) -> dict[str, Any]:
     title = template["title_ru"] if language in {"roman_urdu", "urdu"} else template["title"]
-    done = sum(1 for step in steps if step.get("done"))
-    total = len(steps)
+    catalog = _catalog(template)
+    shown = [_shown_step(step, catalog) for step in steps]
+    done = sum(1 for step in shown if step.get("done"))
+    total = len(shown)
     return {
         "id": checklist_id,
         "template_id": template["id"],
         "title": title,
-        "steps": steps,
+        "steps": shown,
         "progress": round(done / total, 2) if total else 0,
     }
+
+
+def _catalog(template: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    catalog = {step["id"]: step for step in template["steps"]}
+    for (template_id, _question, _value), extra in _EXTRA.items():
+        if template["id"] == template_id:
+            catalog[extra["id"]] = extra
+    return catalog
+
+
+def _shown_step(step: dict[str, Any], catalog: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    source = catalog.get(step["id"], {})
+    shown = dict(step)
+    shown["title_ru"] = step.get("title_ru") or source.get("title_ru") or ""
+    shown["detail_ru"] = step.get("detail_ru") or source.get("detail_ru") or ""
+    return shown

@@ -21,13 +21,17 @@
     {
       "id": "act",
       "title": "Read the Companies Act provision",
+      "title_ru": "Companies Act ki dafa parhein",
       "detail": "Incorporation is under the Companies Act, 2017. Reserve the name before the incorporation forms if it is not reserved yet.",
+      "detail_ru": "Incorporation Companies Act, 2017 ke tehat hai. Agar naam abhi reserve nahi hua to incorporation forms se pehle naam reserve karein.",
       "sources": ["Companies Act, 2017"]
     },
     {
       "id": "secp",
       "title": "File on SECP eServices",
+      "title_ru": "SECP eServices par file karein",
       "detail": "Use the official SECP eServices portal. This build does not show a URL because the registration address is not confirmed here.",
+      "detail_ru": "Official SECP eServices portal istemal karein. Yeh build URL nahi dikhati kyunke registration ka pata yahan confirmed nahi.",
       "sources": ["Companies Act, 2017"]
     }
   ]

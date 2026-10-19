@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { findExperts, type ExpertFind } from "../../api/experts"
 import type { CopyKey } from "../../i18n"
+import type { UiLanguage } from "../../lib/session"
 
 type Copy = (key: CopyKey) => string
 const inputClass = "mt-1 min-h-11 w-full border border-rule bg-field px-3 text-base text-ink"
@@ -10,10 +11,12 @@ const CITIES = ["", "Karachi", "Lahore", "Islamabad"]
 
 export default function ExpertsPage({
   copy,
+  language,
   initialQuery = "",
   initialCategory = null,
 }: {
   copy: Copy
+  language: UiLanguage
   initialQuery?: string
   initialCategory?: string | null
 }) {
@@ -104,7 +107,7 @@ export default function ExpertsPage({
       {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
       {result ? (
         <div className="mt-6 border border-rule bg-field px-4 py-4">
-          <p>{result.advice}</p>
+          <p>{language === "roman_urdu" && result.advice_ru ? result.advice_ru : result.advice}</p>
           {result.classification.low_confidence ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {["income_tax", "sales_tax", "customs", "corporate_secp", "audit_notice", "property"].map(

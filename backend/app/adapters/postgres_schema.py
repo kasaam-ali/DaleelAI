@@ -71,6 +71,7 @@ SCHEMA = (
       template_id TEXT NOT NULL,
       answers JSONB NOT NULL,
       steps JSONB NOT NULL,
+      language TEXT NOT NULL DEFAULT 'en',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -125,6 +126,7 @@ SCHEMA = (
     )
     """,
     "ALTER TABLE chats ADD COLUMN IF NOT EXISTS title TEXT",
+    "ALTER TABLE checklists ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'",
     "CREATE INDEX IF NOT EXISTS web_pages_site_idx ON web_pages (site)",
     """
     CREATE TABLE IF NOT EXISTS crawl_runs (

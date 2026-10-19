@@ -29,7 +29,7 @@ export default function ErrorCard({
     >
       <h3 className="font-statute text-lg font-medium">{copy("answerFailedTitle")}</h3>
       <p className="mt-3 inline-block bg-elevated px-2 py-1 text-xs font-medium text-low">{chipLabel(error)}</p>
-      <p className="mt-3 max-w-[68ch] text-sm">{error.message}</p>
+      <p className="mt-3 max-w-[68ch] font-mono text-sm">{error.message}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={onRetry} className="min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink">
           {copy("retry")}
@@ -39,12 +39,30 @@ export default function ErrorCard({
         </button>
       </div>
       {secondsLeft != null ? (
-        <p className="mt-3 text-sm text-muted">
-          {copy("autoRetrySaved")} {secondsLeft} s.{" "}
-          <button type="button" onClick={onCancel} className="text-seal">
+        <div className="mt-4 flex flex-wrap items-center gap-3" role="status">
+          <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden="true">
+            <svg viewBox="0 0 36 36" className="h-14 w-14">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="var(--rule)" strokeWidth="3" />
+              <circle
+                cx="18"
+                cy="18"
+                r="15"
+                fill="none"
+                stroke="var(--seal)"
+                strokeWidth="3"
+                strokeDasharray="24 70"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-sm font-medium text-ink tabular-nums">{secondsLeft}</span>
+          </span>
+          <p className="text-sm text-ink">
+            {copy("autoRetrySaved")} <span className="font-medium tabular-nums">{secondsLeft}</span> s.
+          </p>
+          <button type="button" onClick={onCancel} className="min-h-11 border border-rule bg-paper px-4 text-sm font-medium text-ink">
             {copy("cancelAutoRetry")}
           </button>
-        </p>
+        </div>
       ) : null}
     </div>
   )

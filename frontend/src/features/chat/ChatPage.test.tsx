@@ -129,6 +129,7 @@ describe("ChatPage live answer", () => {
     script.fail = null
     window.dispatchEvent(new Event("online"))
     localStorage.clear()
+    vi.useRealTimers()
   })
 
   async function send(question: string) {
@@ -324,6 +325,9 @@ describe("ChatPage live answer", () => {
     await send("What does section 149 cover?")
     expect(host.textContent).toContain("503 · Providers busy")
     expect(host.textContent).toContain("All AI providers are busy right now.")
+    expect(host.textContent).toContain("autoRetrySaved")
+    expect(host.textContent).toContain("20")
+    expect(host.querySelector('[role="status"] button')?.textContent).toBe("cancelAutoRetry")
     const retry = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "retry")
     await act(async () => {
       retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
@@ -332,6 +336,44 @@ describe("ChatPage live answer", () => {
     const again = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
     expect(vi.mocked(streamChat).mock.calls.length).toBeGreaterThan(1)
     expect(again.message).toBe("What does section 149 cover?")
+  })
+
+  it("counts down a 429 and leaves the question in place when cancelled", async () => {
+    vi.useFakeTimers()
+    script.fail = {
+      status: 429,
+      code: "rate_limited",
+      message: "Too many requests right now.",
+    }
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("What does section 149 cover?")
+    expect(host.textContent).toContain("429 · Too many requests")
+    expect(host.textContent).toContain("Too many requests right now.")
+    expect(host.textContent).toContain("20")
+    const retry = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "retry")
+    const cancel = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "cancelAutoRetry")
+    expect(retry).toBeTruthy()
+    expect(cancel).toBeTruthy()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(host.textContent).toContain("19")
+    await act(async () => {
+      cancel?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    const calls = vi.mocked(streamChat).mock.calls.length
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(vi.mocked(streamChat).mock.calls.length).toBe(calls)
+    expect(host.textContent).toContain("What does section 149 cover?")
+    vi.useRealTimers()
   })
 
   it("renders a refusal card for each limit, not a failed verification", async () => {

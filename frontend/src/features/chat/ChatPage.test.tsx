@@ -5,8 +5,15 @@ import { StrictMode, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { act } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { getChat, streamChat, type SseEvent } from "../../api/chat"
+import { getChat, streamChat, type SseEvent, type Source } from "../../api/chat"
 import ChatPage from "./ChatPage"
+
+const script = vi.hoisted(() => ({
+  intent: "qa",
+  answerSource: "verified" as "verified" | "web" | "none",
+  sources: [] as Source[],
+  fail: null as null | { status: number; code: string; message: string },
+}))
 
 const events: { onEvent: ((event: SseEvent) => void) | null; release: (() => void) | null } = {
   onEvent: null,
@@ -19,6 +26,13 @@ const history: {
 
 vi.mock("../../api/chat", () => ({
   streamChat: vi.fn(async (body: { message?: string }, _session: string, onEvent: (event: SseEvent) => void) => {
+    if (script.fail) {
+      const failure = Object.assign(new Error(script.fail.message), {
+        status: script.fail.status,
+        code: script.fail.code,
+      })
+      throw failure
+    }
     events.onEvent = onEvent
     const message = body.message ?? ""
     onEvent({
@@ -26,11 +40,12 @@ vi.mock("../../api/chat", () => ({
       data: {
         chat_id: "chat-1",
         message_id: "message-1",
-        intent: "qa",
+        intent: script.intent,
         language: /\b(hai|kya|kitna|kaise)\b/i.test(message) ? "roman_urdu" : "en",
         tax_year: "TY2027",
       },
     })
+    if (script.sources.length > 0) onEvent({ event: "sources", data: { sources: script.sources } })
     await new Promise<void>((resolve) => {
       events.release = resolve
     })
@@ -39,7 +54,7 @@ vi.mock("../../api/chat", () => ({
       event: "final",
       data: {
         answer: "Section 149 covers the rule.",
-        answer_source: "verified",
+        answer_source: script.answerSource,
         confidence: "medium",
         verified: false,
         model: "test",
@@ -48,6 +63,14 @@ vi.mock("../../api/chat", () => ({
         action_links: [],
         follow_ups: [],
         cached: false,
+        trace: {
+          intent: script.intent,
+          search_query: "section 149",
+          retrieved: 0,
+          rerank_top: null,
+          verified: false,
+          latency_ms: 10,
+        },
       },
     })
     onEvent({ event: "done", data: {} })
@@ -100,6 +123,11 @@ describe("ChatPage live answer", () => {
     events.release = null
     history.release = null
     history.fail = null
+    script.intent = "qa"
+    script.answerSource = "verified"
+    script.sources = []
+    script.fail = null
+    window.dispatchEvent(new Event("online"))
     localStorage.clear()
   })
 
@@ -242,6 +270,120 @@ describe("ChatPage live answer", () => {
     const second = vi.mocked(streamChat).mock.calls[0]?.[0] as { language: string; message: string }
     expect(second.language).toBe("auto")
     expect(second.message).toBe("NTN registration kaise karte hain?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("shows the source strip before the answer text", async () => {
+    script.sources = [
+      {
+        library: "verified",
+        doc_id: "ito",
+        title: "Income Tax Ordinance",
+        section: "149",
+        page: 12,
+        url: "https://www.fbr.gov.pk/",
+        mirror_url: null,
+        site: "fbr.gov.pk",
+        fetched_at: null,
+        snippet: "Salary",
+        rerank_score: null,
+      },
+    ]
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("What does section 149 cover?")
+    expect(host.textContent).toContain("checkingSources")
+    expect(host.textContent).toContain("Income Tax Ordinance")
+    expect(host.textContent).not.toContain("Section 149 covers the rule.")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("shows the provider chip and resends the same question", async () => {
+    script.fail = {
+      status: 503,
+      code: "providers_busy",
+      message: "All AI providers are busy right now.",
+    }
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("What does section 149 cover?")
+    expect(host.textContent).toContain("503 · Providers busy")
+    expect(host.textContent).toContain("All AI providers are busy right now.")
+    const retry = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "retry")
+    await act(async () => {
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await Promise.resolve()
+    })
+    const again = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
+    expect(vi.mocked(streamChat).mock.calls.length).toBeGreaterThan(1)
+    expect(again.message).toBe("What does section 149 cover?")
+  })
+
+  it("renders a refusal card for each limit, not a failed verification", async () => {
+    const cases = [
+      { intent: "qa", answerSource: "none" as const, title: "refusalEvidenceTitle" },
+      { intent: "out_of_scope", answerSource: "verified" as const, title: "refusalScopeTitle" },
+      { intent: "refuse", answerSource: "none" as const, title: "refusalDeclinedTitle" },
+      { intent: "provincial", answerSource: "none" as const, title: "refusalProvincialTitle" },
+    ]
+    for (const item of cases) {
+      act(() => root?.unmount())
+      host?.remove()
+      script.intent = item.intent
+      script.answerSource = item.answerSource
+      host = document.createElement("div")
+      document.body.append(host)
+      root = createRoot(host)
+      await act(async () => {
+        root.render(<Harness />)
+      })
+      await send("What does section 149 cover?")
+      await act(async () => {
+        events.release?.()
+        await Promise.resolve()
+      })
+      expect(host.textContent).toContain(item.title)
+      expect(host.textContent).not.toContain("notVerified")
+    }
+  })
+
+  it("queues a question while offline and sends it once the browser is back", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event("offline"))
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("What does section 149 cover?")
+    expect(host.textContent).toContain("queued")
+    expect(host.textContent).toContain("offlineBanner")
+    expect(vi.mocked(streamChat)).not.toHaveBeenCalled()
+    await act(async () => {
+      window.dispatchEvent(new Event("online"))
+      await Promise.resolve()
+    })
+    expect(vi.mocked(streamChat)).toHaveBeenCalled()
+    const sent = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
+    expect(sent.message).toBe("What does section 149 cover?")
     await act(async () => {
       events.release?.()
       await Promise.resolve()

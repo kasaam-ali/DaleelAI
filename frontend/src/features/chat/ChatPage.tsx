@@ -28,7 +28,13 @@ import AnswerSlip from "./AnswerSlip"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
 import EmptyState from "./EmptyState"
+import ErrorCard from "./ErrorCard"
+import { asTurnError, canAutoRetry, retryDelayMs } from "./failure"
+import OfflineBanner from "./OfflineBanner"
+import StatusSteps from "./StatusSteps"
+import { PENDING_PHASES, reducePhases } from "./steps"
 import type { Turn } from "./types"
+import { useOnline } from "./useOnline"
 
 type Copy = (key: CopyKey) => string
 
@@ -36,18 +42,6 @@ function shownError(message: string | undefined, fallback: string, language: UiL
   const text = message?.trim() ?? ""
   if (!text || /json|traceback|exception|routeroutput/i.test(text)) return fallback
   return localizedError(text, language)
-}
-
-const STEPS: Record<string, CopyKey> = {
-  rewrite: "stepRewrite",
-  retrieve: "stepRetrieve",
-  rerank: "stepRerank",
-  expand: "stepExpand",
-  sufficiency: "stepSufficiency",
-  web_fallback: "stepWeb",
-  generate: "stepGenerate",
-  verify: "stepVerify",
-  links: "stepLinks",
 }
 
 export default function ChatPage({
@@ -79,8 +73,12 @@ export default function ChatPage({
   const [busy, setBusy] = useState(false)
   const [away, setAway] = useState(false)
   const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguage>("auto")
+  const [queuedCount, setQueuedCount] = useState(0)
+  const online = useOnline()
   const answerLanguageRef = useRef<AnswerLanguage>("auto")
   const runRef = useRef(0)
+  const queueRef = useRef<{ id: string; text: string }[]>([])
+  const retryRef = useRef<{ timer: number | null; attempt: number }>({ timer: null, attempt: 0 })
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const abortRef = useRef<AbortController | null>(null)
@@ -96,7 +94,13 @@ export default function ChatPage({
     setBucket((current) => reduceBucket(current, update, chatIdRef.current, born.current))
   }
 
-  useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+      if (retryRef.current.timer != null) window.clearInterval(retryRef.current.timer)
+    },
+    [],
+  )
 
   useEffect(() => {
     const stored = readAnswerLanguage(localStorage, chatId)
@@ -137,7 +141,36 @@ export default function ChatPage({
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
 
-  async function ask(rawText: string, options?: { language?: AnswerLanguage; replaceId?: string }) {
+  function clearRetry() {
+    if (retryRef.current.timer != null) {
+      window.clearInterval(retryRef.current.timer)
+      retryRef.current.timer = null
+    }
+  }
+
+  function scheduleRetry(id: string, question: string) {
+    clearRetry()
+    const delay = retryDelayMs(retryRef.current.attempt)
+    if (delay == null) return
+    let left = Math.round(delay / 1000)
+    patch(id, (current) => ({ ...current, autoRetryIn: left }))
+    retryRef.current.timer = window.setInterval(() => {
+      left -= 1
+      if (left > 0) {
+        patch(id, (current) => ({ ...current, autoRetryIn: left }))
+        return
+      }
+      clearRetry()
+      retryRef.current.attempt += 1
+      patch(id, (current) => ({ ...current, autoRetryIn: null }))
+      void askRef.current(question, { replaceId: id })
+    }, 1000)
+  }
+
+  async function ask(
+    rawText: string,
+    options?: { language?: AnswerLanguage; replaceId?: string; flush?: boolean },
+  ) {
     const raw = rawText.trim()
     if (!raw) {
       setFormError(copy("writeQuestion"))
@@ -152,41 +185,38 @@ export default function ChatPage({
     }
     const requested = options?.language ?? answerLanguageRef.current
     setFormError(null)
-    if (!replacing) setDraft("")
     stick.current = true
     setAway(false)
     const id = options?.replaceId ?? crypto.randomUUID()
+    if (!online && !options?.flush) {
+      if (replacing) {
+        patch(id, (current) => ({ ...current, queued: true, status: "", error: null, autoRetryIn: null }))
+      } else {
+        setDraft("")
+        setTurns((prev) => [...prev, blankTurn(id, message, message !== raw, true)])
+      }
+      if (!queueRef.current.some((item) => item.id === id)) queueRef.current.push({ id, text: message })
+      setQueuedCount(queueRef.current.length)
+      return
+    }
+    if (!replacing) setDraft("")
+    clearRetry()
     if (replacing) {
       patch(id, (current) => ({
         ...current,
-        status: copy("stepWorking"),
+        status: "",
         draft: "",
         sources: [],
+        phases: [...PENDING_PHASES],
+        queued: false,
+        autoRetryIn: null,
         final: null,
         error: null,
         toolCard: null,
         toolNote: false,
       }))
     } else {
-      const turn: Turn = {
-        id,
-        question: message,
-        redacted: message !== raw,
-        status: copy("stepWorking"),
-        draft: "",
-        sources: [],
-        intent: null,
-        detectedLanguage: null,
-        final: null,
-        error: null,
-        messageId: null,
-        taxYear: null,
-        feedback: null,
-        feedbackNote: null,
-        toolNote: false,
-        toolCard: null,
-      }
-      setTurns((prev) => [...prev, turn])
+      setTurns((prev) => [...prev, blankTurn(id, message, message !== raw, false)])
     }
     const run = ++runRef.current
     const live = () => runRef.current === run
@@ -209,14 +239,13 @@ export default function ChatPage({
         },
         controller.signal,
       )
-    } catch {
+    } catch (err) {
       if (!live()) return
       if (!controller.signal.aborted) {
-        patch(id, (current) => ({
-          ...current,
-          status: "",
-          error: shownError(current.error ?? undefined, copy("answerFailed"), language),
-        }))
+        const error = asTurnError(err, copy("answerFailed"))
+        const messageText = shownError(error.message, copy("answerFailed"), language)
+        patch(id, (current) => ({ ...current, status: "", error: { ...error, message: messageText } }))
+        if (canAutoRetry(error)) scheduleRetry(id, message)
       } else {
         patch(id, (current) => ({ ...current, status: "" }))
       }
@@ -250,6 +279,23 @@ export default function ChatPage({
     return () => window.clearTimeout(timer)
   }, [launch])
 
+  useEffect(() => {
+    if (!online) return
+    const pending = queueRef.current.splice(0)
+    if (pending.length === 0) return
+    setQueuedCount(0)
+    let stopped = false
+    void (async () => {
+      for (const item of pending) {
+        if (stopped) return
+        await askRef.current(item.text, { replaceId: item.id, flush: true })
+      }
+    })()
+    return () => {
+      stopped = true
+    }
+  }, [online])
+
   function applyEvent(id: string, event: SseEvent) {
     if (event.event === "meta") {
       born.current = event.data.chat_id
@@ -267,10 +313,12 @@ export default function ChatPage({
         intent: event.data.intent,
         detectedLanguage: detected ?? current.detectedLanguage,
       }))
-    } else if (event.event === "step" && event.data.status === "start") {
-      patch(id, (current) => ({ ...current, status: copy(STEPS[event.data.node] ?? "stepWorking") }))
     } else if (event.event === "step") {
-      patch(id, (current) => ({ ...current, status: "" }))
+      patch(id, (current) => ({
+        ...current,
+        status: "",
+        phases: reducePhases(current.phases, event.data.node, event.data.status),
+      }))
     } else if (event.event === "token") {
       patch(id, (current) => ({ ...current, draft: current.draft + event.data.text, status: "" }))
     } else if (event.event === "sources") {
@@ -287,7 +335,11 @@ export default function ChatPage({
       patch(id, (current) => ({
         ...current,
         status: "",
-        error: shownError(event.data.message, copy("answerFailed"), language),
+        error: {
+          status: null,
+          code: event.data.code,
+          message: shownError(event.data.message, copy("answerFailed"), language),
+        },
       }))
     } else if (event.event === "tool_result") {
       patch(id, (current) => ({ ...current, toolCard: event.data.card }))
@@ -334,8 +386,28 @@ export default function ChatPage({
     setBusy(false)
   }
 
+  function retryNow(turn: Turn) {
+    clearRetry()
+    retryRef.current.attempt = 0
+    void ask(turn.question, { replaceId: turn.id })
+  }
+
+  function cancelAutoRetry(id: string) {
+    clearRetry()
+    patch(id, (current) => ({ ...current, autoRetryIn: null }))
+  }
+
+  async function copyQuestion(question: string) {
+    try {
+      await navigator.clipboard.writeText(question)
+    } catch {
+      /* clipboard can be unavailable */
+    }
+  }
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
+      {online ? null : <OfflineBanner queuedCount={queuedCount} copy={copy} />}
       <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
         <div
           className="mx-auto flex w-full max-w-5xl flex-col px-4 py-8"
@@ -367,16 +439,29 @@ export default function ChatPage({
                         onSelect={(next) => chooseAnswerLanguage(next, turn)}
                       />
                     ) : null}
-                    {turn.status ? <p className="thinking text-sm">{turn.status}</p> : null}
-                    <AnswerSlip
-                      turn={turn}
-                      language={language}
-                      copy={copy}
-                      onAsk={(question) => void ask(question)}
-                      onFeedback={(rating, reason) => {
-                        if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason)
-                      }}
-                    />
+                    {turn.queued ? <p className="text-sm text-muted">{copy("queued")}</p> : null}
+                    {showSteps(turn) ? <StatusSteps phases={turn.phases} copy={copy} /> : null}
+                    {turn.error ? (
+                      <ErrorCard
+                        error={turn.error}
+                        secondsLeft={turn.autoRetryIn}
+                        copy={copy}
+                        onRetry={() => retryNow(turn)}
+                        onCopy={() => void copyQuestion(turn.question)}
+                        onCancel={() => cancelAutoRetry(turn.id)}
+                      />
+                    ) : null}
+                    {!turn.queued && !turn.error && !showSteps(turn) ? (
+                      <AnswerSlip
+                        turn={turn}
+                        language={language}
+                        copy={copy}
+                        onAsk={(question) => void ask(question)}
+                        onFeedback={(rating, reason) => {
+                          if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason)
+                        }}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -407,9 +492,38 @@ export default function ChatPage({
         }}
         onSubmit={() => void ask(draft)}
         onStop={stop}
+        muted={!online}
       />
     </div>
   )
+}
+
+function showSteps(turn: Turn): boolean {
+  return !turn.queued && !turn.error && !turn.final && !turn.draft && turn.sources.length === 0 && !turn.toolCard
+}
+
+function blankTurn(id: string, question: string, redacted: boolean, queued: boolean): Turn {
+  return {
+    id,
+    question,
+    redacted,
+    status: "",
+    draft: "",
+    sources: [],
+    intent: null,
+    detectedLanguage: null,
+    phases: [...PENDING_PHASES],
+    queued,
+    autoRetryIn: null,
+    final: null,
+    error: null,
+    messageId: null,
+    taxYear: null,
+    feedback: null,
+    feedbackNote: null,
+    toolNote: false,
+    toolCard: null,
+  }
 }
 
 function keepLiveTurns(
@@ -478,6 +592,9 @@ function historyTurn(question: StoredMessage, answer: StoredMessage | null): Tur
     sources: answer?.sources ?? [],
     intent: answer?.intent ?? null,
     detectedLanguage: asReplyLanguage(answer?.language ?? question.language),
+    phases: [...PENDING_PHASES],
+    queued: false,
+    autoRetryIn: null,
     final,
     error: null,
     messageId: answer?.id ?? null,

@@ -452,7 +452,7 @@ class PostgresStore:
                 cur.execute(
                     """
                     SELECT c.id::text,
-                           COALESCE((
+                           COALESCE(c.title, (
                              SELECT left(m.content, 60)
                              FROM messages m
                              WHERE m.chat_id = c.id AND m.role = 'user'
@@ -490,7 +490,7 @@ class PostgresStore:
                 cur.execute(
                     """
                     SELECT c.id::text,
-                           COALESCE((
+                           COALESCE(c.title, (
                              SELECT left(m.content, 60)
                              FROM messages m
                              WHERE m.chat_id = c.id AND m.role = 'user'
@@ -536,6 +536,45 @@ class PostgresStore:
             "created_at": _iso(chat[2]),
             "updated_at": _iso(chat[3]),
             "messages": messages,
+        }
+
+    def delete_chat(self, session_id: str, chat_id: str) -> bool:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM chats WHERE id = %s AND session_id = %s",
+                    (_uuid(chat_id), _uuid(session_id)),
+                )
+                deleted = cur.rowcount > 0
+            conn.commit()
+        return deleted
+
+    def rename_chat(self, session_id: str, chat_id: str, title: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE chats
+                    SET title = %s
+                    WHERE id = %s AND session_id = %s
+                    RETURNING id::text, title, created_at,
+                      COALESCE((
+                        SELECT max(m.created_at) FROM messages m WHERE m.chat_id = chats.id
+                      ), created_at)
+                    """,
+                    (title, _uuid(chat_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+            conn.commit()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "title": row[1],
+            "created_at": _iso(row[2]),
+            "updated_at": _iso(row[3]),
         }
 
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:

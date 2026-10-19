@@ -292,6 +292,18 @@ def detect_topics(text: str) -> list[TaxTopic]:
     return found
 
 
+def topics_for_note(text: str) -> list[TaxTopic]:
+    """Topics for a curated note. Drop our own search templates first.
+
+    A cash-withdrawal rewrite names Section 37 and "plot" inside the capital-gain
+    template. That text must not select the property note.
+    """
+    cleaned = text
+    for topic in sorted(TOPICS, key=lambda item: len(item.query), reverse=True):
+        cleaned = cleaned.replace(topic.query, " ")
+    return detect_topics(cleaned)
+
+
 _PROPERTY_NOTE = (
     "Authoritative cross-reference: Seller advance tax is Section 236C and buyer advance tax "
     "is Section 236K. The Rs 15 lakh profit is capital gain on immovable property under "
@@ -358,7 +370,7 @@ _FREELANCER_NOTE_RU = (
 
 def cross_reference_note(text: str, *, language: str = "en") -> str:
     """Short statutory bridge for the topics this question already triggered."""
-    keys = {topic.key for topic in detect_topics(text)}
+    keys = {topic.key for topic in topics_for_note(text)}
     roman = language == "roman_urdu"
     parts: list[str] = []
     if "property" in keys:

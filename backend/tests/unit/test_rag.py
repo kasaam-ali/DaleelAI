@@ -379,6 +379,48 @@ async def test_missing_statute_still_reranks_a_short_opening():
     assert all(text.startswith("SALARY ") and len(text) <= 400 for text in seen)
 
 
+async def test_curated_note_trust_follows_real_citations():
+    question = (
+        "Main plot bech raha hoon 40 lakh ka, 15 lakh munafa hai, "
+        "2 saal pehle kharida, late filer hoon."
+    )
+    request = RagRequest(
+        question=question,
+        search_query=rewrite_search_query(question),
+        language="roman_urdu",
+        tax_year="TY2027",
+        corpus_date="2026-06-30",
+    )
+    empty = await run_qa(
+        ScriptedLLM("should not be called"),
+        LibrarySearch({"documents": [], "web_pages": []}),
+        lambda _query, texts: [0.2 for _ in texts],
+        request,
+        link_rules=RULES,
+        sufficient_at=0.7,
+        borderline_at=0.4,
+    )
+    assert "236C" in empty.answer
+    assert empty.answer_source == "none"
+    assert empty.verified is False
+    assert empty.confidence == "low"
+    assert empty.sources == []
+
+    cited = await run_qa(
+        ScriptedLLM("should not be called"),
+        LibrarySearch({"documents": [_statute("s236c", "236C", "seller advance tax")]}),
+        lambda _query, texts: [0.2 for _ in texts],
+        request,
+        link_rules=RULES,
+        sufficient_at=0.7,
+        borderline_at=0.4,
+    )
+    assert cited.answer_source == "verified"
+    assert cited.verified is True
+    assert cited.confidence == "high"
+    assert cited.sources[0].payload["section"] == "236C"
+
+
 async def test_property_note_is_spoken_without_a_model_or_rerank():
     search = LibrarySearch({"documents": [_statute("s236c", "236C", "seller advance tax")]})
     seen: list[str] = []

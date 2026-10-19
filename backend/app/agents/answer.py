@@ -196,9 +196,9 @@ def finalize_supported_answer(
 
 def _fill_topic_gaps(text: str, blob: str, language: str) -> str:
     """Add a checklist line the model skipped. Does not delete the draft."""
-    from app.core.retrieval.rewrite import detect_topics
+    from app.core.retrieval.rewrite import topics_for_note
 
-    keys = {topic.key for topic in detect_topics(blob)}
+    keys = {topic.key for topic in topics_for_note(blob)}
     roman = language == "roman_urdu"
     extra: list[str] = []
     lowered = text.lower()

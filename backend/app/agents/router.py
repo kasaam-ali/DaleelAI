@@ -281,7 +281,23 @@ def _json_object(text: str) -> str:
     return stripped[start : end + 1]
 
 
+_EVASION = re.compile(
+    r"\b(?:evade tax|tax evasion|hide income|fake invoice|income chupao|tax chupao|"
+    r"pay no tax|hide (?:my |the )?(?:cash|income|sales))\b"
+)
+_INJECTION = re.compile(
+    r"\b(?:ignore (?:all |the |previous |your )*instructions|"
+    r"disregard (?:the |your )?(?:instructions|ordinance|rules|prompt)|"
+    r"system prompt|hidden prompt|jailbreak)\b"
+)
+_OFF_TOPIC = re.compile(r"\b(?:poems?|recipe|weather)\b")
+
+
 def _match_intent(lowered: str) -> Intent:
+    if _EVASION.search(lowered) or _INJECTION.search(lowered):
+        return "refuse"
+    if _OFF_TOPIC.search(lowered):
+        return "out_of_scope"
     for intent, phrases in _INTENT_PHRASES:
         if _has_phrase(lowered, phrases):
             return intent

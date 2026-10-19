@@ -2,6 +2,7 @@
 
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.rewrite import (
+    TOPICS,
     cross_reference_note,
     detect_topics,
     is_generic_web_hit,
@@ -84,6 +85,18 @@ def test_bechta_does_not_pull_property_tax():
 def test_plot_sale_still_matches_property():
     keys = {topic.key for topic in detect_topics("Main plot bech raha hoon 40 lakh ka")}
     assert "property" in keys
+
+
+def test_cash_withdrawal_does_not_take_the_property_note():
+    question = "What is the filer vs non-filer withholding on a cash withdrawal of Rs 50000?"
+    direct = cross_reference_note(f"{question} {rewrite_search_query(question)}")
+    assert "236C" not in direct
+    assert "15 lakh" not in direct
+    capital = next(topic.query for topic in TOPICS if topic.key == "capital_gain")
+    injected = cross_reference_note(f"{question} {capital}")
+    assert "236C" not in injected
+    assert "236K" not in injected
+    assert "15 lakh" not in injected
 
 
 def test_existing_mappings_still_fire():

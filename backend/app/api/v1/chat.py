@@ -3,10 +3,16 @@
 import uuid
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Header, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.api.v1.schemas import ChatDetail, ChatListResponse, ChatRequest
+from app.api.v1.schemas import (
+    ChatDetail,
+    ChatListResponse,
+    ChatRequest,
+    ChatSummary,
+    ChatTitleRequest,
+)
 from app.core.services.chat import format_sse, iter_chat_events
 
 router = APIRouter()
@@ -84,6 +90,50 @@ def get_chat(
     if found is None:
         return _error(404, "not_found", "That chat was not found.")
     return ChatDetail.model_validate(found)
+
+
+@router.delete("/chats/{chat_id}", status_code=204)
+def delete_chat(
+    chat_id: str,
+    request: Request,
+    x_session_id: str | None = Header(default=None),
+) -> Response:
+    session = _session(x_session_id)
+    if isinstance(session, JSONResponse):
+        return session
+    try:
+        uuid.UUID(chat_id)
+    except (ValueError, TypeError):
+        return _error(400, "invalid_request", "chat_id must be a UUID.")
+    store = _store(request)
+    if store is None or not hasattr(store, "delete_chat"):
+        return _error(503, "repository_unavailable", "Chat storage is not configured.")
+    if not store.delete_chat(session, chat_id):
+        return _error(404, "not_found", "That chat was not found.")
+    return Response(status_code=204)
+
+
+@router.patch("/chats/{chat_id}", response_model=ChatSummary)
+def rename_chat(
+    chat_id: str,
+    body: ChatTitleRequest,
+    request: Request,
+    x_session_id: str | None = Header(default=None),
+) -> ChatSummary | JSONResponse:
+    session = _session(x_session_id)
+    if isinstance(session, JSONResponse):
+        return session
+    try:
+        uuid.UUID(chat_id)
+    except (ValueError, TypeError):
+        return _error(400, "invalid_request", "chat_id must be a UUID.")
+    store = _store(request)
+    if store is None or not hasattr(store, "rename_chat"):
+        return _error(503, "repository_unavailable", "Chat storage is not configured.")
+    renamed = store.rename_chat(session, chat_id, body.title)
+    if renamed is None:
+        return _error(404, "not_found", "That chat was not found.")
+    return ChatSummary.model_validate(renamed)
 
 
 @router.post("/chat", response_model=None)

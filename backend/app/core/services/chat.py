@@ -623,14 +623,14 @@ async def _yield_demo(store, session, chat_id, message_id, question, demo, tax_y
         search_query=question,
         retrieved=0,
         rerank_top=None,
-        verified=True,
+        verified=False,
         latency_ms=0,
     )
     final = FinalData(
         answer=answer,
         answer_source="none",
-        confidence="high",
-        verified=True,
+        confidence="low",
+        verified=False,
         model="demo-cache",
         tax_year=tax_year,
         corpus_date=corpus_date,

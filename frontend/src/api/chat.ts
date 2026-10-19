@@ -72,7 +72,7 @@ export type ChatBody = {
   chat_id: string | null
   message: string
   language: AnswerLanguage
-  tax_year: null
+  tax_year: string | null
   profile: Profile
 }
 
@@ -234,4 +234,26 @@ export async function getChat(sessionId: string, chatId: string): Promise<ChatDe
   })
   if (!response.ok) throw new Error(await errorMessage(response))
   return (await response.json()) as ChatDetail
+}
+
+export async function renameChat(sessionId: string, chatId: string, title: string): Promise<ChatSummary> {
+  const response = await fetch(`${API_URL}/api/v1/chats/${chatId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Session-Id": sessionId,
+    },
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return (await response.json()) as ChatSummary
+}
+
+export async function deleteChat(sessionId: string, chatId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/chats/${chatId}`, {
+    method: "DELETE",
+    headers: { "X-Session-Id": sessionId },
+  })
+  if (response.status === 204 || response.status === 404) return
+  throw new Error(await errorMessage(response))
 }

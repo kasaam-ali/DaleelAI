@@ -17,6 +17,9 @@ export default function Composer({
   placement = "dock",
   fieldId = "question",
   muted = false,
+  placeholder,
+  size = "default",
+  showHint = true,
 }: {
   value: string
   busy: boolean
@@ -29,6 +32,9 @@ export default function Composer({
   placement?: "dock" | "field"
   fieldId?: string
   muted?: boolean
+  placeholder?: string
+  size?: "default" | "large"
+  showHint?: boolean
 }) {
   const field = useRef<HTMLTextAreaElement>(null)
 
@@ -62,7 +68,7 @@ export default function Composer({
       <div
         className={`composer flex w-full items-end gap-2 border border-rule bg-field px-2 py-2 ${
           placement === "dock" ? "mx-auto max-w-5xl" : ""
-        }`}
+        } ${size === "large" ? "rounded-2xl px-3 shadow-[var(--shadow)]" : ""}`}
       >
         <label htmlFor={fieldId} className="sr-only">
           {copy("questionLabel")}
@@ -75,8 +81,10 @@ export default function Composer({
           maxLength={2000}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={copy("placeholder")}
-          className="max-h-40 min-h-12 w-full resize-none bg-transparent px-2 py-3 text-base text-ink outline-none"
+          placeholder={placeholder ?? copy("placeholder")}
+          className={`max-h-40 w-full resize-none bg-transparent px-2 py-3 text-base text-ink outline-none ${
+            size === "large" ? "min-h-14" : "min-h-12"
+          }`}
         />
         {busy ? (
           <button
@@ -91,16 +99,17 @@ export default function Composer({
             type="submit"
             disabled={!ready}
             aria-label={copy("send")}
-            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed disabled:opacity-40 ${
-              muted ? "opacity-60" : ""
-            }`}
+            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed ${
+              size === "large" ? "rounded-lg" : "disabled:opacity-40"
+            } ${muted ? "opacity-60" : ""}`}
           >
             {copy("send")}
+            {size === "large" ? <span aria-hidden="true"> ›</span> : null}
           </button>
         )}
       </div>
       <div className={`mt-2 w-full ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
-        <p className="text-sm text-muted">{copy("enterHint")}</p>
+        {showHint ? <p className="text-sm text-muted">{copy("enterHint")}</p> : null}
         {preview ? (
           <p className="mt-1 max-w-[68ch] text-sm">
             {copy("redactionPreview")} {preview}

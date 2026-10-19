@@ -1,11 +1,11 @@
 /** Holds language, theme, profile, and which page is open. */
 
 import { useEffect, useRef, useState } from "react"
-import { listChats, type ChatSummary } from "./api/chat"
 import { serviceState, useBrowserOnline, useHealth } from "./api/health"
 import CalculatorPage from "./features/calculator/CalculatorPage"
 import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
+import { useChatHistory } from "./features/chat/useChatHistory"
 import HomePage from "./features/home/HomePage"
 import EvaluationPage from "./features/evaluation/EvaluationPage"
 import ExpertsPage from "./features/experts/ExpertsPage"
@@ -14,6 +14,7 @@ import NoticePage from "./features/notice/NoticePage"
 import PrivacyPage from "./features/privacy/PrivacyPage"
 import UpdatesPage from "./features/updates/UpdatesPage"
 import { t, type CopyKey } from "./i18n"
+import { parseHash, type AppView } from "./lib/hashRoute"
 import {
   THEME_KEY,
   clearLocalHistory,
@@ -21,34 +22,19 @@ import {
   readLanguage,
   readProfile,
   readSessionId,
+  readTaxYear,
   sanitizeProfile,
   writeChatId,
   writeLanguage,
   writeProfile,
+  writeTaxYear,
   CHAT_KEY,
+  type ClientTaxYear,
   type Profile,
   type Theme,
   type UiLanguage,
 } from "./lib/session"
-import AppShell, { type AppView } from "./shell/AppShell"
-
-const VIEWS: AppView[] = [
-  "home",
-  "chat",
-  "calculator",
-  "filer",
-  "notice",
-  "checklist",
-  "experts",
-  "updates",
-  "evaluation",
-  "privacy",
-]
-
-function viewFromHash(): AppView {
-  const name = window.location.hash.replace(/^#\/?/, "")
-  return VIEWS.includes(name as AppView) ? (name as AppView) : "home"
-}
+import AppShell from "./shell/AppShell"
 
 export default function App() {
   const [language, setLanguage] = useState<UiLanguage>(() => readLanguage(localStorage))
@@ -56,20 +42,21 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
-  const [view, setView] = useState<AppView>(() => viewFromHash())
+  const routed = parseHash(window.location.hash)
+  const [view, setView] = useState<AppView>(routed.view)
+  const [taxYear, setTaxYear] = useState<ClientTaxYear>(() => readTaxYear(localStorage))
   const [launch, setLaunch] = useState<{ id: string; text: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sessionId, setSessionId] = useState(() => readSessionId(localStorage))
-  const [chatId, setChatId] = useState<string | null>(() => readChatId(localStorage))
-  const [chats, setChats] = useState<ChatSummary[]>([])
-  const [revision, setRevision] = useState(0)
+  const [chatId, setChatId] = useState<string | null>(() => routed.chatId ?? readChatId(localStorage))
   const [expertQuery, setExpertQuery] = useState("")
   const [expertCategory, setExpertCategory] = useState<string | null>(null)
   const [checklistTemplate, setChecklistTemplate] = useState("")
   const copy = (key: CopyKey) => t(language, key)
   const online = useBrowserOnline()
   const health = useHealth()
+  const history = useChatHistory(sessionId)
   const wasOnline = useRef(online)
   const refetchHealth = health.refetch
   useEffect(() => {
@@ -91,18 +78,14 @@ export default function App() {
   }, [profile])
 
   useEffect(() => {
-    let cancelled = false
-    listChats(sessionId)
-      .then((rows) => {
-        if (!cancelled) setChats(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setChats([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId, revision])
+    document.documentElement.lang = language === "roman_urdu" ? "ur-Latn" : "en"
+    document.documentElement.dir = "ltr"
+  }, [language])
+
+  function changeTaxYear(next: ClientTaxYear) {
+    setTaxYear(next)
+    writeTaxYear(localStorage, next)
+  }
 
   function changeTheme() {
     const next = theme === "dark" ? "light" : "dark"
@@ -113,7 +96,12 @@ export default function App() {
 
   useEffect(() => {
     function onPop() {
-      setView(viewFromHash())
+      const next = parseHash(window.location.hash)
+      setView(next.view)
+      if (next.chatId) {
+        setChatId(next.chatId)
+        writeChatId(localStorage, next.chatId)
+      }
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
@@ -154,8 +142,6 @@ export default function App() {
     const next = clearLocalHistory(localStorage)
     setSessionId(next)
     setChatId(null)
-    setChats([])
-    setRevision((current) => current + 1)
   }
 
   const service = serviceState(online, { error: health.isError, ok: health.isSuccess })
@@ -166,7 +152,8 @@ export default function App() {
       language={language}
       theme={theme}
       profile={profile}
-      chats={chats}
+      chats={history.chats}
+      snippets={history.snippets}
       activeChatId={chatId}
       service={service}
       menuOpen={menuOpen}
@@ -175,6 +162,9 @@ export default function App() {
       onNewChat={() => selectChat(null)}
       onSelectChat={selectChat}
       onClearHistory={clearHistory}
+      onRename={history.rename}
+      onDelete={history.remove}
+      onPrefetchSnippets={history.prefetchSnippets}
       onLanguage={changeLanguage}
       onTheme={changeTheme}
       onProfile={changeProfile}
@@ -190,12 +180,16 @@ export default function App() {
           sessionId={sessionId}
           launch={launch}
           historyKey={historyKey}
+          taxYear={taxYear}
           onLaunchConsumed={() => setLaunch(null)}
           onChatId={(id) => {
             setChatId(id)
             writeChatId(localStorage, id)
           }}
-          onActivity={() => setRevision((current) => current + 1)}
+          onActivity={() => history.refresh()}
+          onProfile={changeProfile}
+          onTaxYear={changeTaxYear}
+          onSnippet={history.rememberSnippet}
         />
       </div>
       {view !== "home" && view !== "chat" ? (

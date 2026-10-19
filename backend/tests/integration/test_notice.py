@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from datetime import date
 
 import fitz
 from fastapi.testclient import TestClient
@@ -44,6 +45,47 @@ def _pdf() -> bytes:
     return data
 
 
+def _return_notice() -> bytes:
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_textbox(
+        fitz.Rect(48, 48, 560, 800),
+        "\n".join(
+            [
+                "REGIONAL TAX OFFICE, LAHORE",
+                "Notice u/s 114(4) of the Income Tax Ordinance, 2001",
+                "This is a non-filing notice. Penalty under section 182 may apply.",
+                "Tax Year 2025",
+                "Reply by 31-10-2026.",
+                "Tax demanded Rs. 1,250,000.",
+            ]
+        ),
+        fontsize=10,
+    )
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def test_explain_endpoint_types_114_as_a_return_filing():
+    settings = Settings(adapters=Adapters(llm="fake", vector_store="memory"))
+    client = TestClient(create_app(Container(settings=settings, llm=FakeLLM())))
+    response = client.post(
+        "/api/v1/notice/explain",
+        files={"file": ("notice.pdf", _return_notice(), "application/pdf")},
+        data={"language": "en"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["section"] == "114(4)"
+    assert body["notice_type"] == "return_filing"
+    assert body["deadline"] == "2026-10-31"
+    assert body["amount"] == 1_250_000
+    assert body["issuing_office"] == "REGIONAL TAX OFFICE LAHORE"
+    assert body["explanation"]["days_left"] == (date(2026, 10, 31) - date.today()).days
+    assert body["explanation"]["next_steps"][0] == "Reply on IRIS by 2026-10-31."
+
+
 def test_explain_endpoint_redacts_before_the_model():
     llm = FakeLLM()
     settings = Settings(adapters=Adapters(llm="fake", vector_store="memory"))
@@ -56,6 +98,8 @@ def test_explain_endpoint_redacts_before_the_model():
     assert response.status_code == 200
     body = response.json()
     assert body["section"] == "114(4)"
+    assert body["notice_type"] == "return_filing"
+    assert body["explanation"]["next_steps"][0] == "Reply on IRIS by 2026-11-20."
     assert body["redactions"]["cnic"] >= 1
     joined = "\n".join(message.content for _role, messages in llm.calls for message in messages)
     assert "11111-1111111-1" not in joined

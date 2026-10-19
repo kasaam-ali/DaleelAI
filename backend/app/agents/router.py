@@ -282,8 +282,9 @@ def _json_object(text: str) -> str:
 
 
 _EVASION = re.compile(
-    r"\b(?:evade tax|tax evasion|hide income|fake invoice|income chupao|tax chupao|"
-    r"pay no tax|hide (?:my |the )?(?:cash|income|sales))\b"
+    r"\b(?:evade tax|tax evasion|hide income|fake invoice|fake expense|income chupao|"
+    r"tax chupao|pay no tax|hide (?:my |the )?(?:cash|income|sales)|"
+    r"chupan\w*|chhupan\w*|chhupa\w*|forge|doosri books|auditor na dekhe)\b"
 )
 _INJECTION = re.compile(
     r"\b(?:ignore (?:all |the |previous |your )*instructions|"
@@ -291,6 +292,12 @@ _INJECTION = re.compile(
     r"system prompt|hidden prompt|jailbreak)\b"
 )
 _OFF_TOPIC = re.compile(r"\b(?:poems?|recipe|weather)\b")
+
+
+def is_prompt_injection(message: str) -> bool:
+    """Injection that is not also a request to hide income."""
+    lowered = message.lower()
+    return _INJECTION.search(lowered) is not None and _EVASION.search(lowered) is None
 
 
 def _match_intent(lowered: str) -> Intent:

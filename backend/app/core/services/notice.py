@@ -327,20 +327,25 @@ def _sources(fields: dict[str, Any], snippets: list[dict[str, Any]]) -> list[dic
 def _local_explanation(fields: dict[str, Any], language: str) -> dict[str, Any]:
     section = fields.get("section") or "the cited section"
     office = fields.get("issuing_office") or "the issuing office"
+    deadline = fields.get("deadline")
     if language == "roman_urdu":
         summary = f"Yeh notice section {section} ke tehat hai."
         why = f"{office} ne is section ke tehat jawab manga hai."
-        steps = [
-            "Notice par likhi deadline se pehle IRIS par jawab dein.",
-            "Cited section ka text padhein.",
-        ]
+        first = (
+            f"IRIS par {deadline} se pehle jawab dein."
+            if deadline
+            else "Notice par likhi deadline se pehle IRIS par jawab dein."
+        )
+        steps = [first, "Cited section ka text padhein."]
     else:
         summary = f"This notice is under section {section} of the Income Tax Ordinance, 2001."
         why = f"{office} asked for a reply under that section."
-        steps = [
-            "Reply on IRIS before the deadline printed on the notice.",
-            "Read the cited section before you reply.",
-        ]
+        first = (
+            f"Reply on IRIS by {deadline}."
+            if deadline
+            else "Reply on IRIS before the deadline printed on the notice."
+        )
+        steps = [first, "Read the cited section before you reply."]
     return {"summary": summary, "why_received": why, "next_steps": steps}
 
 
@@ -374,9 +379,9 @@ def _json_object(text: str) -> dict[str, Any] | None:
 
 
 def _notice_type(text: str, section: str | None) -> str:
-    """114(4) is a non-filing notice. A later 'penalty' warning does not retype it."""
+    """114(4) asks for a return. A later penalty warning does not retype it."""
     if section and re.match(r"114\b", section):
-        return "assessment"
+        return "return_filing"
     lowered = text.lower()
     if any(phrase in lowered for phrase in _NONFILING):
         return "assessment"

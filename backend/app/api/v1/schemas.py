@@ -67,15 +67,7 @@ class ChatDetail(ChatSummary):
 
 
 class ChatTitleRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=80)
-
-    @field_validator("title")
-    @classmethod
-    def _clean(cls, value: str) -> str:
-        cleaned = " ".join(value.split())
-        if not cleaned:
-            raise ValueError("title is empty")
-        return cleaned
+    title: str | None = None
 
 
 class ChatRequest(BaseModel):

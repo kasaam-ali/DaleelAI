@@ -210,8 +210,50 @@ def test_rename_keeps_the_chat_in_this_session():
     assert renamed.json()["title"] == "Salary question"
     assert listed.json()["chats"][0]["title"] == "Salary question"
     assert blank.status_code == 422
+    assert blank.json()["error"]["code"] == "invalid_request"
+    assert "detail" not in blank.json()
+    missing = client.patch(
+        f"/api/v1/chats/{chat_id}",
+        headers={"X-Session-Id": session_id},
+        json={},
+    )
+    too_long = client.patch(
+        f"/api/v1/chats/{chat_id}",
+        headers={"X-Session-Id": session_id},
+        json={"title": "x" * 81},
+    )
+    assert missing.status_code == 422
+    assert missing.json()["error"]["code"] == "invalid_request"
+    assert "detail" not in missing.json()
+    assert too_long.status_code == 422
+    assert too_long.json()["error"] == {
+        "code": "invalid_request",
+        "message": "A title can be at most 80 characters.",
+    }
     assert hidden.status_code == 404
     assert store.rows[chat_id]["title"] == "Salary question"
+
+
+def test_rename_masks_a_cnic_in_the_title():
+    store = MemoryChats()
+    session_id = str(uuid.uuid4())
+    chat_id = str(uuid.uuid4())
+    store.owner[chat_id] = session_id
+    store.rows[chat_id] = _summary(chat_id)
+    client = client_for(store)
+
+    renamed = client.patch(
+        f"/api/v1/chats/{chat_id}",
+        headers={"X-Session-Id": session_id},
+        json={"title": "Notice for 35202-1234567-1"},
+    )
+    listed = client.get("/api/v1/chats", headers={"X-Session-Id": session_id})
+
+    assert renamed.status_code == 200
+    assert renamed.json()["title"] == "Notice for [CNIC]"
+    assert "35202-1234567-1" not in renamed.text
+    assert listed.json()["chats"][0]["title"] == "Notice for [CNIC]"
+    assert store.rows[chat_id]["title"] == "Notice for [CNIC]"
 
 
 def test_postgres_delete_and_rename_are_scoped_to_the_session():

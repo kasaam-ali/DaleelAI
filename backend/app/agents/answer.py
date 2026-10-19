@@ -186,11 +186,10 @@ def finalize_supported_answer(
     text = strip_false_abstain(draft, blocks)
     from app.core.retrieval.rewrite import cross_reference_note
 
-    blob = f"{question} {search_query}"
-    spoken = cross_reference_note(blob, language=language)
+    spoken = cross_reference_note(question, language=language)
     if blocks_mention_statute(blocks) and len(text) < 80 and spoken:
         text = spoken
-    text = _fill_topic_gaps(text or draft, blob, language)
+    text = _fill_topic_gaps(text or draft, question, language)
     return text or draft
 
 

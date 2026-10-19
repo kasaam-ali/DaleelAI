@@ -301,7 +301,12 @@ def topics_for_note(text: str) -> list[TaxTopic]:
     cleaned = text
     for topic in sorted(TOPICS, key=lambda item: len(item.query), reverse=True):
         cleaned = cleaned.replace(topic.query, " ")
-    return detect_topics(cleaned)
+    found = detect_topics(cleaned)
+    keys = {topic.key for topic in found}
+    # Cash withdrawal is Section 231AB. "Capital gain" in that question is not a plot sale.
+    if "cash" in keys and not _immovable_cue(text):
+        found = [topic for topic in found if topic.key != "property"]
+    return found
 
 
 _PROPERTY_NOTE = (
@@ -368,9 +373,22 @@ _FREELANCER_NOTE_RU = (
 )
 
 
+def _immovable_cue(text: str) -> bool:
+    """Plot, land, or a property sale. 'Capital gain' alone is not one."""
+    blob = _normalize(text)
+    cues = next(topic.triggers for topic in TOPICS if topic.key == "property")
+    return any(
+        _has_trigger(blob, trigger)
+        for trigger in cues
+        if trigger not in {"capital gain", "capital gains"}
+    )
+
+
 def cross_reference_note(text: str, *, language: str = "en") -> str:
     """Short statutory bridge for the topics this question already triggered."""
     keys = {topic.key for topic in topics_for_note(text)}
+    if "cash" in keys and not _immovable_cue(text):
+        keys.discard("property")
     roman = language == "roman_urdu"
     parts: list[str] = []
     if "property" in keys:

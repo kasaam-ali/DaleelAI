@@ -366,12 +366,16 @@ async def _ranked_many(
 
 
 def statute_note(request: RagRequest) -> str:
-    """Property and freelancer law is already written. A model restatement waits out the timeout."""
-    blob = f"{request.question} {request.search_query}"
-    keys = {topic.key for topic in topics_for_note(blob)}
+    """Property and freelancer law is already written. A model restatement waits out the timeout.
+
+    The search query is not part of this choice. A cash-withdrawal rewrite names
+    Section 37 and "plot", and that text must not select the property note.
+    """
+    question = request.question
+    keys = {topic.key for topic in topics_for_note(question)}
     if "property" not in keys and "freelancer" not in keys:
         return ""
-    return cross_reference_note(blob, language=request.language)
+    return cross_reference_note(question, language=request.language)
 
 
 async def local_fast_answer(
@@ -633,7 +637,7 @@ async def _search_queries(llm, request: RagRequest, budget: CallBudget) -> list[
 
 
 def attach_cross_reference(blocks: list[ContextBlock], request: RagRequest) -> list[ContextBlock]:
-    note = cross_reference_note(f"{request.question} {request.search_query}")
+    note = cross_reference_note(request.question)
     if not note:
         return blocks
     return [ContextBlock(parent_id="cross-reference", text=note), *blocks]

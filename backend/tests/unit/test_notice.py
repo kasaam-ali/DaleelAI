@@ -227,7 +227,7 @@ def test_dated_amount_and_office_are_read_from_plain_wording():
         )
     )
     assert filing["section"] == "114(4)"
-    assert filing["notice_type"] == "assessment"
+    assert filing["notice_type"] == "return_filing"
     assert filing["deadline"] == "2026-10-31"
     assert filing["amount"] == 1_250_000
     assert filing["issuing_office"] == "REGIONAL TAX OFFICE LAHORE"
@@ -267,5 +267,6 @@ async def test_upload_keeps_a_dmy_deadline_and_a_rupee_amount():
     assert result["amount"] == 1_250_000
     assert result["issuing_office"] == "RTO Lahore"
     assert result["explanation"]["days_left"] == 17
+    assert result["explanation"]["next_steps"][0] == "Reply on IRIS by 2026-10-31."
     assert result["sources"][0]["section"] == "176"
     assert "176" in result["sources"][0]["snippet"]

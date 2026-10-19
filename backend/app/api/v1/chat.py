@@ -13,6 +13,7 @@ from app.api.v1.schemas import (
     ChatSummary,
     ChatTitleRequest,
 )
+from app.core.privacy.pii import redact_pii
 from app.core.services.chat import format_sse, iter_chat_events
 
 router = APIRouter()
@@ -29,6 +30,24 @@ def _session(value: str | None) -> str | JSONResponse:
         return str(uuid.UUID(value))
     except (ValueError, TypeError):
         return _error(400, "invalid_request", "X-Session-Id must be a UUID.")
+
+
+def _clean_title(body: ChatTitleRequest) -> str | JSONResponse:
+    cleaned = " ".join((body.title or "").split())
+    if not cleaned:
+        return _error(422, "invalid_request", "A title is required.")
+    if len(cleaned) > 80:
+        return _error(422, "invalid_request", "A title can be at most 80 characters.")
+    return redact_pii(cleaned)
+
+
+def _mask_titles(rows: list[dict]) -> list[dict]:
+    masked = []
+    for row in rows:
+        item = dict(row)
+        item["title"] = redact_pii(str(item.get("title") or ""))
+        masked.append(item)
+    return masked
 
 
 def _store(request: Request):
@@ -67,7 +86,7 @@ def list_chats(
     store = _store(request)
     if store is None:
         return _error(503, "repository_unavailable", "Chat storage is not configured.")
-    return ChatListResponse(chats=store.list_chats(session))
+    return ChatListResponse(chats=_mask_titles(store.list_chats(session)))
 
 
 @router.get("/chats/{chat_id}", response_model=ChatDetail)
@@ -89,6 +108,8 @@ def get_chat(
     found = store.get_chat(session, chat_id)
     if found is None:
         return _error(404, "not_found", "That chat was not found.")
+    found = dict(found)
+    found["title"] = redact_pii(str(found.get("title") or ""))
     return ChatDetail.model_validate(found)
 
 
@@ -130,7 +151,10 @@ def rename_chat(
     store = _store(request)
     if store is None or not hasattr(store, "rename_chat"):
         return _error(503, "repository_unavailable", "Chat storage is not configured.")
-    renamed = store.rename_chat(session, chat_id, body.title)
+    title = _clean_title(body)
+    if isinstance(title, JSONResponse):
+        return title
+    renamed = store.rename_chat(session, chat_id, title)
     if renamed is None:
         return _error(404, "not_found", "That chat was not found.")
     return ChatSummary.model_validate(renamed)

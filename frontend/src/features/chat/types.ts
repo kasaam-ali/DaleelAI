@@ -10,6 +10,7 @@ export type Turn = {
   draft: string
   sources: Source[]
   intent: string | null
+  detectedLanguage: "en" | "roman_urdu" | null
   final: FinalData | null
   error: string | null
   messageId: string | null

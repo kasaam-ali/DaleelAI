@@ -5,7 +5,7 @@ import { StrictMode, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { act } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { getChat, type SseEvent } from "../../api/chat"
+import { getChat, streamChat, type SseEvent } from "../../api/chat"
 import ChatPage from "./ChatPage"
 
 const events: { onEvent: ((event: SseEvent) => void) | null; release: (() => void) | null } = {
@@ -18,15 +18,16 @@ const history: {
 } = { release: null, fail: null }
 
 vi.mock("../../api/chat", () => ({
-  streamChat: vi.fn(async (_body: unknown, _session: string, onEvent: (event: SseEvent) => void) => {
+  streamChat: vi.fn(async (body: { message?: string }, _session: string, onEvent: (event: SseEvent) => void) => {
     events.onEvent = onEvent
+    const message = body.message ?? ""
     onEvent({
       event: "meta",
       data: {
         chat_id: "chat-1",
         message_id: "message-1",
         intent: "qa",
-        language: "en",
+        language: /\b(hai|kya|kitna|kaise)\b/i.test(message) ? "roman_urdu" : "en",
         tax_year: "TY2027",
       },
     })
@@ -183,5 +184,40 @@ describe("ChatPage live answer", () => {
     expect(host.textContent).toContain("What does section 149 cover?")
     expect(host.textContent).toContain("Section 149")
     expect(host.textContent).not.toContain("emptyGreeting")
+  })
+
+  it("asks in auto, then resends in English when EN is chosen", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("Freelance income pe kitna tax hai?")
+    const first = vi.mocked(streamChat).mock.calls[0]?.[0] as { language: string; message: string }
+    expect(first.language).toBe("auto")
+    expect(first.message).toBe("Freelance income pe kitna tax hai?")
+
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    expect(host.textContent).toContain("detectedRomanUrdu")
+    expect(host.textContent).toContain("Roman Urdu")
+    expect(host.textContent).not.toContain("اردو")
+
+    const english = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "EN")
+    await act(async () => {
+      english?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await Promise.resolve()
+    })
+    const again = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { language: string; message: string }
+    expect(again.language).toBe("en")
+    expect(again.message).toBe("Freelance income pe kitna tax hai?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
   })
 })

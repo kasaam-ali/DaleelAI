@@ -263,5 +263,8 @@
   "hintChecklist": "Follow a filing checklist already in the app.",
   "hintExperts": "Look through the expert directory.",
   "hintUpdates": "Read federal updates stored for this app.",
-  "hintEval": "Review the retrieval checks for this build."
+  "hintEval": "Review the retrieval checks for this build.",
+  "detectedRomanUrdu": "Roman Urdu detected",
+  "detectedEnglish": "English detected",
+  "answerIn": "Answer in"
 }

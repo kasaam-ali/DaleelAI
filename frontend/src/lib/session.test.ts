@@ -7,9 +7,13 @@ import {
   PROFILE_KEY,
   SESSION_KEY,
   clearLocalHistory,
+  readAnswerLanguage,
+  readLanguage,
   readProfile,
   readSessionId,
   sanitizeProfile,
+  writeAnswerLanguage,
+  writeLanguage,
   writeProfile,
   type StorageLike,
 } from "./session"
@@ -65,6 +69,19 @@ describe("session", () => {
     expect(next).not.toBe(first)
     expect(store.data.get(SESSION_KEY)).toBe(next)
     expect(store.data.has(CHAT_KEY)).toBe(false)
+  })
+
+  it("keeps the shell language and the per-chat answer language apart", () => {
+    const store = memory()
+    expect(readLanguage(store)).toBe("en")
+    writeLanguage(store, "roman_urdu")
+    expect(readLanguage(store)).toBe("roman_urdu")
+    expect(readAnswerLanguage(store, null)).toBe("auto")
+    writeAnswerLanguage(store, "chat-1", "en")
+    writeAnswerLanguage(store, "chat-2", "roman_urdu")
+    expect(readAnswerLanguage(store, "chat-1")).toBe("en")
+    expect(readAnswerLanguage(store, "chat-2")).toBe("roman_urdu")
+    expect(readLanguage(store)).toBe("roman_urdu")
   })
 
   it("round-trips a profile and ignores broken JSON", () => {

@@ -12,7 +12,17 @@ import {
 } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import { redactPii } from "../../lib/pii"
-import { readSessionId, type Profile, type UiLanguage } from "../../lib/session"
+import {
+  asReplyLanguage,
+  readAnswerLanguage,
+  readSessionId,
+  writeAnswerLanguage,
+  type AnswerLanguage,
+  type Profile,
+  type ReplyLanguage,
+  type UiLanguage,
+} from "../../lib/session"
+import AnswerHeader from "./AnswerHeader"
 import AnswerSlip from "./AnswerSlip"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
@@ -67,6 +77,9 @@ export default function ChatPage({
   const [bucket, setBucket] = useState<{ id: string | null; turns: Turn[] }>({ id: chatId, turns: [] })
   const [busy, setBusy] = useState(false)
   const [away, setAway] = useState(false)
+  const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguage>("auto")
+  const answerLanguageRef = useRef<AnswerLanguage>("auto")
+  const runRef = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const abortRef = useRef<AbortController | null>(null)
@@ -83,6 +96,12 @@ export default function ChatPage({
   }
 
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  useEffect(() => {
+    const stored = readAnswerLanguage(localStorage, chatId)
+    answerLanguageRef.current = stored
+    setAnswerLanguage(stored)
+  }, [chatId])
 
   useEffect(() => {
     if (busy) return
@@ -117,58 +136,80 @@ export default function ChatPage({
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
 
-  async function ask(rawText: string) {
+  async function ask(rawText: string, options?: { language?: AnswerLanguage; replaceId?: string }) {
     const raw = rawText.trim()
     if (!raw) {
       setFormError(copy("writeQuestion"))
       return
     }
-    if (busy) return
+    const replacing = Boolean(options?.replaceId)
+    if (busyRef.current && !replacing) return
     const message = redactPii(raw)
     if (message.length > 2000) {
       setFormError(copy("tooLong"))
       return
     }
+    const requested = options?.language ?? answerLanguageRef.current
     setFormError(null)
-    setDraft("")
+    if (!replacing) setDraft("")
     stick.current = true
     setAway(false)
-    const id = crypto.randomUUID()
-    const turn: Turn = {
-      id,
-      question: message,
-      redacted: message !== raw,
-      status: copy("stepWorking"),
-      draft: "",
-      sources: [],
-      intent: null,
-      final: null,
-      error: null,
-      messageId: null,
-      taxYear: null,
-      feedback: null,
-      feedbackNote: null,
-      toolNote: false,
-      toolCard: null,
+    const id = options?.replaceId ?? crypto.randomUUID()
+    if (replacing) {
+      patch(id, (current) => ({
+        ...current,
+        status: copy("stepWorking"),
+        draft: "",
+        sources: [],
+        final: null,
+        error: null,
+        toolCard: null,
+        toolNote: false,
+      }))
+    } else {
+      const turn: Turn = {
+        id,
+        question: message,
+        redacted: message !== raw,
+        status: copy("stepWorking"),
+        draft: "",
+        sources: [],
+        intent: null,
+        detectedLanguage: null,
+        final: null,
+        error: null,
+        messageId: null,
+        taxYear: null,
+        feedback: null,
+        feedbackNote: null,
+        toolNote: false,
+        toolCard: null,
+      }
+      setTurns((prev) => [...prev, turn])
     }
-    setTurns((prev) => [...prev, turn])
+    const run = ++runRef.current
+    const live = () => runRef.current === run
+    abortRef.current?.abort()
     setBusy(true)
     const controller = new AbortController()
     abortRef.current = controller
     try {
       await streamChat(
         {
-          chat_id: chatId,
+          chat_id: chatIdRef.current,
           message,
-          language,
+          language: requested,
           tax_year: null,
           profile,
         },
         readSessionId(localStorage),
-        (event) => applyEvent(id, event),
+        (event) => {
+          if (live()) applyEvent(id, event)
+        },
         controller.signal,
       )
     } catch {
+      if (!live()) return
       if (!controller.signal.aborted) {
         patch(id, (current) => ({
           ...current,
@@ -179,8 +220,18 @@ export default function ChatPage({
         patch(id, (current) => ({ ...current, status: "" }))
       }
     } finally {
-      setBusy(false)
+      if (live()) setBusy(false)
     }
+  }
+
+  function chooseAnswerLanguage(next: ReplyLanguage, turn: Turn) {
+    const active = answerLanguageRef.current === "auto" ? turn.detectedLanguage : answerLanguageRef.current
+    if (next === active) return
+    answerLanguageRef.current = next
+    setAnswerLanguage(next)
+    const openChat = chatIdRef.current
+    if (openChat) writeAnswerLanguage(localStorage, openChat, next)
+    void ask(turn.question, { language: next, replaceId: turn.id })
   }
 
   const askRef = useRef(ask)
@@ -204,11 +255,15 @@ export default function ChatPage({
       setBucket((current) => ({ id: event.data.chat_id, turns: current.turns }))
       onChatId(event.data.chat_id)
       onActivity()
+      if (answerLanguageRef.current !== "auto") {
+        writeAnswerLanguage(localStorage, event.data.chat_id, answerLanguageRef.current)
+      }
       patch(id, (current) => ({
         ...current,
         messageId: event.data.message_id,
         taxYear: event.data.tax_year,
         intent: event.data.intent,
+        detectedLanguage: asReplyLanguage(event.data.language) ?? current.detectedLanguage,
       }))
     } else if (event.event === "step" && event.data.status === "start") {
       patch(id, (current) => ({ ...current, status: copy(STEPS[event.data.node] ?? "stepWorking") }))
@@ -302,6 +357,14 @@ export default function ChatPage({
                     </svg>
                   </span>
                   <div className="min-w-0 flex-1">
+                    {turn.id === turns[turns.length - 1]?.id ? (
+                      <AnswerHeader
+                        detected={turn.detectedLanguage}
+                        selected={answerLanguage === "auto" ? turn.detectedLanguage : answerLanguage}
+                        copy={copy}
+                        onSelect={(next) => chooseAnswerLanguage(next, turn)}
+                      />
+                    ) : null}
                     {turn.status ? <p className="thinking text-sm">{turn.status}</p> : null}
                     <AnswerSlip
                       turn={turn}
@@ -412,6 +475,7 @@ function historyTurn(question: StoredMessage, answer: StoredMessage | null): Tur
     draft: answer?.content ?? "",
     sources: answer?.sources ?? [],
     intent: answer?.intent ?? null,
+    detectedLanguage: asReplyLanguage(answer?.language ?? question.language),
     final,
     error: null,
     messageId: answer?.id ?? null,

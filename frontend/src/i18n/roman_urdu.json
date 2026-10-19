@@ -263,5 +263,8 @@
   "hintChecklist": "App ki filing checklist follow karein.",
   "hintExperts": "Expert directory dekhein.",
   "hintUpdates": "Is app mein mehfooz federal updates parhein.",
-  "hintEval": "Is build ki retrieval checks dekhein."
+  "hintEval": "Is build ki retrieval checks dekhein.",
+  "detectedRomanUrdu": "Roman Urdu pehchani gayi",
+  "detectedEnglish": "English pehchani gayi",
+  "answerIn": "Jawab is mein"
 }

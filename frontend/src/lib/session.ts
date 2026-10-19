@@ -24,8 +24,11 @@ export const SESSION_KEY = "daleelai.session_id"
 export const PROFILE_KEY = "daleelai.profile"
 export const LANGUAGE_KEY = "daleelai.language"
 export const ANSWER_LANGUAGE_KEY = "daleelai.answer_language"
+export const OFFLINE_QUEUE_KEY = "daleelai.offline_queue"
 export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
+
+export type QueuedQuestion = { id: string; text: string }
 
 export type StorageLike = {
   getItem(key: string): string | null
@@ -142,4 +145,29 @@ export function writeAnswerLanguage(storage: StorageLike, chatId: string, langua
   }
   parsed[chatId] = language
   storage.setItem(ANSWER_LANGUAGE_KEY, JSON.stringify(parsed))
+}
+
+export function readOfflineQueue(storage: StorageLike): QueuedQuestion[] {
+  const raw = storage.getItem(OFFLINE_QUEUE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return []
+      const row = item as Record<string, unknown>
+      if (typeof row.id !== "string" || typeof row.text !== "string" || !row.text.trim()) return []
+      return [{ id: row.id, text: row.text }]
+    })
+  } catch {
+    return []
+  }
+}
+
+export function writeOfflineQueue(storage: StorageLike, items: QueuedQuestion[]): void {
+  if (items.length === 0) {
+    storage.removeItem(OFFLINE_QUEUE_KEY)
+    return
+  }
+  storage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items))
 }

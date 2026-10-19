@@ -171,6 +171,15 @@ button.bg-seal {
   color: var(--muted);
 }
 
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  margin-inline-start: 2px;
+  background: var(--seal);
+  vertical-align: -2px;
+}
+
 .composer:focus-within {
   border-color: var(--seal);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--seal) 18%, transparent);
@@ -210,6 +219,16 @@ button.bg-seal {
 
   .waiting {
     animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  .caret {
+    animation: blink 1s steps(2) infinite;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
   }
 }
 

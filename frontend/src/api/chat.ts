@@ -129,7 +129,11 @@ export async function streamChat(
     signal,
   })
   if (!response.ok || !response.body) {
-    throw new Error(await errorMessage(response))
+    const parsed = await readErrorBody(response)
+    const failure = new Error(parsed.message) as Error & { status?: number; code?: string }
+    failure.status = response.status
+    failure.code = parsed.code
+    throw failure
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -170,14 +174,20 @@ export async function sendFeedback(
   if (!response.ok) throw new Error(await errorMessage(response))
 }
 
-async function errorMessage(response: Response): Promise<string> {
+async function readErrorBody(response: Response): Promise<{ code: string; message: string }> {
   try {
-    const body = (await response.json()) as { error?: { message?: string }; detail?: unknown }
-    if (body.error?.message) return body.error.message
+    const body = (await response.json()) as { error?: { code?: string; message?: string } }
+    if (body.error?.message) {
+      return { code: body.error.code || "request_failed", message: body.error.message }
+    }
   } catch {
     /* response was not JSON */
   }
-  return `Request failed (${response.status})`
+  return { code: "request_failed", message: `Request failed (${response.status})` }
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  return (await readErrorBody(response)).message
 }
 
 export type ChatSummary = {

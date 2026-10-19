@@ -10,7 +10,7 @@ import fitz
 
 from app.core.classifier import KeywordClassifier
 from app.core.ports import ChatMessage, LLMPort, Role
-from app.core.privacy.pii import outbound_pii, pii_secrets, redact_report
+from app.core.privacy.pii import outbound_pii, redact_report
 from app.core.retrieval.action_links import ActionLink, load_action_links, match_action_links
 from app.settings import CONFIG_DIR
 
@@ -132,18 +132,9 @@ async def explain_upload(
             "invalid_request",
             "The notice could not be read. The image was not sent anywhere.",
         )
-    secrets = pii_secrets(raw_text)
-    mask_secrets(data, kind, secrets)
     redacted, redactions = redact_report(raw_text)
     guard_user_text(redacted)
     fields = parse_fields(redacted)
-    if llm is not None:
-        await _complete(
-            llm,
-            "fast",
-            redacted,
-            "Read the notice and return JSON. Do not repeat personal details.",
-        )
     snippets = _snippets(searcher, fields.get("section"))
     explanation = _local_explanation(fields, language)
     if llm is not None:
@@ -210,6 +201,10 @@ def _pdf_text(data: bytes) -> str:
     doc = fitz.open(stream=data, filetype="pdf")
     try:
         plain = "\n".join(page.get_text() for page in doc)
+        # Layout analysis is the slow part of a notice. Skip it when the page
+        # text already names a section.
+        if len(plain.strip()) >= _MIN_TEXT and _SECTION.search(plain):
+            return plain
         markdown = ""
         try:
             import pymupdf4llm

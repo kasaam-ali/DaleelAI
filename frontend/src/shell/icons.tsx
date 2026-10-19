@@ -21,6 +21,12 @@ export type IconName =
   | "sun"
   | "moon"
   | "filing"
+  | "search"
+  | "pencil"
+  | "link"
+  | "trash"
+  | "check"
+  | "close"
 
 const PATHS: Record<IconName, string> = {
   menu: "M4 7h16M4 12h16M4 17h16",
@@ -43,6 +49,12 @@ const PATHS: Record<IconName, string> = {
   sun: "M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zM12 4.2v1.6M12 18.2v1.6M4.2 12H5.8M18.2 12h1.6M6.5 6.5l1.1 1.1M16.4 16.4l1.1 1.1M17.5 6.5l-1.1 1.1M7.6 16.4l-1.1 1.1",
   moon: "M15.2 5.2a6.4 6.4 0 1 0 3.2 11.4A5.4 5.4 0 0 1 15.2 5.2z",
   filing: "M7 4.5h6.5L17 8v11.5H7zM13.2 4.8V8H17M8.5 12h7M8.5 15.5h7",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM16.5 16.5 20 20",
+  pencil: "M4 20h4L18.5 9.5l-4-4L4 16zM13.5 6.5l4 4",
+  link: "M10 13.2a4.2 4.2 0 0 0 6 .1l1.2-1.2a4.2 4.2 0 0 0-6-6l-.7.7M14 10.8a4.2 4.2 0 0 0-6-.1l-1.2 1.2a4.2 4.2 0 0 0 6 6l.7-.7",
+  trash: "M5 7.5h14M9.5 7.5V5.8h5V7.5M7.2 7.5l.7 11h8.2l.7-11",
+  check: "M5 12.5 10 17.5 19 7.5",
+  close: "M7 7l10 10M17 7 7 17",
 }
 
 export default function Icon({ name }: { name: IconName }) {

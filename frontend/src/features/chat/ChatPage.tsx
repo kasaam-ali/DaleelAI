@@ -21,15 +21,17 @@ import {
   writeAnswerLanguage,
   writeOfflineQueue,
   type AnswerLanguage,
+  type ClientTaxYear,
   type Profile,
   type ReplyLanguage,
   type UiLanguage,
 } from "../../lib/session"
 import AnswerHeader from "./AnswerHeader"
 import AnswerSlip, { SourcesRail } from "./AnswerSlip"
+import { assistantSnippet } from "./chatText"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
-import EmptyState from "./EmptyState"
+import NewChat from "./NewChat"
 import ErrorCard from "./ErrorCard"
 import { asTurnError, canAutoRetry, retryDelayMs } from "./failure"
 import { turnsFromHistory } from "./history"
@@ -58,6 +60,10 @@ export default function ChatPage({
   launch = null,
   onLaunchConsumed,
   historyKey = 0,
+  taxYear = "TY2027",
+  onProfile = () => undefined,
+  onTaxYear = () => undefined,
+  onSnippet = () => undefined,
 }: {
   language: UiLanguage
   profile: Profile
@@ -69,6 +75,10 @@ export default function ChatPage({
   launch?: { id: string; text: string } | null
   onLaunchConsumed?: () => void
   historyKey?: number
+  taxYear?: ClientTaxYear
+  onProfile?: (patch: Partial<Profile>) => void
+  onTaxYear?: (taxYear: ClientTaxYear) => void
+  onSnippet?: (chatId: string, snippet: string) => void
 }) {
   const [draft, setDraft] = useState("")
   const [formError, setFormError] = useState<string | null>(null)
@@ -134,6 +144,8 @@ export default function ChatPage({
     getChat(sessionId, chatId)
       .then((detail) => {
         if (cancelled || born.current === chatId) return
+        const snippet = assistantSnippet(detail.messages)
+        if (snippet) onSnippetRef.current(chatId, snippet)
         setBucket((current) => {
           const dates = { ...readCorpusDates(localStorage) }
           for (const turn of current.turns) {
@@ -258,7 +270,7 @@ export default function ChatPage({
           chat_id: chatIdRef.current,
           message,
           language: requested,
-          tax_year: null,
+          tax_year: taxYear,
           profile,
         },
         readSessionId(localStorage),
@@ -285,6 +297,9 @@ export default function ChatPage({
       if (live()) setBusy(false)
     }
   }
+
+  const onSnippetRef = useRef(onSnippet)
+  onSnippetRef.current = onSnippet
 
   function shownAnswerLanguage(turn: Turn, last: boolean): ReplyLanguage | null {
     if (turn.replyLanguage) return turn.replyLanguage
@@ -366,6 +381,7 @@ export default function ChatPage({
     } else if (event.event === "sources") {
       patch(id, (current) => ({ ...current, sources: event.data.sources }))
     } else if (event.event === "final") {
+      if (born.current) onSnippetRef.current(born.current, event.data.answer)
       patch(id, (current) => {
         if (current.messageId && event.data.corpus_date) {
           rememberCorpusDate(localStorage, current.messageId, event.data.corpus_date)
@@ -463,7 +479,24 @@ export default function ChatPage({
           className="mx-auto flex w-full max-w-5xl flex-col px-4 py-8"
         >
           {turns.length === 0 ? (
-            <EmptyState copy={copy} />
+            <NewChat
+              copy={copy}
+              profile={profile}
+              taxYear={taxYear}
+              draft={draft}
+              busy={busy}
+              error={formError}
+              preview={showPreview ? preview : null}
+              onDraft={(value) => {
+                setDraft(value)
+                setFormError(null)
+              }}
+              onSubmit={() => void ask(draft)}
+              onStop={stop}
+              onProfile={onProfile}
+              onTaxYear={onTaxYear}
+              onPick={(question) => void ask(question)}
+            />
           ) : (
             turns.map((turn) => {
               const streaming = Boolean(turn.draft) || turn.sources.length > 0
@@ -545,7 +578,7 @@ export default function ChatPage({
           )}
         </div>
       </div>
-      {away ? (
+      {turns.length > 0 && away ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-28 flex justify-center">
           <button
             type="button"
@@ -556,20 +589,22 @@ export default function ChatPage({
           </button>
         </div>
       ) : null}
-      <Composer
-        value={draft}
-        busy={busy}
-        error={formError}
-        preview={showPreview ? preview : null}
-        copy={copy}
-        onChange={(value) => {
-          setDraft(value)
-          setFormError(null)
-        }}
-        onSubmit={() => void ask(draft)}
-        onStop={stop}
-        muted={!online}
-      />
+      {turns.length > 0 ? (
+        <Composer
+          value={draft}
+          busy={busy}
+          error={formError}
+          preview={showPreview ? preview : null}
+          copy={copy}
+          onChange={(value) => {
+            setDraft(value)
+            setFormError(null)
+          }}
+          onSubmit={() => void ask(draft)}
+          onStop={stop}
+          muted={!online}
+        />
+      ) : null}
     </div>
   )
 }

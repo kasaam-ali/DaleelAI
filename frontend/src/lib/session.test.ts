@@ -8,18 +8,21 @@ import {
   PROFILE_KEY,
   SESSION_KEY,
   clearLocalHistory,
+  currentTaxYear,
   readAnswerLanguage,
   readCorpusDates,
   readLanguage,
   readOfflineQueue,
   readProfile,
   readSessionId,
+  readTaxYear,
   rememberCorpusDate,
   sanitizeProfile,
   writeAnswerLanguage,
   writeLanguage,
   writeOfflineQueue,
   writeProfile,
+  writeTaxYear,
   type StorageLike,
 } from "./session"
 
@@ -119,5 +122,15 @@ describe("session", () => {
     expect(readProfile(store).taxpayer_type).toBe("salaried")
     store.data.set(PROFILE_KEY, "{")
     expect(readProfile(store)).toEqual(EMPTY_PROFILE)
+  })
+
+  it("uses the Karachi tax year and keeps a saved choice", () => {
+    expect(currentTaxYear(new Date("2026-06-30T18:00:00Z"))).toBe("TY2026")
+    expect(currentTaxYear(new Date("2026-06-30T19:30:00Z"))).toBe("TY2027")
+    expect(currentTaxYear(new Date("2026-10-19T08:00:00Z"))).toBe("TY2027")
+    const store = memory()
+    expect(readTaxYear(store, new Date("2026-10-19T08:00:00Z"))).toBe("TY2027")
+    writeTaxYear(store, "TY2026")
+    expect(readTaxYear(store, new Date("2026-10-19T08:00:00Z"))).toBe("TY2026")
   })
 })

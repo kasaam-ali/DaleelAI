@@ -2,22 +2,15 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 import type { ChatSummary } from "../api/chat"
+import ChatSearchPalette from "../features/chat/ChatSearchPalette"
+import HistoryList from "../features/chat/HistoryList"
 import type { CopyKey } from "../i18n"
 import ProfilePanel from "../features/onboarding/ProfilePanel"
+import type { AppView } from "../lib/hashRoute"
 import type { Profile, Theme, UiLanguage } from "../lib/session"
 import Icon, { type IconName } from "./icons"
 
-export type AppView =
-  | "home"
-  | "chat"
-  | "calculator"
-  | "filer"
-  | "notice"
-  | "checklist"
-  | "experts"
-  | "updates"
-  | "evaluation"
-  | "privacy"
+export type { AppView }
 
 type Copy = (key: CopyKey) => string
 
@@ -109,6 +102,7 @@ export default function AppShell({
   theme,
   profile,
   chats,
+  snippets,
   activeChatId,
   service,
   menuOpen,
@@ -117,6 +111,9 @@ export default function AppShell({
   onNewChat,
   onSelectChat,
   onClearHistory,
+  onRename,
+  onDelete,
+  onPrefetchSnippets,
   onLanguage,
   onTheme,
   onProfile,
@@ -128,6 +125,7 @@ export default function AppShell({
   theme: Theme
   profile: Profile
   chats: ChatSummary[]
+  snippets: Record<string, string>
   activeChatId: string | null
   service: "checking" | "online" | "degraded" | "offline"
   menuOpen: boolean
@@ -136,6 +134,9 @@ export default function AppShell({
   onNewChat: () => void
   onSelectChat: (chatId: string) => void
   onClearHistory: () => void
+  onRename: (chatId: string, title: string) => Promise<void>
+  onDelete: (chatId: string) => Promise<void>
+  onPrefetchSnippets: () => void
   onLanguage: (language: UiLanguage) => void
   onTheme: () => void
   onProfile: (patch: Partial<Profile>) => void
@@ -146,12 +147,16 @@ export default function AppShell({
   const sidebarRef = useRef<HTMLElement>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const cancelClearRef = useRef<HTMLButtonElement>(null)
   const title =
     view === "home"
       ? copy("navHome")
       : view === "chat"
-        ? (chats.find((chat) => chat.id === activeChatId)?.title ?? copy("navChatItem"))
+        ? activeChatId
+          ? (chats.find((chat) => chat.id === activeChatId)?.title || copy("newChat"))
+          : copy("newChat")
         : copy(TOOLS.find((item) => item.id === view)?.label ?? (view === "privacy" ? "navPrivacy" : "navHome"))
 
   useEffect(() => {
@@ -186,6 +191,27 @@ export default function AppShell({
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
   }, [menuOpen, onMenu])
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setSearchOpen((open) => !open)
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [])
+
+  useEffect(() => {
+    if (searchOpen) onPrefetchSnippets()
+  }, [searchOpen, onPrefetchSnippets])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 2600)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   useEffect(() => {
     if (!confirmClear) return
@@ -227,7 +253,7 @@ export default function AppShell({
         ref={sidebarRef}
         className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col overflow-hidden border-r border-rule bg-sidebar text-sidebar-ink transition-[transform,width] duration-200 ease-out lg:static lg:translate-x-0 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-[76px]" : "lg:w-[248px]"}`}
+        } ${collapsed ? "lg:w-[76px]" : "lg:w-[272px]"}`}
       >
         <div className={`flex items-center gap-3 px-4 pt-5 ${collapsed ? "lg:justify-center lg:px-2" : ""}`}>
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-seal text-seal-ink" aria-hidden="true">
@@ -242,96 +268,51 @@ export default function AppShell({
           </div>
         </div>
         <nav className={`sidebar-scroll mt-4 min-h-0 flex-1 overflow-y-auto px-2 ${collapsed ? "lg:px-1" : ""}`} aria-label={copy("product")}>
-          <details className={collapsed ? "lg:hidden" : ""}>
-            <summary className="min-h-11 cursor-pointer list-none px-2 py-2 text-sm">
-              {copy("profileTitle")}
-              <span className="mt-1 block text-xs leading-snug text-sidebar-muted">{copy("profileHelp")}</span>
-            </summary>
-            <ProfilePanel profile={profile} copy={copy} onChange={onProfile} compact />
-          </details>
           <button
             type="button"
-            title={copy("profileTitle")}
-            aria-label={copy("profileTitle")}
-            onClick={() => setCollapsed(false)}
-            className={`mb-1 hidden min-h-11 w-full items-center justify-center px-2 hover:bg-elevated ${
-              collapsed ? "lg:inline-flex" : ""
+            data-new-chat
+            title={copy("newChat")}
+            onClick={() => {
+              onNewChat()
+              onMenu(false)
+            }}
+            className={`flex min-h-11 w-full items-center gap-2 rounded-xl border border-rule bg-field px-3 text-left text-sm hover:bg-elevated ${
+              collapsed ? "lg:justify-center lg:border-transparent lg:bg-transparent lg:px-2" : ""
             }`}
           >
-            <Icon name="filing" />
+            <Icon name="plus" />
+            <span className={collapsed ? "lg:sr-only" : ""}>{copy("newChat")}</span>
           </button>
-          <div className="mt-3 grid gap-1">
-          <p className={`px-2 pb-1 text-xs text-sidebar-muted ${collapsed ? "lg:sr-only" : ""}`}>{copy("groupPrimary")}</p>
+          <button
+            type="button"
+            data-search-chats
+            title={copy("searchChats")}
+            onClick={() => setSearchOpen(true)}
+            className={`mt-1 flex min-h-11 w-full items-center gap-2 px-2 text-left text-sm hover:bg-elevated ${
+              collapsed ? "lg:justify-center" : ""
+            }`}
+          >
+            <Icon name="search" />
+            <span className={`min-w-0 flex-1 truncate ${collapsed ? "lg:sr-only" : ""}`}>{copy("searchChats")}</span>
+            <kbd className={`rounded border border-rule px-1.5 text-[11px] text-sidebar-muted ${collapsed ? "lg:hidden" : ""}`}>
+              Ctrl K
+            </kbd>
+          </button>
           <button
             type="button"
             title={copy("navHome")}
             aria-current={view === "home" ? "page" : undefined}
             onClick={() => choose("home")}
-            className={`flex min-h-11 items-center gap-2 px-2 text-left text-sm hover:bg-elevated ${
+            className={`mt-1 flex min-h-11 w-full items-center gap-2 px-2 text-left text-sm hover:bg-elevated ${
               view === "home" ? "bg-mint font-medium text-seal" : ""
             } ${collapsed ? "lg:justify-center" : ""}`}
           >
             <Icon name="home" />
             <span className={collapsed ? "lg:sr-only" : ""}>{copy("navHome")}</span>
           </button>
-          <button
-            type="button"
-            title={copy("newChat")}
-            onClick={() => {
-              onNewChat()
-              onMenu(false)
-            }}
-            className={`flex min-h-11 items-center gap-2 px-2 text-left text-sm hover:bg-elevated ${
-              collapsed ? "lg:justify-center" : ""
-            }`}
-          >
-            <Icon name="plus" />
-            <span className={collapsed ? "lg:sr-only" : ""}>{copy("newChat")}</span>
-          </button>
-          </div>
-          <div className="mt-3">
-          <p className={`px-2 text-xs text-sidebar-muted ${collapsed ? "lg:sr-only" : ""}`}>{copy("recentChats")}</p>
-          {chats.length === 0 ? (
-            <p className={`px-2 py-2 text-sm text-sidebar-muted ${collapsed ? "lg:hidden" : ""}`}>{copy("noChats")}</p>
-          ) : (
-            <ul className="mt-1">
-              {chats.map((chat) => (
-                <li key={chat.id}>
-                  <button
-                    type="button"
-                    title={chat.title || copy("newChat")}
-                    onClick={() => {
-                      onSelectChat(chat.id)
-                      onMenu(false)
-                    }}
-                    aria-current={view === "chat" && chat.id === activeChatId ? "true" : undefined}
-                    className={`flex min-h-11 w-full min-w-0 items-center px-2 text-left text-sm hover:bg-elevated ${
-                      view === "chat" && chat.id === activeChatId ? "bg-mint font-medium text-seal" : ""
-                    } ${collapsed ? "lg:hidden" : ""}`}
-                  >
-                    <span className="min-w-0 truncate">{chat.title || copy("newChat")}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button
-            type="button"
-            title={copy("clearHistory")}
-            aria-label={copy("clearHistory")}
-            onClick={() => setConfirmClear(true)}
-            className={`mt-1 flex min-h-11 w-full items-center gap-2 px-2 text-left text-sm text-sidebar-muted hover:bg-elevated ${
-              collapsed ? "lg:justify-center" : ""
-            }`}
-          >
-            <span className={collapsed ? "lg:hidden" : ""}>{copy("clearHistory")}</span>
-            <span className={collapsed ? "hidden lg:inline-flex" : "hidden"}>
-              <Icon name="clear" />
-            </span>
-          </button>
           <div className="mt-4">
             <p className={`px-2 text-xs text-sidebar-muted ${collapsed ? "lg:sr-only" : ""}`}>{copy("groupTax")}</p>
-            <ul className="mt-1 pb-3">
+            <ul className="mt-1">
               {TOOLS.map((item) => (
                 <li key={item.id}>
                   <button
@@ -350,8 +331,57 @@ export default function AppShell({
               ))}
             </ul>
           </div>
+          <div className={collapsed ? "lg:hidden" : ""}>
+            <HistoryList
+              chats={chats}
+              activeId={view === "chat" ? activeChatId : null}
+              copy={copy}
+              onSelect={(chatId) => {
+                onSelectChat(chatId)
+                onMenu(false)
+              }}
+              onRename={onRename}
+              onDelete={onDelete}
+              onOpenNew={() => {
+                onNewChat()
+                onMenu(false)
+              }}
+              onToast={setNotice}
+            />
           </div>
+          <button
+            type="button"
+            title={copy("clearHistory")}
+            aria-label={copy("clearHistory")}
+            onClick={() => setConfirmClear(true)}
+            className={`mt-1 flex min-h-11 w-full items-center gap-2 px-2 text-left text-sm text-sidebar-muted hover:bg-elevated ${
+              collapsed ? "lg:justify-center" : ""
+            }`}
+          >
+            <span className={collapsed ? "lg:hidden" : ""}>{copy("clearHistory")}</span>
+            <span className={collapsed ? "hidden lg:inline-flex" : "hidden"}>
+              <Icon name="clear" />
+            </span>
+          </button>
           <div className="mt-4 pb-3">
+          <details className={collapsed ? "lg:hidden" : ""}>
+            <summary className="min-h-11 cursor-pointer list-none px-2 py-2 text-sm">
+              {copy("profileTitle")}
+              <span className="mt-1 block text-xs leading-snug text-sidebar-muted">{copy("profileHelp")}</span>
+            </summary>
+            <ProfilePanel profile={profile} copy={copy} onChange={onProfile} compact />
+          </details>
+          <button
+            type="button"
+            title={copy("profileTitle")}
+            aria-label={copy("profileTitle")}
+            onClick={() => setCollapsed(false)}
+            className={`mb-1 hidden min-h-11 w-full items-center justify-center px-2 hover:bg-elevated ${
+              collapsed ? "lg:inline-flex" : ""
+            }`}
+          >
+            <Icon name="filing" />
+          </button>
             <button
               type="button"
               title={copy("navPrivacy")}
@@ -412,7 +442,7 @@ export default function AppShell({
           <p className="hidden max-w-56 truncate text-xs text-muted xl:block">{copy("disclaimerShort")}</p>
           <HeaderMenu
             label={copy("languageLabel")}
-            trigger={<span>{language === "en" ? "EN" : "UR"}</span>}
+            trigger={<span>{language === "en" ? "EN" : copy("romanUrdu")}</span>}
             options={[
               { id: "en", label: copy("english"), selected: language === "en", onSelect: () => onLanguage("en") },
               {
@@ -485,6 +515,29 @@ export default function AppShell({
           </div>
         ) : null}
       </div>
+      {searchOpen ? (
+        <ChatSearchPalette
+          chats={chats}
+          snippets={snippets}
+          copy={copy}
+          onOpen={(chatId) => {
+            setSearchOpen(false)
+            onSelectChat(chatId)
+            onMenu(false)
+          }}
+          onClose={() => {
+            setSearchOpen(false)
+            document.querySelector<HTMLElement>("[data-search-chats]")?.focus()
+          }}
+        />
+      ) : null}
+      {notice ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center">
+          <p role="status" data-motion="rise" className="motion-rise rounded-full border border-rule bg-field px-4 py-2 text-sm shadow-[var(--shadow)]">
+            {notice}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

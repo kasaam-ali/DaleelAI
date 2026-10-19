@@ -28,8 +28,10 @@ export const OFFLINE_QUEUE_KEY = "daleelai.offline_queue"
 export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
 export const CORPUS_DATES_KEY = "daleelai.corpus_dates"
+export const TAX_YEAR_KEY = "daleelai.tax_year"
 
 export type QueuedQuestion = { id: string; text: string }
+export type ClientTaxYear = "TY2026" | "TY2027"
 
 export type StorageLike = {
   getItem(key: string): string | null
@@ -197,4 +199,31 @@ export function writeOfflineQueue(storage: StorageLike, items: QueuedQuestion[])
     return
   }
   storage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items))
+}
+
+function karachiYearMonth(now: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(now)
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "0")
+  return { year: read("year"), month: read("month") }
+}
+
+/** Pakistan's tax year ends on 30 June. TY2027 is 1 Jul 2026 through 30 Jun 2027. */
+export function currentTaxYear(now = new Date()): ClientTaxYear {
+  const { year, month } = karachiYearMonth(now)
+  const ending = month >= 7 ? year + 1 : year
+  return ending <= 2026 ? "TY2026" : "TY2027"
+}
+
+export function readTaxYear(storage: StorageLike, now = new Date()): ClientTaxYear {
+  const stored = storage.getItem(TAX_YEAR_KEY)
+  if (stored === "TY2026" || stored === "TY2027") return stored
+  return currentTaxYear(now)
+}
+
+export function writeTaxYear(storage: StorageLike, taxYear: ClientTaxYear): void {
+  storage.setItem(TAX_YEAR_KEY, taxYear)
 }

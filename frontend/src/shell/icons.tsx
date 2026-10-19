@@ -1,3 +1,5 @@
+/** Small line icons for the shell and the home page. */
+
 export type IconName =
   | "menu"
   | "plus"

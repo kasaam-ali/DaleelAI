@@ -1,3 +1,5 @@
+/** Runs the frontend unit tests. */
+
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({

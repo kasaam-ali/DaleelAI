@@ -1,3 +1,5 @@
+"""Checks that the LangGraph path runs the same steps as the plain QA path."""
+
 import pytest
 
 from app.agents.rag import RagRequest, run_qa

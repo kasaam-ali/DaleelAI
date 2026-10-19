@@ -1,3 +1,5 @@
+/** Checks that a streamed answer shows up on the chat page. */
+
 // @vitest-environment happy-dom
 import { StrictMode, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"

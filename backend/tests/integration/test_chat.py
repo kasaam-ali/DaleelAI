@@ -1,3 +1,5 @@
+"""Checks stream order, tax year, redaction, and a saved demo answer."""
+
 import json
 from datetime import date
 

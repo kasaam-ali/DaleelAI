@@ -1,3 +1,5 @@
+/** Landing page: a question box and a link to each tool. */
+
 import { useState } from "react"
 import type { CopyKey } from "../../i18n"
 import { redactPii } from "../../lib/pii"

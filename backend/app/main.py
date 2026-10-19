@@ -1,3 +1,5 @@
+"""Builds the FastAPI app: CORS, /health, the /api/v1 routes, and model warmup."""
+
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path

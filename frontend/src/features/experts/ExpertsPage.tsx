@@ -1,3 +1,5 @@
+/** Asks a question and lists matching public experts for a city. */
+
 import { useEffect, useRef, useState } from "react"
 import { findExperts, type ExpertFind } from "../../api/experts"
 import type { CopyKey } from "../../i18n"

@@ -1,3 +1,5 @@
+"""Checks that a chunk is replaced by its parent section inside the token budget."""
+
 from app.core.retrieval.expand import expand_parents
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.sufficiency import ABSTAIN_SENTENCE, verified_band, web_is_sufficient

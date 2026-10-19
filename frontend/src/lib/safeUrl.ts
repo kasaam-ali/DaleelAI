@@ -1,3 +1,5 @@
+/** Keeps only http and https links that an answer may open. */
+
 export function safeHref(value: string | null | undefined): string | null {
   if (!value) return null
   try {

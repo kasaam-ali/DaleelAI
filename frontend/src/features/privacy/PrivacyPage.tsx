@@ -1,3 +1,5 @@
+/** Says what is stored, what is hidden, and where answers come from. */
+
 import type { CopyKey } from "../../i18n"
 
 type Copy = (key: CopyKey) => string

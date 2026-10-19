@@ -1,3 +1,5 @@
+"""Calls Groq, then Gemini, then OpenRouter, and cools down a model that fails."""
+
 import asyncio
 import logging
 import os

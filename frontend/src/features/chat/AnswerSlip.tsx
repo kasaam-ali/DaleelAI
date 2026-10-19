@@ -1,3 +1,5 @@
+/** One answer card: text, sources, agent steps, copy, and feedback. */
+
 import { useState } from "react"
 import type { FeedbackReason, Source } from "../../api/chat"
 import { annotatePkr, formatPkr } from "../../lib/money"

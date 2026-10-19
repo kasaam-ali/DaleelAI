@@ -1,3 +1,5 @@
+"""Checks the intent router and the keyword fallback when every model is down."""
+
 import json
 from datetime import date
 

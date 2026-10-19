@@ -1,3 +1,5 @@
+/** Salary, freelancer, and property calculator, with a savings bar. */
+
 import { useState, type FormEvent } from "react"
 import {
   calculateFreelancer,

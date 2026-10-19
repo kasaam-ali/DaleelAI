@@ -1,3 +1,5 @@
+/** Checks that changing one profile field does not clear the others. */
+
 import { describe, expect, it } from "vitest"
 import {
   CHAT_KEY,

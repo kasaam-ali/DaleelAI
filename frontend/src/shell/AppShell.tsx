@@ -1,3 +1,5 @@
+/** Sidebar, top bar, and the frame around every page. */
+
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 import type { ChatSummary } from "../api/chat"
 import type { CopyKey } from "../i18n"

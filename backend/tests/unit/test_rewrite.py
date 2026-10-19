@@ -1,3 +1,5 @@
+"""Checks that Roman Urdu tax talk becomes English search queries."""
+
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.rewrite import (
     cross_reference_note,

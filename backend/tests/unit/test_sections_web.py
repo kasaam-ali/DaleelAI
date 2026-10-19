@@ -1,3 +1,5 @@
+"""Checks parent sections and that web indexing never writes the documents collection."""
+
 import pytest
 
 from pipeline.sections import section_rows

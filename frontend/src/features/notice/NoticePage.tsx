@@ -1,3 +1,5 @@
+/** Uploads a notice, shows the deadline countdown, and can open a matching expert. */
+
 import { useState, type FormEvent } from "react"
 import { explainNotice, type NoticeExplanation } from "../../api/phase5"
 import type { CopyKey } from "../../i18n"

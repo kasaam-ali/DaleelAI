@@ -1,3 +1,5 @@
+/** Holds language, theme, profile, and which page is open. */
+
 import { useEffect, useState } from "react"
 import { listChats, type ChatSummary } from "./api/chat"
 import { useHealth } from "./api/health"

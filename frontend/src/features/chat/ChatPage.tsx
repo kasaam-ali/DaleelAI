@@ -1,3 +1,5 @@
+/** Sends a question, streams the answer, and keeps this chat's thread. */
+
 import { useEffect, useRef, useState } from "react"
 import {
   getChat,

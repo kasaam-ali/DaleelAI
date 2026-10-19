@@ -1,3 +1,5 @@
+/** Checklist steps, saved progress, and print or share. */
+
 import { useEffect, useState } from "react"
 import {
   checklistTemplates,

@@ -1,3 +1,5 @@
+"""Checks a verified answer, the website fallback, and an abstain."""
+
 import asyncio
 import json
 

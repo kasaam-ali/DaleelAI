@@ -1,3 +1,5 @@
+"""Checks that a thumbs rating is stored for this session."""
+
 import uuid
 
 from fastapi.testclient import TestClient

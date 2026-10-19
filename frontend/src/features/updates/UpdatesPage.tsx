@@ -1,3 +1,5 @@
+/** FBR updates feed, with a domain filter and a saved replay. */
+
 import { useState } from "react"
 import { listUpdates, replayUpdates, type UpdateList } from "../../api/updates"
 import type { CopyKey } from "../../i18n"

@@ -1,3 +1,5 @@
+"""In-memory LLM for tests. It records each call and makes no network request."""
+
 from collections.abc import Sequence
 from typing import Any
 

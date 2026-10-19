@@ -1,3 +1,5 @@
+"""Loads the YAML config and fills ${ENV} values from the environment."""
+
 import os
 import re
 from pathlib import Path

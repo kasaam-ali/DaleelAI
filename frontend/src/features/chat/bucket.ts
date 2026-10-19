@@ -1,3 +1,5 @@
+/** Keeps the visible turns tied to the chat that is open. */
+
 export type TurnBucket<T> = { id: string | null; turns: T[] }
 
 export function reduceBucket<T>(

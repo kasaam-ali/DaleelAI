@@ -1,3 +1,5 @@
+"""v1 answer chain: Groq, the citation prompt, and chat history."""
+
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
@@ -76,8 +78,10 @@ def build_chain():
     vectorstore = load_vectorstore()
     
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         temperature=0,
+        reasoning_effort="low",
+        reasoning_format="hidden",
         api_key=os.getenv("GROQ_API_KEY")
     )
     

@@ -1,3 +1,5 @@
+"""Checks the shared CNIC, NTN, phone, and email cases."""
+
 import json
 from pathlib import Path
 

@@ -1,3 +1,5 @@
+/** Shows classifier scores and the retrieval ablation table. */
+
 import { useEffect, useState } from "react"
 import { ablationReport, classifierReport, type AblationReport, type ClassifierReport } from "../../api/experts"
 import type { CopyKey } from "../../i18n"

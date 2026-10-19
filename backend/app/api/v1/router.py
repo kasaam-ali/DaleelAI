@@ -1,3 +1,5 @@
+"""Mounts every /api/v1 route on one router."""
+
 from fastapi import APIRouter
 
 from app.api.v1.calculate import router as calculate_router

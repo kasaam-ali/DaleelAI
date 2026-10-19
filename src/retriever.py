@@ -1,3 +1,5 @@
+"""v1 search: dense Chroma lookup plus TAX_SYNONYMS."""
+
 from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings

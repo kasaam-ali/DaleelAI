@@ -1,3 +1,5 @@
+/** Question box. Sends the text and can stop a running answer. */
+
 import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react"
 import type { CopyKey } from "../../i18n"
 

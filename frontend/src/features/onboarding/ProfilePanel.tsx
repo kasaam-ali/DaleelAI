@@ -1,3 +1,5 @@
+/** Optional questions: taxpayer type, filer status, and province. */
+
 import type { CopyKey } from "../../i18n"
 import type { FilerStatus, Profile, Province, TaxpayerType } from "../../lib/session"
 

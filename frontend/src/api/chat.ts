@@ -1,3 +1,5 @@
+/** Streams one chat answer and loads saved chats for this session. */
+
 import { API_URL } from "./client"
 import type { Profile, UiLanguage } from "../lib/session"
 

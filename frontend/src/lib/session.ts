@@ -1,3 +1,5 @@
+/** Saves the anonymous session, profile, language, and theme in the browser. */
+
 export type TaxpayerType = "salaried" | "freelancer" | "business" | "company"
 export type FilerStatus = "filer" | "non_filer" | "unknown"
 export type Province = "punjab" | "sindh" | "kpk" | "balochistan" | "islamabad" | "gb" | "ajk"

@@ -1,3 +1,5 @@
+/** Checks that switching chats does not mix their turns. */
+
 import { describe, expect, it } from "vitest"
 import { reduceBucket } from "./bucket"
 

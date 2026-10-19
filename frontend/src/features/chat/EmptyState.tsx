@@ -1,3 +1,5 @@
+/** What chat shows before the first question. */
+
 import type { CopyKey } from "../../i18n"
 
 type Copy = (key: CopyKey) => string

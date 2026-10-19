@@ -1,3 +1,5 @@
+"""Checks that search and rerank stay unloaded until a question arrives."""
+
 from fastapi.testclient import TestClient
 
 from app.adapters.postgres_sections import PostgresSections

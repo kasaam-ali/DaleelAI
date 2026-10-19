@@ -1,3 +1,5 @@
+"""Checks provider order, cooldown, and the shared timeout in the LLM gateway."""
+
 import asyncio
 import time
 from types import SimpleNamespace

@@ -1,3 +1,5 @@
+/** Hides CNIC, NTN, phone, email, and account numbers before a question is sent. */
+
 const CNIC = /\b\d{5}-?\d{7}-?\d\b/g
 const PHONE = /(?<![A-Za-z0-9])(?:(?:\+92|0092)[\s-]?|0)3\d{2}[- ]?\d{7}\b/g
 const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g

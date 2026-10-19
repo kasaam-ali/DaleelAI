@@ -1,3 +1,5 @@
+/** Filer and non-filer side by side, with a savings bar and the NTN checklist link. */
+
 import { useState, type FormEvent } from "react"
 import { compareFiler, type FilerComparison, type TaxYear } from "../../api/tax"
 import type { CopyKey } from "../../i18n"

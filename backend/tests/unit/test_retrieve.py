@@ -1,3 +1,5 @@
+"""Checks hybrid search and that rerank keeps the top hits."""
+
 import pytest
 
 from app.core.retrieval.fusion import RankedHit

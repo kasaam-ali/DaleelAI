@@ -79,14 +79,20 @@ class LiveQa:
         )
 
     def warm(self) -> None:
-        """Load retrieval models before the first question. They are independent."""
+        """Load retrieval models and the graph library before the first question."""
         import sys
         import time
         from concurrent.futures import ThreadPoolExecutor
 
+        from app.agents.rag_graph import preload_langgraph
+
         started = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(self.search.warm), pool.submit(self.rerank.warm)]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [
+                pool.submit(self.search.warm),
+                pool.submit(self.rerank.warm),
+                pool.submit(preload_langgraph),
+            ]
             for future in futures:
                 future.result()
         sys.stderr.write(

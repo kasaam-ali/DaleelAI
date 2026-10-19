@@ -49,6 +49,15 @@ def langgraph_available() -> bool:
     return True
 
 
+def preload_langgraph() -> None:
+    """Import the graph library at startup. The first question used to pay for it."""
+    try:
+        from langgraph.graph import END, START, StateGraph
+    except ImportError:
+        return
+    del END, START, StateGraph
+
+
 async def run_qa_graph(*args, runner: str = "langgraph", **kwargs) -> RagResult:
     """Use the StateGraph when langgraph is installed. Otherwise run the plain function."""
     if runner != "langgraph" or not langgraph_available():

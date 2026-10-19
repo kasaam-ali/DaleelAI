@@ -100,6 +100,7 @@ describe("ChatPage live answer", () => {
     events.release = null
     history.release = null
     history.fail = null
+    localStorage.clear()
   })
 
   async function send(question: string) {
@@ -208,7 +209,7 @@ describe("ChatPage live answer", () => {
     expect(host.textContent).not.toContain("اردو")
     const checked = host.querySelector('[role="radio"][aria-checked="true"]')
     expect(checked?.textContent).toBe("Roman Urdu")
-    expect(localStorage.getItem("daleelai.answer_language")).toContain('"chat-1":"roman_urdu"')
+    expect(localStorage.getItem("daleelai.answer_language") ?? "").not.toContain("roman_urdu")
 
     const english = Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "EN")
     await act(async () => {
@@ -218,6 +219,29 @@ describe("ChatPage live answer", () => {
     const again = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { language: string; message: string }
     expect(again.language).toBe("en")
     expect(again.message).toBe("Freelance income pe kitna tax hai?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+  })
+
+  it("detects the next question until the user picks a language", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await send("What does section 149 cover?")
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    vi.mocked(streamChat).mockClear()
+    await send("NTN registration kaise karte hain?")
+    const second = vi.mocked(streamChat).mock.calls[0]?.[0] as { language: string; message: string }
+    expect(second.language).toBe("auto")
+    expect(second.message).toBe("NTN registration kaise karte hain?")
     await act(async () => {
       events.release?.()
       await Promise.resolve()

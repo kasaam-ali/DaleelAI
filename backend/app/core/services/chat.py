@@ -23,7 +23,7 @@ from app.api.v1.schemas import (
 )
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
-from app.core.demo import match_demo
+from app.core.demo import demo_in_language, match_demo
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
@@ -42,9 +42,16 @@ _INJECTION_REFUSAL = (
     "I can't ignore the rules or reveal a hidden prompt. "
     "Ask a tax question and I will answer from the ordinance."
 )
+_REFUSAL_RU = (
+    "Main income chhupane, tax se bachne, ya fake documents mein madad nahi kar sakta. "
+    "Qanooni filing ke liye IRIS istemal karein ya FBR ko 051-111-772-772 par call karein."
+)
 _NOT_READY = "That tool is not available yet."
+_NOT_READY_RU = "Yeh tool abhi dastiyab nahi."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
+_CHITCHAT_RU = "Salam. Tax ka sawal poochain. Main FBR aur SECP ke sarkari sources se jawab doonga."
 _OUT_OF_SCOPE = "That is outside tax and compliance. Ask about FBR or SECP and I can help."
+_OUT_OF_SCOPE_RU = "Yeh tax aur compliance se bahar hai. FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
 _STATUTE = re.compile(r"^\d{1,3}[A-Z]{0,4}$")
 _HEADER_STATUTE = re.compile(r"\b(?:Section|Rule|Regulation)\s+(\d{1,3}[A-Z]{0,4})\b", re.I)
 log = logging.getLogger(__name__)
@@ -88,13 +95,15 @@ async def iter_chat_events(
     session = _uuid_or_none(session_id)
     demo = match_demo(body.message)
     if demo is not None:
+        if body.language in {"en", "roman_urdu", "urdu"}:
+            asked = "roman_urdu" if body.language == "urdu" else body.language
+            demo = demo_in_language(demo, asked)
         async for event in _yield_demo(
             store, session, chat_id, message_id, body.message, demo, tax_year, corpus_date
         ):
             yield event
         return
-    hinted = "en" if body.language == "auto" else body.language
-    language_key = resolve_reply_language(body.message, hinted, "en")
+    language_key = resolve_reply_language(body.message, body.language, "en")
     key = answer_cache_key(body.message, profile, tax_year, corpus_version, language_key)
     hide_cache = outbound_pii(body.message) is not None
     cached = None if hide_cache else _cached(cache, key)
@@ -386,7 +395,7 @@ async def iter_chat_events(
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:
-        answer = _short_reply(routed.intent, routed.authority, body.message)
+        answer = _short_reply(routed.intent, routed.authority, language, body.message)
         links = match_action_links(body.message, rules, domains=set())
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, links)
@@ -694,22 +703,38 @@ def _statutory_section(payload: dict[str, Any]) -> str | None:
     return found.group(1) if found else None
 
 
-def _short_reply(intent: str, authority: str | None, message: str = "") -> str:
+def _short_reply(
+    intent: str,
+    authority: str | None,
+    language: str = "en",
+    message: str = "",
+) -> str:
+    roman = language == "roman_urdu"
     if intent == "refuse":
         if is_prompt_injection(message):
             return _INJECTION_REFUSAL
-        return _REFUSAL
+        return _REFUSAL_RU if roman else _REFUSAL
     if intent == "chitchat":
-        return _CHITCHAT
+        return _CHITCHAT_RU if roman else _CHITCHAT
     if intent == "out_of_scope":
-        return _OUT_OF_SCOPE
+        return _OUT_OF_SCOPE_RU if roman else _OUT_OF_SCOPE
     if intent == "provincial":
-        name = authority or "the provincial revenue authority"
+        name = authority or (
+            "subai revenue authority" if roman else "the provincial revenue authority"
+        )
+        if roman:
+            return (
+                f"Yeh {name} ka subai mamla lagta hai. "
+                "DaleelAI wifaqi tax FBR aur SECP se batata hai. "
+                "Qaaida us idare ki site par tasdeeq karein."
+            )
         return (
             f"This looks like a provincial matter for {name}. "
             "DaleelAI answers federal tax from FBR and SECP. "
             "Confirm the rule on that authority's site."
         )
     if intent == "notice":
+        if roman:
+            return "Jab explainer dastiyab ho, notice upload karein. Abhi dastiyab nahi."
         return "Upload the notice when the explainer is available. It is not available yet."
-    return _NOT_READY
+    return _NOT_READY_RU if roman else _NOT_READY

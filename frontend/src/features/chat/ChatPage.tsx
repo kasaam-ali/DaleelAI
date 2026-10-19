@@ -11,6 +11,7 @@ import {
   type StoredMessage,
 } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
+import { localizedError } from "../../i18n/errors"
 import { redactPii } from "../../lib/pii"
 import {
   asReplyLanguage,
@@ -31,10 +32,10 @@ import type { Turn } from "./types"
 
 type Copy = (key: CopyKey) => string
 
-function shownError(message: string | undefined, fallback: string) {
+function shownError(message: string | undefined, fallback: string, language: UiLanguage) {
   const text = message?.trim() ?? ""
   if (!text || /json|traceback|exception|routeroutput/i.test(text)) return fallback
-  return text
+  return localizedError(text, language)
 }
 
 const STEPS: Record<string, CopyKey> = {
@@ -214,7 +215,7 @@ export default function ChatPage({
         patch(id, (current) => ({
           ...current,
           status: "",
-          error: shownError(current.error ?? undefined, copy("answerFailed")),
+          error: shownError(current.error ?? undefined, copy("answerFailed"), language),
         }))
       } else {
         patch(id, (current) => ({ ...current, status: "" }))
@@ -255,10 +256,6 @@ export default function ChatPage({
       setBucket((current) => ({ id: event.data.chat_id, turns: current.turns }))
       onActivity()
       const detected = asReplyLanguage(event.data.language)
-      if (detected && answerLanguageRef.current === "auto") {
-        answerLanguageRef.current = detected
-        setAnswerLanguage(detected)
-      }
       if (answerLanguageRef.current !== "auto") {
         writeAnswerLanguage(localStorage, event.data.chat_id, answerLanguageRef.current)
       }
@@ -290,7 +287,7 @@ export default function ChatPage({
       patch(id, (current) => ({
         ...current,
         status: "",
-        error: shownError(event.data.message, copy("answerFailed")),
+        error: shownError(event.data.message, copy("answerFailed"), language),
       }))
     } else if (event.event === "tool_result") {
       patch(id, (current) => ({ ...current, toolCard: event.data.card }))

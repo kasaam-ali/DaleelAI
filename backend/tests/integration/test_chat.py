@@ -481,5 +481,49 @@ def test_keyless_router_refuses_roman_urdu_evasion():
     )
     events = parse_sse(response.text)
     assert events[0][1]["intent"] == "refuse"
-    assert "hiding income" in events[-2][1]["answer"]
+    assert events[0][1]["language"] == "roman_urdu"
+    assert "income chhupane" in events[-2][1]["answer"]
     assert "chupani" not in events[-2][1]["answer"].lower()
+
+
+def test_demo_answer_follows_the_explicit_language():
+    llm = ScriptedLLM(router_payload())
+    response = make_client(llm).post(
+        "/api/v1/chat",
+        json={
+            "message": "Demo: what does section 149 cover?",
+            "language": "roman_urdu",
+            "tax_year": "TY2027",
+        },
+    )
+    events = parse_sse(response.text)
+    assert events[0][1]["language"] == "roman_urdu"
+    assert "salary par withholding" in events[-2][1]["answer"]
+    assert llm.calls == 0
+
+
+def test_explicit_english_overrides_roman_urdu_wording():
+    llm = ScriptedLLM(router_payload())
+    response = make_client(llm).post(
+        "/api/v1/chat",
+        json={
+            "message": "how do I hide income from FBR",
+            "language": "en",
+            "tax_year": "TY2027",
+        },
+    )
+    events = parse_sse(response.text)
+    assert events[0][1]["language"] == "en"
+    assert "I can't help with hiding income" in events[-2][1]["answer"]
+
+    roman = make_client(llm).post(
+        "/api/v1/chat",
+        json={
+            "message": "how do I hide income from FBR",
+            "language": "roman_urdu",
+            "tax_year": "TY2027",
+        },
+    )
+    roman_events = parse_sse(roman.text)
+    assert roman_events[0][1]["language"] == "roman_urdu"
+    assert "income chhupane" in roman_events[-2][1]["answer"]

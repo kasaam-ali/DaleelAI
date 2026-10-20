@@ -2,35 +2,14 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import type { CopyKey } from "../../i18n"
-import type { ClientTaxYear, FilerStatus, Profile, Province, TaxpayerType } from "../../lib/session"
+import type { ClientTaxYear, Profile } from "../../lib/session"
 import Icon, { type IconName } from "../../shell/icons"
 import ProfilePanel from "../onboarding/ProfilePanel"
 import Composer from "./Composer"
+import { filingSummary } from "./filingSummary"
 
 type Copy = (key: CopyKey) => string
 
-const TAXPAYER: Record<TaxpayerType, CopyKey> = {
-  salaried: "salaried",
-  freelancer: "freelancer",
-  business: "business",
-  company: "company",
-}
-
-const FILER: Record<FilerStatus, CopyKey> = {
-  filer: "filer",
-  non_filer: "nonFiler",
-  unknown: "notSure",
-}
-
-const PROVINCE: Record<Province, CopyKey> = {
-  punjab: "punjab",
-  sindh: "sindh",
-  kpk: "kpk",
-  balochistan: "balochistan",
-  islamabad: "islamabad",
-  gb: "gb",
-  ajk: "ajk",
-}
 
 const SUGGESTIONS: { question: string; hint: CopyKey; icon: IconName }[] = [
   {
@@ -55,15 +34,6 @@ const SUGGESTIONS: { question: string; hint: CopyKey; icon: IconName }[] = [
   },
 ]
 
-function filingSummary(profile: Profile, taxYear: ClientTaxYear, copy: Copy) {
-  const parts = [
-    profile.taxpayer_type ? copy(TAXPAYER[profile.taxpayer_type]) : null,
-    profile.filer_status ? copy(FILER[profile.filer_status]) : null,
-    profile.province ? copy(PROVINCE[profile.province]) : null,
-    taxYear,
-  ].filter((part): part is string => Boolean(part))
-  return parts.join(" · ")
-}
 
 export default function NewChat({
   copy,

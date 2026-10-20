@@ -3,11 +3,11 @@
 // @vitest-environment happy-dom
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { act } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { deleteChat, renameChat } from "../../api/chat"
+import { deleteChat, listChats, renameChat } from "../../api/chat"
 import { useChatHistory } from "./useChatHistory"
 
 const rows = vi.hoisted(() => [
@@ -124,5 +124,29 @@ describe("useChatHistory", () => {
     }
     expect(deleteChat).toHaveBeenCalledWith("session-1", "c1")
     expect(host.textContent).not.toContain("Old title")
+  })
+
+  it("starts a cleared session empty without asking the server for its chats", async () => {
+    const client = new QueryClient()
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    const api: { current: ReturnType<typeof useChatHistory> | null } = { current: null }
+    function Switcher({ id }: { id: string }) {
+      const history = useChatHistory(id)
+      useEffect(() => {
+        api.current = history
+      })
+      return <p>{history.chats.length}</p>
+    }
+    await act(async () => root.render(<QueryClientProvider client={client}><Switcher id="session-1" /></QueryClientProvider>))
+    vi.mocked(listChats).mockClear()
+    await act(async () => {
+      api.current!.startEmpty("session-2")
+      root.render(<QueryClientProvider client={client}><Switcher id="session-2" /></QueryClientProvider>)
+    })
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
+    expect(listChats).not.toHaveBeenCalled()
+    expect(host.textContent).toBe("0")
   })
 })

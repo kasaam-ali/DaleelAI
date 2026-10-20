@@ -148,6 +148,7 @@ export default function App() {
     setClearError(null)
     try {
       const next = await clearStoredHistory(localStorage, sessionId, deleteSession)
+      history.startEmpty(next)
       setSessionId(next)
       setChatId(null)
     } catch {

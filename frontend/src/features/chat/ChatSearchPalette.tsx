@@ -4,7 +4,7 @@ import { useId, useRef, useState, type ReactNode } from "react"
 import type { ChatSummary } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import Icon from "../../shell/icons"
-import { useDialogFocus } from "../../shell/useDialogFocus"
+import { useModal } from "../../shell/useModal"
 import type { TextRange } from "./chatText"
 import { searchChats } from "./chatText"
 import { clockNow, historyLabel } from "./historyGroups"
@@ -58,7 +58,7 @@ export default function ChatSearchPalette({
   }
   const hits = searchChats(chats, snippets, query)
   const current = hits[Math.min(active, Math.max(hits.length - 1, 0))]
-  useDialogFocus(true, panelRef, onClose)
+  useModal(true, panelRef, onClose)
 
   function choose(index: number) {
     const hit = hits[index]

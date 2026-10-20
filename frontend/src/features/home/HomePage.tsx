@@ -1,42 +1,56 @@
-/** Landing page: a question box and a link to each tool. */
+/** Premium Home (SPEC §5.1): filing details, hero with the question box, three tool cards, and the trust row. */
 
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 import type { CopyKey } from "../../i18n"
+import { filingReady, type ClientTaxYear, type Profile } from "../../lib/session"
 import { redactPii } from "../../lib/pii"
 import Composer from "../chat/Composer"
 import OfflineBanner from "../chat/OfflineBanner"
 import { useOnline } from "../chat/useOnline"
-import Icon, { type IconName } from "../../shell/icons"
+import Icon from "../../shell/icons"
 import type { AppView } from "../../shell/AppShell"
+import FilingStep from "./FilingStep"
+import { launchFromCard, tunedEyebrow } from "./filing"
+import HeroEmblem from "./HeroEmblem"
+import ToolCard, { type ToolArt } from "./ToolCard"
+import "./home.css"
 
 type Copy = (key: CopyKey) => string
 
-const TOOLS: { id: AppView; label: CopyKey; hint: CopyKey; icon: IconName }[] = [
-  { id: "chat", label: "homeToolAsk", hint: "hintAsk", icon: "chat" },
-  { id: "calculator", label: "homeToolCalc", hint: "hintCalc", icon: "calculator" },
-  { id: "filer", label: "homeToolFiler", hint: "hintFiler", icon: "filer" },
-  { id: "notice", label: "homeToolNotice", hint: "hintNotice", icon: "notice" },
-  { id: "checklist", label: "homeToolChecklist", hint: "hintChecklist", icon: "checklist" },
-  { id: "experts", label: "homeToolExperts", hint: "hintExperts", icon: "experts" },
-  { id: "updates", label: "homeToolUpdates", hint: "hintUpdates", icon: "updates" },
-  { id: "evaluation", label: "homeToolEval", hint: "hintEval", icon: "evaluation" },
+const TOOLS: { view: AppView; art: ToolArt; icon: "chat" | "calc" | "notice"; n: 1 | 2 | 3 }[] = [
+  { view: "chat", art: "ask", icon: "chat", n: 1 },
+  { view: "calculator", art: "calc", icon: "calc", n: 2 },
+  { view: "notice", art: "notice", icon: "notice", n: 3 },
 ]
 
-const QUESTIONS = [
-  "starterSalary",
-  "starterNotice",
-  "starterAtl",
-  "starterFreelance",
-  "starterReturn",
-  "starterWithholding",
+const CHIPS = ["heroChip1", "heroChip2", "heroChip3"] as const
+
+const TRUST = [
+  ["trust1Title", "trust1Desc"],
+  ["trust2Title", "trust2Desc"],
+  ["trust3Title", "trust3Desc"],
 ] as const
 
 export default function HomePage({
   copy,
+  profile,
+  taxYear,
+  taxYearSet,
+  filingSaved,
+  onProfile,
+  onTaxYear,
+  onFilingSaved,
   onOpen,
   onAsk,
 }: {
   copy: Copy
+  profile: Profile
+  taxYear: ClientTaxYear
+  taxYearSet: boolean
+  filingSaved: boolean
+  onProfile: (patch: Partial<Profile>) => void
+  onTaxYear: (taxYear: ClientTaxYear) => void
+  onFilingSaved: (saved: boolean) => void
   onOpen: (view: AppView) => void
   onAsk: (question: string) => void
 }) {
@@ -45,6 +59,7 @@ export default function HomePage({
   const [error, setError] = useState<string | null>(null)
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
+  const saved = filingSaved && filingReady(profile)
 
   function submit() {
     const question = draft.trim()
@@ -60,63 +75,94 @@ export default function HomePage({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       {online ? null : <OfflineBanner queuedCount={0} copy={copy} />}
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-8">
-        <h2 className="max-w-[18ch] font-statute text-[2.35rem] leading-[1.08] font-medium tracking-tight text-ink">
-          {copy("homeTitle")}
-        </h2>
-        <div className="mt-6">
-          <Composer
-            value={draft}
-            busy={false}
-            error={error}
-            preview={showPreview ? preview : null}
-            copy={copy}
-            placement="field"
-            fieldId="home-question"
-            onChange={(value) => {
-              setDraft(value)
-              setError(null)
-            }}
-            onSubmit={submit}
-            onStop={() => undefined}
-            muted={!online}
-          />
+      <div className="phome">
+        <FilingStep
+          profile={profile}
+          taxYear={taxYear}
+          taxYearSet={taxYearSet}
+          saved={saved}
+          copy={copy}
+          onChange={onProfile}
+          onTaxYear={onTaxYear}
+          onSave={() => onFilingSaved(true)}
+          onEdit={() => onFilingSaved(false)}
+        />
+        <section className="hero" data-reveal style={{ "--i": 1 } as CSSProperties} aria-labelledby="home-title">
+          <div>
+            <span className="eyebrow">
+              <svg className="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2l2.6 6.9L22 9.3l-5.6 4.7 1.8 7.2L12 17.3 5.8 21.2l1.8-7.2L2 9.3l7.4-.4z" />
+              </svg>
+              {saved ? tunedEyebrow(profile, taxYear, copy) : copy("heroEyebrow")}
+            </span>
+            <h1 id="home-title">{copy("heroTitle")}</h1>
+            <p className="sub">{copy("heroSub")}</p>
+            <div className="hero-composer">
+              <Composer
+                value={draft}
+                busy={false}
+                error={error}
+                preview={showPreview ? preview : null}
+                copy={copy}
+                placement="field"
+                fieldId="home-question"
+                placeholder={copy("heroPlaceholder")}
+                size="large"
+                showNote={false}
+                onChange={(value) => {
+                  setDraft(value)
+                  setError(null)
+                }}
+                onSubmit={submit}
+                onStop={() => undefined}
+                muted={!online}
+              />
+            </div>
+            <div className="chips">
+              {CHIPS.map((key) => (
+                <button key={key} type="button" className="hchip" onClick={() => onAsk(copy(key))}>
+                  {copy(key)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <HeroEmblem />
+        </section>
+        <div className="sec-h" data-reveal style={{ "--i": 2 } as CSSProperties}>
+          <h2>{copy("toolsLabel")}</h2>
+          <p>{copy("toolsSub")}</p>
         </div>
-        <p className="mt-4 max-w-[58ch] text-base leading-relaxed text-muted">{copy("homePurpose")}</p>
-        <ul className="mt-8 grid border-t border-rule sm:grid-cols-2">
-          {TOOLS.map((tool) => (
-            <li key={tool.id} className="border-b border-rule sm:odd:border-r sm:odd:pr-0">
-              <button
-                type="button"
-                onClick={() => onOpen(tool.id)}
-                className="flex min-h-16 w-full items-start gap-3 px-1 py-3 text-left hover:bg-mint/50 sm:px-4"
-              >
-                <span className="mt-0.5 text-seal">
-                  <Icon name={tool.icon} />
-                </span>
-                <span>
-                  <span className="block text-sm font-medium text-ink">{copy(tool.label)}</span>
-                  <span className="mt-0.5 block text-sm leading-snug text-muted">{copy(tool.hint)}</span>
-                </span>
-              </button>
-            </li>
+        <div className="tools3">
+          {TOOLS.map((tool, index) => (
+            <ToolCard
+              key={tool.view}
+              index={3 + index}
+              title={copy(`tool${tool.n}Title`)}
+              description={copy(`tool${tool.n}Desc`)}
+              meta={copy(`tool${tool.n}Meta`)}
+              action={copy(`tool${tool.n}Go`)}
+              icon={tool.icon}
+              art={tool.art}
+              feature={index === 0}
+              badge={index === 0 ? copy("mostUsed") : undefined}
+              question={copy("artQuestion")}
+              estimated={copy("artEstimated")}
+              onLaunch={(card) => launchFromCard(card, () => onOpen(tool.view))}
+            />
           ))}
-        </ul>
-        <h3 className="mt-10 text-base font-medium text-ink">{copy("homeQuestions")}</h3>
-        <ul className="mt-2 border-t border-rule">
-          {QUESTIONS.map((key) => (
-            <li key={key} className="border-b border-rule">
-              <button
-                type="button"
-                onClick={() => onAsk(copy(key))}
-                className="min-h-12 w-full py-2 text-left text-sm leading-snug hover:text-seal"
-              >
-                {copy(key)}
-              </button>
-            </li>
+        </div>
+        <div className="trust3" data-reveal style={{ "--i": 6 } as CSSProperties}>
+          {TRUST.map(([title, body]) => (
+            <div key={title}>
+              <Icon name="checkShield" size="sm" />
+              <span>
+                <b>{copy(title)}</b>
+                {copy(body)}
+              </span>
+            </div>
           ))}
-        </ul>
-        <p className="mt-8 max-w-[62ch] text-sm leading-relaxed text-muted">{copy("homeTrust")}</p>
+        </div>
+        <p className="home-note">{copy("disclaimer")}</p>
       </div>
     </div>
   )

@@ -11,7 +11,7 @@ describe("copy", () => {
     expect(t("roman_urdu", "homeTitle")).not.toBe(t("en", "homeTitle"))
     expect(t("en", "romanUrdu")).toBe("Roman Urdu")
     expect(t("roman_urdu", "answerIn")).toBe("Jawab is mein")
-    expect(t("roman_urdu", "navHome")).toBe("Ghar")
+    expect(t("roman_urdu", "navHome")).toBe("Home")
     expect(t("roman_urdu", "groupTax")).toBe("Tax ke zariye")
     expect(t("roman_urdu", "calcTitle")).toBe("Wifaqi tax calculator")
     expect(t("roman_urdu", "becomeFiler")).toBe("Filer banein (infiradi NTN)")
@@ -23,7 +23,9 @@ describe("copy", () => {
     expect(t("roman_urdu", "stepCheck")).toBe("Hawalay check kar raha hoon")
     expect(t("roman_urdu", "answerFailedTitle")).toBe("Jawab nahi aa saka")
     expect(t("roman_urdu", "searchFailed")).toBe("Talash jawab likhne se pehle fail ho gayi.")
-    const keep = new Set(["product", "romanUrdu", "helplineDetail"])
+    // Prototype copy (premium-home.html, shared.js) is identical in both languages for these keys.
+    const prototypeSame = ["navTools", "navAsk", "navCalcTool", "navNoticeTool", "railHome", "railNotice", "railAbout", "themeToggle", "taxYearLabel", "fsOptional", "fsFiler", "fsFilerOpt", "fsNonFilerOpt", "heroEyebrow", "heroChip1", "heroChip2", "heroChip3", "toolsLabel", "tool2Title", "tool2Meta", "tool3Title", "artQuestion", "navHome", "subtitle", "profileTitle"]
+    const keep = new Set(["product", "romanUrdu", "helplineDetail", ...prototypeSame])
     const copied = Object.keys(en).filter((key) => en[key] === romanUrdu[key] && !keep.has(key))
     expect(copied).toEqual([])
     expect("urdu" in en).toBe(false)

@@ -25,6 +25,10 @@ import {
   readOfflineQueue,
   readSessionId,
   readTaxYear,
+  hasStoredTaxYear,
+  readFilingSaved,
+  writeFilingSaved,
+  clearTaxYear,
   sanitizeProfile,
   writeChatId,
   writeLanguage,
@@ -50,6 +54,8 @@ export default function App() {
     routed.view === "home" && readOfflineQueue(localStorage).length > 0 ? "chat" : routed.view,
   )
   const [taxYear, setTaxYear] = useState<ClientTaxYear>(() => readTaxYear(localStorage))
+  const [taxYearSet, setTaxYearSet] = useState(() => hasStoredTaxYear(localStorage))
+  const [filingSaved, setFilingSaved] = useState(() => readFilingSaved(localStorage))
   const [launch, setLaunch] = useState<{ id: string; text: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -90,7 +96,21 @@ export default function App() {
 
   function changeTaxYear(next: ClientTaxYear) {
     setTaxYear(next)
+    setTaxYearSet(true)
     writeTaxYear(localStorage, next)
+  }
+
+  function changeFilingSaved(saved: boolean) {
+    setFilingSaved(saved)
+    writeFilingSaved(localStorage, saved)
+  }
+
+  function clearFiling() {
+    setProfile(sanitizeProfile({}))
+    clearTaxYear(localStorage)
+    setTaxYear(readTaxYear(localStorage))
+    setTaxYearSet(false)
+    changeFilingSaved(false)
   }
 
   function changeTheme() {
@@ -167,6 +187,9 @@ export default function App() {
       language={language}
       theme={theme}
       profile={profile}
+      taxYear={taxYear}
+      taxYearSet={taxYearSet}
+      filingSaved={filingSaved}
       chats={history.chats}
       snippets={history.snippets}
       activeChatId={chatId}
@@ -176,17 +199,30 @@ export default function App() {
       onView={go}
       onNewChat={() => selectChat(null)}
       onSelectChat={selectChat}
-      onClearHistory={() => void clearHistory()}
-      clearError={clearError}
       onRename={history.rename}
       onDelete={history.remove}
       onPrefetchSnippets={history.prefetchSnippets}
       onLanguage={changeLanguage}
       onTheme={changeTheme}
       onProfile={changeProfile}
+      onTaxYear={changeTaxYear}
+      onClearFiling={clearFiling}
       onMenu={setMenuOpen}
     >
-      {view === "home" ? <HomePage copy={copy} onOpen={go} onAsk={askFromHome} /> : null}
+      {view === "home" ? (
+        <HomePage
+          copy={copy}
+          profile={profile}
+          taxYear={taxYear}
+          taxYearSet={taxYearSet}
+          filingSaved={filingSaved}
+          onProfile={changeProfile}
+          onTaxYear={changeTaxYear}
+          onFilingSaved={changeFilingSaved}
+          onOpen={go}
+          onAsk={askFromHome}
+        />
+      ) : null}
       <div className={view === "chat" ? "contents" : "hidden"} aria-hidden={view !== "chat"}>
         <ChatPage
           language={language}

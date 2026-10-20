@@ -1,51 +1,7 @@
-/* Colors, type, and layout for light and dark. */
+/* Type and layout. Colours, radius, elevation and motion tokens live in styles/tokens.css. */
 
 @import "tailwindcss";
-
-:root {
-  --paper: #f6f5f1;
-  --field: #ffffff;
-  --ink: #17211d;
-  --muted: #3f514a;
-  --rule: #e3e6e1;
-  --seal: #065c43;
-  --seal-ink: #f6f5f1;
-  --mint: #e7f3ec;
-  --web: #8a5a10;
-  --low: #8e2f2f;
-  --focus: #065c43;
-  --elevated: #eef1ed;
-  --gold: #c4a35a;
-  --sidebar: #fbfaf7;
-  --sidebar-ink: #17211d;
-  --sidebar-muted: #3f514a;
-  --warning: #8a5a10;
-  --shadow: 0 1px 2px rgba(23, 33, 29, 0.05), 0 12px 32px rgba(23, 33, 29, 0.04);
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  color-scheme: light;
-}
-
-[data-theme="dark"] {
-  --paper: #101412;
-  --field: #181d1b;
-  --ink: #f3f6f4;
-  --muted: #b7c4bd;
-  --rule: #2a332e;
-  --seal: #8fe0c0;
-  --seal-ink: #06281c;
-  --mint: #1c3330;
-  --web: #e6c27a;
-  --low: #f0a8a8;
-  --focus: #8fe0c0;
-  --elevated: #222a26;
-  --gold: #d4b46a;
-  --sidebar: #141a17;
-  --sidebar-ink: #f3f6f4;
-  --sidebar-muted: #b7c4bd;
-  --warning: #e6c27a;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  color-scheme: dark;
-}
+@import "./styles/tokens.css";
 
 @theme inline {
   --font-civic: "Inter", "Segoe UI", sans-serif;
@@ -67,6 +23,35 @@
   --color-sidebar-ink: var(--sidebar-ink);
   --color-sidebar-muted: var(--sidebar-muted);
   --color-warning: var(--warning);
+  --color-rule-strong: var(--rule-strong);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-ink: var(--brand-ink);
+  --color-hero-muted: var(--hero-muted);
+  --color-link: var(--link);
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-refusal: var(--refusal);
+  --color-refusal-soft: var(--refusal-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-placeholder: var(--placeholder);
+  --color-on-strong: var(--on-strong);
+  --color-nav-ink: var(--nav-ink);
+  --color-nav-muted: var(--nav-muted);
+  --color-nav-on: var(--nav-on);
+  --color-nav-on-bg: var(--nav-on-bg);
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-xs);
+  --radius: var(--r-xs);
+  --radius-md: var(--r-sm);
+  --radius-lg: var(--r-sm);
+  --radius-xl: var(--r-md);
+  --radius-2xl: var(--r-lg);
+  --radius-3xl: var(--r-xl);
+  --radius-full: var(--r-full);
 }
 
 html {
@@ -106,13 +91,21 @@ body {
 .panel {
   background: var(--field);
   border: 1px solid var(--rule);
-  border-radius: 0.625rem;
-  box-shadow: var(--shadow);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-card);
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
+::placeholder {
+  color: var(--placeholder);
 }
 
 button,
@@ -128,17 +121,23 @@ a {
   cursor: pointer;
 }
 
+/* Unlayered, so it must sit after the pointer rule: Tailwind's cursor-not-allowed utility is layered and loses to it. */
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 textarea {
   cursor: text;
 }
 
 input:not([type="checkbox"]):not([type="radio"]),
 select {
-  border-radius: 0.75rem;
+  border-radius: var(--r-sm);
 }
 
 button.bg-seal {
-  border-radius: 0.5rem;
+  border-radius: var(--r-xs);
 }
 
 @keyframes rise-in {
@@ -162,7 +161,7 @@ button.bg-seal {
 }
 
 .waiting {
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   background: linear-gradient(90deg, var(--rule), var(--elevated), var(--rule));
   background-size: 200% 100%;
 }
@@ -251,7 +250,7 @@ summary::-webkit-details-marker {
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
   background: var(--rule);
-  border-radius: 999px;
+  border-radius: var(--r-xl);
 }
 
 .sidebar-scroll::-webkit-scrollbar-button {
@@ -307,7 +306,7 @@ summary::-webkit-details-marker {
 }
 
 mark.chat-hit {
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--gold) 45%, var(--field));
   color: inherit;
 }

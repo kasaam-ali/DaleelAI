@@ -126,9 +126,13 @@ export default function Composer({
           <button
             type="submit"
             disabled={!ready}
+            aria-disabled={!ready}
+            data-ready={ready ? "true" : "false"}
             aria-label={copy("send")}
-            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed ${
-              size === "large" ? "rounded-lg" : "disabled:opacity-40"
+            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center px-4 text-sm font-medium ${
+              ready ? "bg-seal text-seal-ink" : "cursor-not-allowed border border-rule bg-elevated text-placeholder"
+            } ${
+              size === "large" ? "rounded-lg" : ""
             } ${muted ? "opacity-60" : ""}`}
           >
             {copy("send")}
@@ -137,7 +141,10 @@ export default function Composer({
         )}
       </div>
       <div className={`mt-2 w-full ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
-        {showHint ? <p className="text-sm text-muted">{copy("enterHint")}</p> : null}
+        <p className="text-sm text-muted">
+          {copy("disclaimerShort")}
+          {showHint ? ` · ${copy("enterHint")}` : null}
+        </p>
         {showCount ? (
           <p id={cut ? undefined : noteId} className={`text-sm ${countWarn ? "text-warning" : "text-muted"}`}>
             {copy("charCount").replace("{count}", count.toLocaleString("en-US"))}

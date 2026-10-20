@@ -30,7 +30,7 @@ export const THEME_KEY = "daleelai.theme"
 export const CORPUS_DATES_KEY = "daleelai.corpus_dates"
 export const TAX_YEAR_KEY = "daleelai.tax_year"
 export const FILING_SAVED_KEY = "daleelai.filing_saved"
-export const RAIL_KEY = "daleelai.sidebar_rail"
+export const RAIL_KEY = "daleelai.rail"
 
 export type QueuedQuestion = { id: string; text: string }
 export type ClientTaxYear = "TY2026" | "TY2027"

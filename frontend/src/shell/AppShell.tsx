@@ -1,15 +1,19 @@
 /** Sidebar, top bar, and the frame around every page (SPEC §4). */
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react"
+import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 import type { ChatSummary } from "../api/chat"
 import ChatSearchPalette from "../features/chat/ChatSearchPalette"
-import HistoryList from "../features/chat/HistoryList"
 import type { CopyKey } from "../i18n"
-import { FilingPopover } from "../features/onboarding/ProfilePanel"
 import type { AppView } from "../lib/hashRoute"
 import { readRail, writeRail, type ClientTaxYear, type Profile, type Theme, type UiLanguage } from "../lib/session"
 import Icon from "./icons"
-import { NAV, TITLES, filingSummary } from "./nav"
+import Brand from "./Brand"
+import ChatSidebar from "./ChatSidebar"
+import FilingRow from "./FilingRow"
+import { TITLES, TOOLS, type ToolId } from "./nav"
+import { statusText, type Service } from "./navEvents"
+import StatusRow from "./StatusRow"
+import ToolsNav from "./ToolsNav"
 import { useModal } from "./useModal"
 import "./shell.css"
 
@@ -55,7 +59,7 @@ export default function AppShell({
   chats: ChatSummary[]
   snippets: Record<string, string>
   activeChatId: string | null
-  service: "checking" | "online" | "degraded" | "offline"
+  service: Service
   menuOpen: boolean
   copy: Copy
   onView: (view: AppView) => void
@@ -73,15 +77,12 @@ export default function AppShell({
   children: ReactNode
 }) {
   const sidebarId = useId()
-  const popoverId = useId()
   const sidebarRef = useRef<HTMLElement>(null)
   const [rail, setRail] = useState(() => readRail(localStorage))
   const [searchOpen, setSearchOpen] = useState(false)
-  const [filingOpen, setFilingOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const chatTitle = activeChatId ? chats.find((chat) => chat.id === activeChatId)?.title || copy("newChat") : copy("newChat")
   const title = view === "chat" ? chatTitle : copy(TITLES[view] ?? "navHome")
-  const closeFiling = useCallback(() => setFilingOpen(false), [])
 
   useModal(menuOpen, sidebarRef, () => onMenu(false))
 
@@ -116,36 +117,12 @@ export default function AppShell({
     onMenu(false)
   }
 
-  function navItem(item: (typeof NAV)[number]) {
-    // Sawal poocho opens a new chat; inside a chat the recents row is the current page, so only the rail marks it.
-    const on = view === item.id && item.id !== "chat"
-    const onRail = item.id === "chat" && view === "chat"
-    return (
-      <button
-        key={item.id}
-        type="button"
-        title={copy(item.label)}
-        aria-current={on ? "page" : undefined}
-        onClick={() => choose(item.id)}
-        className={`nav-item keep${on ? " on" : ""}${onRail ? " on-rail" : ""}`}
-      >
-        <Icon name={item.icon} />
-        <span className="lbl">{copy(item.label)}</span>
-        <span className="short" aria-hidden="true">
-          {copy(item.short)}
-        </span>
-      </button>
-    )
+  function tool(id: ToolId) {
+    choose(TOOLS.find((item) => item.id === id)?.view ?? "home")
   }
 
-  const statusText =
-    service === "online"
-      ? copy("serviceOnline")
-      : service === "offline"
-        ? copy("serviceUnreachable")
-        : service === "degraded"
-          ? copy("serviceDegraded")
-          : copy("serviceChecking")
+  const status = statusText(service, copy)
+  const chatRoute = view === "chat"
 
   return (
     <div className="flex h-dvh bg-paper text-ink" data-drawer={menuOpen ? "open" : "closed"}>
@@ -164,133 +141,55 @@ export default function AppShell({
       <aside
         id={sidebarId}
         ref={sidebarRef}
-        aria-label={copy("product")}
+        aria-label={chatRoute ? copy("chatsNav") : copy("navTools")}
         data-rail={rail ? "true" : "false"}
         className={`dsb sidebar-scroll fixed inset-y-0 left-0 z-40 w-[272px] overflow-y-auto transition-[transform,width] duration-200 ease-out lg:static lg:translate-x-0 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
-        } ${rail ? "rail" : ""}`}
+        } ${rail ? "rail" : ""} ${chatRoute ? "sb-chat" : "sb-tools"}`}
       >
-        <div className="brand">
-          <span className="mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 5.5h7.2L17 9.2V18.5H6v-13z" />
-              <path d="M13 5.5V9h4" />
-            </svg>
-          </span>
-          <span className="lbl">
-            <b>DaleelAI</b>
-            <small>{copy("subtitle")}</small>
-          </span>
-          <button
-            type="button"
-            className="iconbtn sb-collapse only-desk"
-            aria-label={copy("collapseSidebar")}
-            title={copy("collapseSidebar")}
-            aria-expanded={!rail}
-            aria-controls={sidebarId}
-            onClick={() => setRail(true)}
-          >
-            <Icon name="panelLeft" />
-          </button>
-        </div>
-        <button
-          type="button"
-          data-new-chat
-          title={copy("newChat")}
-          className="newchat"
-          onClick={() => {
-            onNewChat()
-            onMenu(false)
-          }}
-        >
-          <Icon name="plus" />
-          <span className="lbl">{copy("newChat")}</span>
-        </button>
-        <button type="button" data-search-chats title={copy("searchChats")} className="searchbox" onClick={() => setSearchOpen(true)}>
-          <Icon name="search" size="sm" />
-          <span className="lbl">{copy("searchChats")}</span>
-          <kbd className="lbl">Ctrl K</kbd>
-        </button>
-        <nav aria-label={copy("navTools")} className="contents">
-          {navItem(NAV[0])}
-          <p className="nav-label">{copy("navTools")}</p>
-          {NAV.filter((item) => item.group === "tools").map(navItem)}
-        </nav>
-        <div className="recents">
-          <HistoryList
+        <Brand
+          copy={copy}
+          homeLink={chatRoute}
+          sidebarId={sidebarId}
+          rail={rail}
+          onHome={() => choose("home")}
+          onCollapse={() => setRail(true)}
+        />
+        {chatRoute ? (
+          <ChatSidebar
             chats={chats}
-            activeId={view === "chat" ? activeChatId : null}
+            activeChatId={activeChatId}
             copy={copy}
-            heading={copy("recentsLabel")}
-            onSelect={(chatId) => {
+            onTool={tool}
+            onNewChat={() => {
+              onNewChat()
+              onMenu(false)
+            }}
+            onSearch={() => setSearchOpen(true)}
+            onSelectChat={(chatId) => {
               onSelectChat(chatId)
               onMenu(false)
             }}
             onRename={onRename}
             onDelete={onDelete}
-            onOpenNew={() => {
-              onNewChat()
-              onMenu(false)
-            }}
             onToast={setNotice}
           />
-        </div>
+        ) : (
+          <ToolsNav view={view} copy={copy} onTool={tool} />
+        )}
         <div className="grow" />
-        {/* TODO(PR 8): when About & settings lands, this link opens it at sec=how with the sticky sub-nav from SPEC §5.6. */}
-        <button
-          type="button"
-          title={copy("navAbout")}
-          aria-current={view === "privacy" ? "page" : undefined}
-          onClick={() => choose("privacy")}
-          className={`nav-item keep${view === "privacy" ? " on" : ""}`}
-        >
-          <Icon name="gear" />
-          <span className="lbl">{copy("navAbout")}</span>
-          <span className="short" aria-hidden="true">
-            {copy("railAbout")}
-          </span>
-        </button>
-        <div className={`filing${filingOpen ? " open" : ""}`}>
-          {filingOpen ? (
-            <FilingPopover
-              id={popoverId}
-              profile={profile}
-              taxYear={taxYear}
-              taxYearSet={taxYearSet}
-              copy={copy}
-              onChange={onProfile}
-              onTaxYear={onTaxYear}
-              onClear={onClearFiling}
-              onClose={closeFiling}
-            />
-          ) : null}
-          <button
-            type="button"
-            data-filing-row
-            className="filing-row"
-            title={copy("profileTitle")}
-            aria-expanded={filingOpen}
-            aria-controls={filingOpen ? popoverId : undefined}
-            aria-haspopup="dialog"
-            onClick={() => setFilingOpen((open) => !open)}
-          >
-            <span className="av">
-              <Icon name="user" size="sm" />
-            </span>
-            <span className="lbl fr-t">
-              <b>{copy("profileTitle")}</b>
-              <small data-filing-summary>{filingSummary(profile, taxYear, taxYearSet, filingSaved, copy)}</small>
-            </span>
-            <Icon name="chev" size="sm" className="lbl updown" />
-          </button>
-        </div>
-        <p className="status" role="status" title={statusText}>
-          <span
-            aria-hidden="true"
-            className={`dot ${service === "online" ? "bg-seal" : service === "checking" ? "bg-sidebar-muted" : "bg-warning"}`}
-          />
-          <span className="lbl">{statusText}</span>
-        </p>
+        <FilingRow
+          profile={profile}
+          taxYear={taxYear}
+          taxYearSet={taxYearSet}
+          filingSaved={filingSaved}
+          copy={copy}
+          onProfile={onProfile}
+          onTaxYear={onTaxYear}
+          onClearFiling={onClearFiling}
+        />
+        {/* TODO(PR 8): open About & settings at Service status once that section lands. */}
+        <StatusRow service={service} copy={copy} onOpen={() => choose("privacy")} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="dtop">
@@ -341,7 +240,7 @@ export default function AppShell({
         {service === "offline" || service === "degraded" ? (
           <p className="flex items-center gap-2 border-b border-rule px-4 py-2 text-xs text-muted lg:hidden" role="status">
             <span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-warning" />
-            {statusText}
+            {status}
           </p>
         ) : null}
         <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">

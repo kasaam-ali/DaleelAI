@@ -64,7 +64,7 @@ export default function PrivacyPage({
             </>
           }
           cancelLabel={copy("dataDlgCancel")}
-          confirmLabel={copy("dataClearAction")}
+          confirmLabel={copy("dataDlgConfirm")}
           onCancel={() => setConfirming(false)}
           onConfirm={() => {
             setConfirming(false)

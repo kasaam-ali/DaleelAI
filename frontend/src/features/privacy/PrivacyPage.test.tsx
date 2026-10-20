@@ -28,12 +28,27 @@ describe("PrivacyPage · Your data", () => {
       expect(document.activeElement?.textContent).toBe(copy("dataDlgCancel"))
       expect(onClear).not.toHaveBeenCalled()
 
+      const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"))
+      expect(buttons.map((b) => b.textContent)).toEqual([copy("dataDlgCancel"), copy("dataDlgConfirm")])
+      expect(buttons[0].textContent).toBe(language === "en" ? "Keep them" : "Rehne dein")
+      expect(buttons[1].textContent).toBe(language === "en" ? "Clear chats" : "Chats saaf karein")
+      expect(buttons[1].className).toContain("bg-error")
+      expect(buttons[1].hasAttribute("data-destructive")).toBe(true)
+
+      // Esc does what the safe button does.
+      act(() => {
+        document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+      })
+      expect(host.querySelector('[role="alertdialog"]')).toBeNull()
+      expect(onClear).not.toHaveBeenCalled()
+
+      act(() => host.querySelector<HTMLButtonElement>("[data-clear-history]")!.click())
       act(() => (document.activeElement as HTMLButtonElement).click())
       expect(host.querySelector('[role="alertdialog"]')).toBeNull()
       expect(onClear).not.toHaveBeenCalled()
 
       act(() => host.querySelector<HTMLButtonElement>("[data-clear-history]")!.click())
-      const confirm = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')).find((b) => b.textContent === copy("dataClearAction"))!
+      const confirm = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')).find((b) => b.textContent === copy("dataDlgConfirm"))!
       act(() => confirm.click())
       expect(onClear).toHaveBeenCalledOnce()
       act(() => root.unmount())

@@ -2,6 +2,7 @@
 
 export type IconName =
   | "menu"
+  | "listck"
   | "plus"
   | "home"
   | "chat"
@@ -35,6 +36,7 @@ export type IconName =
   | "calc"
 
 const PATHS: Record<IconName, string> = {
+  listck: "M9 6h11M9 12h11M9 18h11M3.5 6l1.2 1.2L7 4.8M3.5 12l1.2 1.2L7 10.8M3.5 18l1.2 1.2L7 16.8",
   menu: "M4 7h16M4 12h16M4 17h16",
   plus: "M12 5v14M5 12h14",
   home: "M4 11.2 12 4.5l8 6.7V19.5H15v-5.2H9v5.2H4z",

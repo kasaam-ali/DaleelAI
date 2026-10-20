@@ -77,3 +77,32 @@
 @media (min-width: 1024px) { .dtop .only-mobile { display: none; } }
 .dtop .only-desk, .dsb .only-desk { display: none; }
 @media (min-width: 1024px) { .dtop .only-desk, .dsb .only-desk { display: inline-grid; } }
+
+/* Nav v2 (handoff-pr18-nav.md; prototype shared.css "Nav v2" block). */
+.dsb a.nav-item { text-decoration: none; color: inherit; }
+.dsb .tools-nav { display: grid; gap: 2px; margin-top: 6px; }
+.dsb .tools-nav .nav-item { font-weight: 500; }
+.dsb .tools-nav .nav-item svg { color: var(--muted); }
+.dsb .tools-nav .nav-item.on { background: var(--mint); color: var(--seal); font-weight: 600; }
+.dsb .tools-nav .nav-item.on svg { color: var(--seal); }
+.dsb .nav-item:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+.dsb .brand-home { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; color: inherit; text-decoration: none; border-radius: 10px; }
+.dsb .brand-home:hover { background: var(--elevated); }
+.dsb .brand-home:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+.dsb .tool-row { margin: 2px 0 10px; }
+.dsb .tool-row .nav-label { margin: 6px; padding: 0; }
+.dsb .tr-icons { display: flex; gap: 4px; }
+.dsb .tr-btn { flex: 1; display: grid; place-items: center; height: 40px; border-radius: 10px; color: var(--muted); border: 1px solid var(--rule); background: var(--field); }
+.dsb .tr-btn:hover { color: var(--ink); background: var(--elevated); }
+.dsb .tr-btn:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+.dsb button.status { width: 100%; text-align: start; border-radius: 10px; }
+.dsb button.status:hover { background: var(--elevated); }
+@media (pointer: coarse) { .dsb .nav-item, .dsb .tr-btn { min-height: 44px; height: 44px; } }
+@media (max-width: 1023px) { .dsb .nav-item { min-height: 48px; } }
+@media (min-width: 1024px) {
+  .dsb.rail .tools-nav .nav-item.on .short { color: var(--seal); }
+  .dsb.rail .tool-row .nav-label { display: none; }
+  .dsb.rail .tr-icons { flex-direction: column; align-items: center; }
+  .dsb.rail .tr-btn { width: 44px; height: 40px; flex: none; }
+  .dsb.rail .brand-home { flex: none; justify-content: center; }
+}

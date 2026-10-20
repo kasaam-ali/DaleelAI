@@ -15,7 +15,7 @@ import NoticePage from "./features/notice/NoticePage"
 import PrivacyPage from "./features/privacy/PrivacyPage"
 import UpdatesPage from "./features/updates/UpdatesPage"
 import { t, type CopyKey } from "./i18n"
-import { parseHash, type AppView } from "./lib/hashRoute"
+import { hashFor, parseHash, type AppView } from "./lib/hashRoute"
 import {
   THEME_KEY,
   clearStoredHistory,
@@ -135,7 +135,7 @@ export default function App() {
 
   function go(next: AppView) {
     setView(next)
-    const nextHash = next === "home" ? "" : `#/${next}`
+    const nextHash = hashFor(next)
     const current = window.location.hash
     if (next === "home") {
       if (current === "" || current === "#" || current === "#/" || current === "#/home") return

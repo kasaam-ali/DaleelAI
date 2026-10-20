@@ -216,7 +216,7 @@
   "newChat": "New chat",
   "recentChats": "Recent",
   "clearHistory": "Delete chats from the server",
-  "noChats": "No chats on this device yet.",
+  "noChats": "Your chats will show here",
   "groupWorkspace": "Workspace",
   "groupTax": "Tax tools",
   "groupReference": "Reference",
@@ -243,7 +243,7 @@
   "stop": "Stop",
   "resumeScroll": "Resume scroll",
   "send": "Send",
-  "serviceOnline": "Online",
+  "serviceOnline": "Service online",
   "serviceDegraded": "Degraded",
   "openMenu": "Open menu",
   "closeMenu": "Close menu",
@@ -443,5 +443,14 @@
   "dataDlgBody": "You'll start a fresh session. Your old chats won't show here any more.",
   "dataDlgList": "The chat list and open chat on this device",
   "dataDlgNote": "This doesn't delete them from our server. To remove them there, use “Delete my chats from the server” first. After clearing, this device can't reach them.",
-  "dataDlgCancel": "Keep them"
+  "dataDlgCancel": "Keep them",
+  "nvAsk": "Ask Daleel",
+  "nvCalc": "Tax Calculator",
+  "nvNotice": "Notice",
+  "nvChecklists": "Checklists",
+  "nvAskShort": "Ask",
+  "nvListsShort": "Lists",
+  "chatsNav": "Chats",
+  "backHome": "Back to Home",
+  "dataDlgConfirm": "Clear chats"
 }

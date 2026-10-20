@@ -129,8 +129,12 @@ export default function Composer({
           <button
             type="submit"
             disabled={!ready}
+            aria-disabled={!ready}
+            data-ready={ready ? "true" : "false"}
             aria-label={copy("send")}
-            className={`mb-1 inline-flex h-11 min-w-11 shrink-0 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed ${
+            className={`mb-1 inline-flex h-11 min-w-11 shrink-0 items-center justify-center px-4 text-sm font-medium ${
+              ready ? "bg-seal text-seal-ink" : "cursor-not-allowed border border-rule bg-elevated text-placeholder"
+            } ${
               size === "large" ? "rounded-lg" : ""
             } ${muted ? "opacity-60" : ""}`}
           >

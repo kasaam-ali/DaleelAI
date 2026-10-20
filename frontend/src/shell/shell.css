@@ -79,6 +79,7 @@
 @media (min-width: 1024px) { .dtop .only-desk, .dsb .only-desk { display: inline-grid; } }
 
 /* Nav v2 (handoff-pr18-nav.md; prototype shared.css "Nav v2" block). */
+/* TODO(M7): tablet 768–1023 persistent 76px rail + drawer over it, drawer z-index above its scrim (handoff §5). */
 .dsb a.nav-item { text-decoration: none; color: inherit; }
 .dsb .tools-nav { display: grid; gap: 2px; margin-top: 6px; }
 .dsb .tools-nav .nav-item { font-weight: 500; }

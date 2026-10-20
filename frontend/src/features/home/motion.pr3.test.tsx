@@ -136,7 +136,7 @@ describe("Home", () => {
     expect(document.querySelector(".launch-layer")).toBeNull()
   })
 
-  it("grows a launch layer from the card, then routes after 520ms", () => {
+  it("grows a launch layer from the card, then routes after 240ms", () => {
     vi.useFakeTimers()
     mockMedia({})
     const onOpen = vi.fn()
@@ -147,9 +147,14 @@ describe("Home", () => {
     launchFromCard(card, onOpen)
     expect(document.querySelector(".launch-layer")).not.toBeNull()
     expect(onOpen).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(520)
+    const layer = document.querySelector<HTMLElement>(".launch-layer")!
+    vi.advanceTimersByTime(40) // two animation frames
+    // Only transform and opacity animate, within 240ms.
+    expect(layer.style.transition).toMatch(/^transform 240ms [^,]+, opacity 240ms /)
+    vi.advanceTimersByTime(199)
+    expect(onOpen).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
     expect(onOpen).toHaveBeenCalledOnce()
-    vi.advanceTimersByTime(300)
     expect(document.querySelector(".launch-layer")).toBeNull()
     main.remove()
     vi.useRealTimers()
@@ -163,9 +168,20 @@ describe("Home", () => {
     expect(onOpen).toHaveBeenCalledWith("notice")
   })
 
-  it("tunes the eyebrow to the saved details", () => {
-    expect(tunedEyebrow({ taxpayer_type: "freelancer", filer_status: "filer", province: "punjab" }, "TY2026", copy)).toBe(
-      "Tuned for a filer freelancer in Punjab · TY2026",
-    )
+  it("builds the tuned headline from the parts that are set", () => {
+    const full = { taxpayer_type: "freelancer", filer_status: "filer", province: "punjab" } as const
+    expect(tunedEyebrow(full, "TY2026", true, copy)).toBe("Tuned for you · Freelancer · Filer · Punjab · TY2026")
+    expect(tunedEyebrow(full, "TY2026", true, (key) => t("roman_urdu", key))).toBe(`Aap ke liye · ${t("roman_urdu", "freelancer")} · ${t("roman_urdu", "fsFilerOpt")} · ${t("roman_urdu", "punjab")} · TY2026`)
+    expect(tunedEyebrow({ taxpayer_type: null, filer_status: "non_filer", province: null }, "TY2027", false, copy)).toBe("Tuned for you · Non-filer")
+    // "Not sure" is not a filer status worth showing; the tax year counts only once picked.
+    expect(tunedEyebrow({ taxpayer_type: "salaried", filer_status: "unknown", province: null }, "TY2027", true, copy)).toBe("Tuned for you · Salaried · TY2027")
+    expect(tunedEyebrow({ taxpayer_type: null, filer_status: null, province: null }, "TY2026", false, copy)).toBeNull()
+  })
+
+  it("shows the default eyebrow when nothing is set", () => {
+    mockMedia({})
+    renderHome()
+    expect(host.querySelector(".eyebrow")?.textContent).toBe("Verified FBR library · 32 documents")
+    expect(host.querySelector(".trust3")?.textContent).toContain("FBR laws updated to 30 Jun 2026 (Finance Act 2026)")
   })
 })

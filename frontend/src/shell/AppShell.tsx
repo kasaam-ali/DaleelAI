@@ -236,6 +236,7 @@ export default function AppShell({
           />
         </div>
         <div className="grow" />
+        {/* TODO(PR 8): when About & settings lands, this link opens it at sec=how with the sticky sub-nav from SPEC §5.6. */}
         <button
           type="button"
           title={copy("navAbout")}

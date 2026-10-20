@@ -36,7 +36,8 @@ export function labelFor<T extends string>(list: { value: T; label: CopyKey }[],
   return found ? copy(found.label) : ""
 }
 
-export const LAUNCH_MS = 520
+/** Card → tool layer: transform + opacity only, 240ms total. */
+export const LAUNCH_MS = 240
 
 /** Card → tool: a layer grows from the card into the content column (FLIP, transform only), then the route changes. */
 export function launchFromCard(card: HTMLElement, open: () => void) {
@@ -56,28 +57,25 @@ export function launchFromCard(card: HTMLElement, open: () => void) {
   card.style.opacity = "0"
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
-      layer.style.transition = "transform 460ms var(--ease-out)"
+      layer.style.transition = `transform ${LAUNCH_MS}ms var(--ease-out), opacity ${LAUNCH_MS}ms var(--ease-out)`
       layer.style.transform = "none"
+      layer.style.opacity = "0.6"
     }),
   )
   window.setTimeout(() => {
     open()
-    layer.style.transition = "opacity 240ms var(--ease-out)"
-    layer.style.opacity = "0"
-    window.setTimeout(() => layer.remove(), 260)
+    layer.remove()
+    card.style.opacity = ""
   }, LAUNCH_MS)
 }
 
-export function tunedEyebrow(profile: Profile, taxYear: ClientTaxYear, copy: Copy): string {
-  const status = profile.filer_status === "unknown" ? "" : labelFor(FILERS, profile.filer_status, copy).toLowerCase()
-  const type = labelFor(TAXPAYERS, profile.taxpayer_type, copy).toLowerCase()
-  const province = labelFor(PROVINCES, profile.province, copy)
-  const template = province ? copy("heroTuned") : copy("heroTunedNoProvince")
-  return template
-    .replace("{status}", status)
-    .replace("{type}", type)
-    .replace("{province}", province)
-    .replace("{year}", taxYear)
-    .replace(/\s+/g, " ")
-    .trim()
+/** "Tuned for you · Freelancer · Filer · Punjab · TY2026"; parts that aren't set are left out. Null when nothing is set. */
+export function tunedEyebrow(profile: Profile, taxYear: ClientTaxYear, taxYearSet: boolean, copy: Copy): string | null {
+  const parts = [
+    labelFor(TAXPAYERS, profile.taxpayer_type, copy),
+    profile.filer_status === "filer" || profile.filer_status === "non_filer" ? labelFor(FILERS, profile.filer_status, copy) : "",
+    labelFor(PROVINCES, profile.province, copy),
+    taxYearSet ? taxYear : "",
+  ].filter(Boolean)
+  return parts.length ? [copy("heroTunedPrefix"), ...parts].join(" · ") : null
 }

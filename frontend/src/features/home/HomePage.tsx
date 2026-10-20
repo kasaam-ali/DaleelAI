@@ -11,6 +11,7 @@ import Icon from "../../shell/icons"
 import type { AppView } from "../../shell/AppShell"
 import FilingStep from "./FilingStep"
 import { launchFromCard, tunedEyebrow } from "./filing"
+import { lawDateLabel } from "../../lib/lawDate"
 import HeroEmblem from "./HeroEmblem"
 import ToolCard, { type ToolArt } from "./ToolCard"
 import "./home.css"
@@ -93,7 +94,7 @@ export default function HomePage({
               <svg className="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2l2.6 6.9L22 9.3l-5.6 4.7 1.8 7.2L12 17.3 5.8 21.2l1.8-7.2L2 9.3l7.4-.4z" />
               </svg>
-              {saved ? tunedEyebrow(profile, taxYear, copy) : copy("heroEyebrow")}
+              {tunedEyebrow(profile, taxYear, taxYearSet, copy) ?? copy("heroEyebrow")}
             </span>
             <h1 id="home-title">{copy("heroTitle")}</h1>
             <p className="sub">{copy("heroSub")}</p>
@@ -156,7 +157,7 @@ export default function HomePage({
             <div key={title}>
               <Icon name="checkShield" size="sm" />
               <span>
-                <b>{copy(title)}</b>
+                <b>{title === "trust3Title" ? lawDateLabel(copy(title), __FBR_LAW_DATE__) : copy(title)}</b>
                 {copy(body)}
               </span>
             </div>

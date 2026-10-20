@@ -65,10 +65,10 @@ describe("Composer paste limit", () => {
     expect(field.value).toHaveLength(2000)
     expect(field.value.endsWith("a")).toBe(true)
     expect(host?.textContent).toContain(
-      "Your paste was cut at 2,000 characters. Check the end of your question before sending.",
+      "Your paste was cut at 2,000 characters.Check the end of your question before sending.",
     )
-    expect(host?.textContent).toContain("2,000 of 2,000 characters")
-    expect(host?.querySelector(".text-warning")).toBeTruthy()
+    expect(host?.textContent).toContain("2,000 / 2,000")
+    expect(host?.querySelector(".gcnt.warn")).toBeTruthy()
   })
 
   it("shows the Roman Urdu cut warning", async () => {
@@ -76,25 +76,25 @@ describe("Composer paste limit", () => {
     paste(field, "ب".repeat(2001))
     expect(field.value).toHaveLength(2000)
     expect(host?.textContent).toContain(
-      "Aap ka paste 2,000 harf par kat gaya. Bhejne se pehle sawal ka akhir dekh lein.",
+      "Aap ka paste 2,000 harf par kat gaya.Bhejne se pehle sawal ka aakhri hissa check karein.",
     )
-    expect(host?.textContent).toContain("2,000 mein se 2,000 harf")
+    expect(host?.textContent).toContain("2,000 / 2,000")
   })
 
   it("leaves a shorter paste alone and counts from 1,500", async () => {
     const field = await render("en", "b".repeat(1499))
-    expect(host?.textContent).not.toContain("of 2,000 characters")
+    expect(host?.textContent).not.toContain("/ 2,000")
     paste(field, "c")
     expect(field.value).toHaveLength(1500)
-    expect(host?.textContent).toContain("1,500 of 2,000 characters")
+    expect(host?.textContent).toContain("1,500 / 2,000")
     expect(host?.textContent).not.toContain("Your paste was cut")
-    expect(host?.querySelector(".text-warning")).toBeNull()
+    expect(host?.querySelector(".gcnt.warn")).toBeNull()
   })
 
   it("warns the counter from 1,800 characters", async () => {
     await render("en", "d".repeat(1800))
-    expect(host?.textContent).toContain("1,800 of 2,000 characters")
-    expect(host?.querySelector(".text-warning")).toBeTruthy()
+    expect(host?.textContent).toContain("1,800 / 2,000")
+    expect(host?.querySelector(".gcnt.warn")).toBeTruthy()
     expect(host?.textContent).not.toContain("Your paste was cut")
   })
 })

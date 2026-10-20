@@ -30,3 +30,30 @@ export function redactPii(text: string): string {
   out = apply(out, ADDRESS, "[ADDRESS]")
   return out
 }
+
+export type RedactedPart = { text: string; tag: boolean }
+
+const PLACEHOLDER = /\[(?:EMAIL|ACCOUNT|CNIC|PHONE|NTN|NAME|ADDRESS)\]/g
+
+/** Split already-masked text into plain parts and placeholder parts, for highlighting. */
+export function splitPlaceholders(masked: string): RedactedPart[] {
+  const parts: RedactedPart[] = []
+  let last = 0
+  for (const match of masked.matchAll(PLACEHOLDER)) {
+    const start = match.index ?? 0
+    if (start > last) parts.push({ text: masked.slice(last, start), tag: false })
+    parts.push({ text: match[0], tag: true })
+    last = start + match[0].length
+  }
+  if (last < masked.length) parts.push({ text: masked.slice(last), tag: false })
+  return parts
+}
+
+/**
+ * `redactPii` plus the placeholder spans in its output (same order and placeholders).
+ * `changed` is false when nothing was masked.
+ */
+export function redactWithSpans(text: string): { text: string; parts: RedactedPart[]; changed: boolean } {
+  const masked = redactPii(text)
+  return { text: masked, parts: splitPlaceholders(masked), changed: masked !== text }
+}

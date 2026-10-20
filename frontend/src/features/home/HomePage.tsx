@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from "react"
 import type { CopyKey } from "../../i18n"
 import { filingReady, type ClientTaxYear, type Profile } from "../../lib/session"
-import { redactPii } from "../../lib/pii"
+import { redactWithSpans } from "../../lib/pii"
 import Composer from "../chat/Composer"
 import OfflineBanner from "../chat/OfflineBanner"
 import { useOnline } from "../chat/useOnline"
@@ -61,8 +61,9 @@ export default function HomePage({
   const [draft, setDraft] = useState("")
   const online = useOnline()
   const [error, setError] = useState<string | null>(null)
-  const preview = redactPii(draft)
-  const showPreview = draft.trim().length > 0 && preview !== draft
+  const redaction = redactWithSpans(draft)
+  const preview = redaction.parts
+  const showPreview = draft.trim().length > 0 && redaction.changed
   const saved = filingSaved && filingReady(profile)
   const phone = usePhone()
   const [sheetOpen, setSheetOpen] = useState(false)

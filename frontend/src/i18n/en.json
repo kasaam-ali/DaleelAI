@@ -175,8 +175,6 @@
   "updatesDomain": "Domain",
   "updatesAll": "All domains",
   "updatesRefresh": "Refresh",
-  "updatesReplay": "Run saved replay",
-  "updatesToken": "The internal token does not match.",
   "updatesFailed": "The updates feed could not be loaded.",
   "updatesNone": "No updates stored yet.",
   "privacyTitle": "Privacy and sources",

@@ -123,11 +123,35 @@ def _upsert_page(page: dict[str, Any], text: str) -> None:
         raise RuntimeError("documents count changed")
 
 
+CONNECT_TIMEOUT_S = 2.0
+
+
+def _qdrant_url() -> str:
+    return os.environ.get("QDRANT_URL", "http://qdrant:6333")
+
+
+def _reachable(url: str, timeout: float = CONNECT_TIMEOUT_S) -> bool:
+    """Fail fast when Qdrant is down instead of waiting the 30 s client timeout."""
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    port = parsed.port or (443 if parsed.scheme == "https" else 6333)
+    try:
+        with socket.create_connection((parsed.hostname or "localhost", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def _client():
     from qdrant_client import QdrantClient
 
+    url = _qdrant_url()
+    if not _reachable(url):
+        raise ConnectionError("Qdrant is unreachable.")
     return QdrantClient(
-        url=os.environ.get("QDRANT_URL", "http://qdrant:6333"),
+        url=url,
         api_key=os.environ.get("QDRANT_API_KEY") or None,
         timeout=30,
         check_compatibility=False,

@@ -46,15 +46,3 @@ export async function listUpdates(domain: string): Promise<UpdateList> {
   if (!response.ok) throw new Error(payload.error?.message ?? "updates failed")
   return payload
 }
-
-export async function replayUpdates(token = ""): Promise<void> {
-  const headers: Record<string, string> = {}
-  if (token) headers["X-Internal-Token"] = token
-  const response = await fetch(`${API_URL}/api/v1/updates/replay`, {
-    method: "POST",
-    headers,
-    signal: AbortSignal.timeout(60000),
-  })
-  const payload = (await response.json()) as { error?: { message?: string } }
-  if (!response.ok) throw new Error(payload.error?.message ?? "replay failed")
-}

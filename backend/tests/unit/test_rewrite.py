@@ -97,6 +97,15 @@ def test_cash_withdrawal_does_not_take_the_property_note():
     assert "236C" not in injected
     assert "236K" not in injected
     assert "15 lakh" not in injected
+    aside = "What is the filer vs non-filer withholding on a cash withdrawal? Any capital gain?"
+    rewritten = rewrite_search_query(aside)
+    assert "236C" not in rewritten
+    assert "236K" not in rewritten
+    assert "plot" not in rewritten.lower()
+    assert "236C" not in cross_reference_note(f"{aside} {rewritten}")
+    bank = "Bank deposit ke profit pe filer withholding kya hota hai?"
+    assert "plot" not in rewrite_search_query(bank).lower()
+    assert "236C" not in cross_reference_note(f"{bank} {rewrite_search_query(bank)}")
 
 
 def test_existing_mappings_still_fire():
@@ -189,3 +198,15 @@ def test_freelancer_note_names_154a_and_114_without_income_sections():
     assert "149" not in note
     assert "155" not in note
     assert "235" not in note
+
+
+def test_b12_original_cash_and_property_question_covers_both():
+    question = (
+        "What is the withholding tax rate difference between a filer and a non-filer "
+        "on cash withdrawal and property purchase?"
+    )
+    note = cross_reference_note(f"{question} {rewrite_search_query(question)}")
+    assert "231AB" in note
+    assert "236K" in note
+    assert "15 lakh" not in note
+    assert "capital gain" not in note.lower()

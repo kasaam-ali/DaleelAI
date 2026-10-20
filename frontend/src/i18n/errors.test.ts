@@ -13,6 +13,7 @@ describe("localizedError", () => {
     expect(localizedError("Search failed before an answer could be written.", "roman_urdu")).toBe(
       "Talash jawab likhne se pehle fail ho gayi.",
     )
+    expect(localizedError("Server error.", "roman_urdu")).toBe("Server ki kharabi.")
     expect(localizedError("The answer took too long.", "roman_urdu")).toBe(
       "Jawab aane mein bahut waqt lag gaya.",
     )

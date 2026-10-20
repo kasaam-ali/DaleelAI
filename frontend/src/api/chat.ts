@@ -74,6 +74,7 @@ export type ChatBody = {
   language: AnswerLanguage
   tax_year: string | null
   profile: Profile
+  client_request_id?: string
 }
 
 const KNOWN = new Set([

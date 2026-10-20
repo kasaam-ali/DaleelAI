@@ -9,7 +9,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from app.agents.answer import sanitize_answer
 from app.agents.rag import RagResult
@@ -42,6 +42,10 @@ _INJECTION_REFUSAL = (
     "I can't ignore the rules or reveal a hidden prompt. "
     "Ask a tax question and I will answer from the ordinance."
 )
+_INJECTION_REFUSAL_RU = (
+    "Main qawaid nahi chhod sakta aur chhupa hua prompt nahi dikha sakta. "
+    "Tax ka sawal poochain, main ordinance se jawab doonga."
+)
 _REFUSAL_RU = (
     "Main income chhupane, tax se bachne, ya fake documents mein madad nahi kar sakta. "
     "Qanooni filing ke liye IRIS istemal karein ya FBR ko 051-111-772-772 par call karein."
@@ -51,7 +55,10 @@ _NOT_READY_RU = "Yeh tool abhi dastiyab nahi."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
 _CHITCHAT_RU = "Salam. Tax ka sawal poochain. Main FBR aur SECP ke sarkari sources se jawab doonga."
 _OUT_OF_SCOPE = "That is outside tax and compliance. Ask about FBR or SECP and I can help."
-_OUT_OF_SCOPE_RU = "Yeh tax aur compliance se bahar hai. FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
+_OUT_OF_SCOPE_RU = (
+    "Yeh tax aur compliance se bahar hai. "
+    "FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
+)
 _STATUTE = re.compile(r"^\d{1,3}[A-Z]{0,4}$")
 _HEADER_STATUTE = re.compile(r"\b(?:Section|Rule|Regulation)\s+(\d{1,3}[A-Z]{0,4})\b", re.I)
 log = logging.getLogger(__name__)
@@ -90,9 +97,16 @@ async def iter_chat_events(
     rules = link_rules if link_rules is not None else load_action_links(rules_path)
     tax_year = body.tax_year or current_tax_year(today)
     profile = body.profile.model_dump() if body.profile else None
-    chat_id = _uuid_or_new(body.chat_id)
-    message_id = str(uuid4())
     session = _uuid_or_none(session_id)
+    message_id = _message_id(session, body.client_request_id)
+    chat_id = _uuid_or_none(body.chat_id) or (
+        str(uuid5(NAMESPACE_URL, f"chat:{message_id}")) if body.client_request_id else str(uuid4())
+    )
+    saved = await _saved_turn(store, session, message_id, body.client_request_id)
+    if saved is not None:
+        for event in _saved_events(saved, tax_year, corpus_date):
+            yield event
+        return
     demo = match_demo(body.message)
     if demo is not None:
         if body.language in {"en", "roman_urdu", "urdu"}:
@@ -506,9 +520,50 @@ def _accepts_param(fn, name: str) -> bool:
         return False
 
 
-def _uuid_or_new(value: str | None) -> str:
-    parsed = _uuid_or_none(value)
-    return parsed or str(uuid4())
+def _message_id(session: str | None, client_request_id: str | None) -> str:
+    """Same client request id in the same session -> same message id, so a resend is a no-op."""
+    if session and client_request_id:
+        return str(uuid5(NAMESPACE_URL, f"daleelai:{session}:{client_request_id}"))
+    return str(uuid4())
+
+
+async def _saved_turn(store, session, message_id, client_request_id):
+    finder = getattr(store, "find_turn", None)
+    if not (session and client_request_id and finder):
+        return None
+    try:
+        return await asyncio.to_thread(finder, session, message_id)
+    except Exception:
+        log.warning("saved turn lookup failed", exc_info=True)
+        return None
+
+
+def _saved_events(saved: dict[str, Any], tax_year: str, corpus_date: str) -> list[dict[str, Any]]:
+    message = saved["message"]
+    final = FinalData(
+        answer=message["content"],
+        answer_source=message.get("answer_source") or "none",
+        confidence=message.get("confidence") or "low",
+        verified=bool(message.get("verified")),
+        model=message.get("model") or "saved",
+        tax_year=message.get("tax_year") or tax_year,
+        corpus_date=message.get("corpus_date") or corpus_date,
+        cached=True,
+    )
+    events = [
+        _meta(
+            message.get("intent") or "qa",
+            message.get("language") or "en",
+            final.tax_year,
+            saved["chat_id"],
+            message["id"],
+        )
+    ]
+    if message.get("sources"):
+        events.append({"event": "sources", "data": {"sources": message["sources"]}})
+    events.append({"event": "final", "data": final.model_dump()})
+    events.append({"event": "done", "data": {}})
+    return events
 
 
 def _uuid_or_none(value: str | None) -> str | None:
@@ -712,7 +767,7 @@ def _short_reply(
     roman = language == "roman_urdu"
     if intent == "refuse":
         if is_prompt_injection(message):
-            return _INJECTION_REFUSAL
+            return _INJECTION_REFUSAL_RU if roman else _INJECTION_REFUSAL
         return _REFUSAL_RU if roman else _REFUSAL
     if intent == "chitchat":
         return _CHITCHAT_RU if roman else _CHITCHAT

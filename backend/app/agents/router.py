@@ -288,7 +288,7 @@ def _json_object(text: str) -> str:
 _EVASION = re.compile(
     r"\b(?:evade tax|tax evasion|hide income|fake invoice|fake expense|income chupao|"
     r"tax chupao|pay no tax|hide (?:my |the )?(?:cash|income|sales)|"
-    r"chupan\w*|chhupan\w*|chhupa\w*|forge|doosri books|auditor na dekhe)\b"
+    r"chh?upa\w*|chhupan\w*|chupan\w*|forge|doosri books|auditor na dekhe)\b"
 )
 _INJECTION = re.compile(
     r"\b(?:ignore (?:all |the |previous |your )*instructions|"
@@ -327,7 +327,8 @@ def _is_chitchat(lowered: str) -> bool:
 def _keyword_language(text: str) -> Language:
     if contains_urdu_script(text):
         return "roman_urdu"
-    if _has_phrase(text.lower(), _ROMAN_URDU):
+    lowered = text.lower()
+    if _has_phrase(lowered, _ROMAN_URDU) or re.search(r"\bchh?upa\w*", lowered):
         return "roman_urdu"
     return "en"
 

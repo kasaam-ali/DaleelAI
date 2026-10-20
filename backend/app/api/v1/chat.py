@@ -172,6 +172,19 @@ async def chat(
         return denied
 
     async def body_stream() -> AsyncIterator[str]:
+        try:
+            async for event in _events():
+                yield event
+        except Exception:
+            yield format_sse(
+                {
+                    "event": "error",
+                    "data": {"code": "server_error", "message": "Server error."},
+                }
+            )
+            yield format_sse({"event": "done", "data": {}})
+
+    async def _events() -> AsyncIterator[str]:
         async for event in iter_chat_events(
             body,
             container.llm,

@@ -10,7 +10,7 @@ import {
 } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import { localizedError } from "../../i18n/errors"
-import { redactPii } from "../../lib/pii"
+import { redactPii, redactWithSpans } from "../../lib/pii"
 import {
   asReplyLanguage,
   readAnswerLanguage,
@@ -193,8 +193,9 @@ export default function ChatPage({
 
   const [retryTotal, setRetryTotal] = useState<number | null>(null)
   const [announce, setAnnounce] = useState("")
-  const preview = redactPii(draft)
-  const showPreview = draft.trim().length > 0 && preview !== draft
+  const redaction = redactWithSpans(draft)
+  const preview = redaction.parts
+  const showPreview = draft.trim().length > 0 && redaction.changed
 
   function clearRetry() {
     if (retryRef.current.timer != null) {
@@ -659,6 +660,7 @@ export default function ChatPage({
                   ) : (
                     <AnswerTitle
                       question={turn.question}
+                      redacted={turn.redacted}
                       context={turn.id === turns[turns.length - 1]?.id ? filingSummary(profile, taxYear, copy) : null}
                       when={turn.sentAt != null ? whenAsked(turn.sentAt, copy) : null}
                       sourceCount={turn.final ? turn.sources.length : 0}
@@ -672,11 +674,12 @@ export default function ChatPage({
                           selected={shownAnswerLanguage(turn, turn.id === turns[turns.length - 1]?.id)}
                           copy={copy}
                           onSelect={(next) => chooseAnswerLanguage(next, turn)}
+                          hideDetected={Boolean(turn.toolCard) && turn.detectedLanguage === "en"}
                         />
                       }
                     />
                   )}
-                  {turn.redacted ? <p className="mt-1 text-sm text-muted">{copy("redactionSent")}</p> : null}
+                  {turn.redacted && turn.queued ? <p className="redsent">{copy("redactionSent")}</p> : null}
                   {turn.queued ? null : showAnswer ? (
                     <AnswerSlip
                       turn={turn}

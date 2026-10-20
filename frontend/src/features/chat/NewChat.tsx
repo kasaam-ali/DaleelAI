@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import type { CopyKey } from "../../i18n"
+import type { RedactedPart } from "../../lib/pii"
 import type { ClientTaxYear, Profile } from "../../lib/session"
 import Icon, { type IconName } from "../../shell/icons"
 import ProfilePanel from "../onboarding/ProfilePanel"
@@ -56,7 +57,7 @@ export default function NewChat({
   draft: string
   busy: boolean
   error: string | null
-  preview: string | null
+  preview: RedactedPart[] | null
   onDraft: (value: string) => void
   onSubmit: () => void
   onStop: () => void

@@ -24,7 +24,7 @@ describe("copy", () => {
     expect(t("roman_urdu", "answerFailedTitle")).toBe("Jawab nahi aa saka")
     expect(t("roman_urdu", "searchFailed")).toBe("Talash jawab likhne se pehle fail ho gayi.")
     // Prototype copy (premium-home.html, shared.js) is identical in both languages for these keys.
-    const prototypeSame = ["requestId", "fbrLawsDetail", "navTools", "navAsk", "navCalcTool", "navNoticeTool", "railHome", "railNotice", "railAbout", "themeToggle", "taxYearLabel", "fsOptional", "fsFiler", "fsFilerOpt", "fsNonFilerOpt", "heroEyebrow", "heroChip1", "heroChip2", "heroChip3", "toolsLabel", "tool2Title", "tool2Meta", "tool3Title", "artQuestion", "navHome", "subtitle", "profileTitle", "dataClearWhat1", "nvChecklists", "nvListsShort", "chatsNav", "nSources", "oneSourceCount", "nWeb", "pageShort", "lawViewTitle", "howModel"]
+    const prototypeSame = ["requestId", "fbrLawsDetail", "navTools", "navAsk", "navCalcTool", "navNoticeTool", "railHome", "railNotice", "railAbout", "themeToggle", "taxYearLabel", "fsOptional", "fsFiler", "fsFilerOpt", "fsNonFilerOpt", "heroEyebrow", "heroChip1", "heroChip2", "heroChip3", "toolsLabel", "tool2Title", "tool2Meta", "tool3Title", "artQuestion", "navHome", "subtitle", "profileTitle", "dataClearWhat1", "nvChecklists", "nvListsShort", "chatsNav", "nSources", "oneSourceCount", "nWeb", "pageShort", "lawViewTitle", "howModel", "charCounter", "tcRules", "tcSource", "tcChecklistTitle", "tcUpdatesTitle"]
     const keep = new Set(["product", "romanUrdu", "helplineDetail", ...prototypeSame])
     const copied = Object.keys(en).filter((key) => en[key] === romanUrdu[key] && !keep.has(key))
     expect(copied).toEqual([])

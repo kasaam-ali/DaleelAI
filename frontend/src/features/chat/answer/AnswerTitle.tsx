@@ -1,11 +1,14 @@
 /** The question as a serif title, its filing context and time, and the Answer | Sources tabs. */
 
 import type { ReactNode } from "react"
+import { splitPlaceholders } from "../../../lib/pii"
 import Icon from "../../../shell/icons"
+import { Masked } from "../Composer"
 import type { Copy } from "./types"
 
 export default function AnswerTitle({
   question,
+  redacted = false,
   context,
   when,
   sourceCount,
@@ -16,6 +19,8 @@ export default function AnswerTitle({
   language,
 }: {
   question: string
+  /** Personal details were masked before sending: highlight the placeholders and say so. */
+  redacted?: boolean
   context: string | null
   when: string | null
   sourceCount: number
@@ -27,7 +32,13 @@ export default function AnswerTitle({
 }) {
   return (
     <header className="ahead">
-      <h2 className="q-title">{question}</h2>
+      <h2 className="q-title">{redacted ? <Masked parts={splitPlaceholders(question)} /> : question}</h2>
+      {redacted ? (
+        <p className="redsent">
+          <Icon name="lock" size="sm" />
+          {copy("redactionSent")}
+        </p>
+      ) : null}
       {context || when ? (
         <div className="qmeta">
           {context ? (

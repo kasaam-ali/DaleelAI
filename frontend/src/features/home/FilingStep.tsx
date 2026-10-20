@@ -75,6 +75,7 @@ export default function FilingStep({
   onTaxYear,
   onSave,
   onEdit,
+  inSheet = false,
 }: {
   profile: Profile
   taxYear: ClientTaxYear
@@ -85,7 +86,10 @@ export default function FilingStep({
   onTaxYear: (taxYear: ClientTaxYear) => void
   onSave: () => void
   onEdit: () => void
+  /** Rendered inside the phone filing sheet (SPEC §10.1): the sheet supplies the title. */
+  inSheet?: boolean
 }) {
+  const sheet = inSheet ? " in-sheet" : ""
   const ready = filingReady(profile)
   const count = filingCount(profile, taxYearSet)
 
@@ -97,7 +101,7 @@ export default function FilingStep({
       [copy("taxYearLabel"), taxYear],
     ]
     return (
-      <section className="card fstep fsaved" data-reveal style={{ "--i": 0 } as CSSProperties} aria-label={copy("fsSaved")} data-state="saved">
+      <section className={`card fstep fsaved${sheet}`} data-reveal style={{ "--i": 0 } as CSSProperties} aria-label={copy("fsSaved")} data-state="saved">
         <span className="okdot">
           <Icon name="check" size="sm" />
         </span>
@@ -120,7 +124,7 @@ export default function FilingStep({
 
   const progress = copy("fsOf").replace("{n}", String(count))
   return (
-    <section className="card fstep" data-reveal style={{ "--i": 0 } as CSSProperties} aria-labelledby="fs-title" data-state={count > 0 ? "partial" : "empty"}>
+    <section className={`card fstep${sheet}`} data-reveal style={{ "--i": 0 } as CSSProperties} aria-labelledby="fs-title" data-state={count > 0 ? "partial" : "empty"}>
       <div className="fs-head">
         <span className="fs-ic">
           <Icon name="user" size="sm" />

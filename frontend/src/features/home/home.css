@@ -165,3 +165,52 @@
   .phome [data-reveal], .phome .float, .phome .eshadow, .phome .art * { animation: none !important; }
   .phome .tc-inner, .phome .hchip, .phome .btn { transition: none !important; }
 }
+
+/* ---- Phones ≤767 (SPEC §10.1 Home, h01–h09; PR M1) ---- */
+@media (max-width: 767px) {
+  .phome { padding: 12px var(--m-pad, 16px) 32px; }
+  .phome .fchip { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--rule); background: var(--field); box-shadow: var(--shadow); text-align: start; margin: 0 0 14px; color: var(--ink); }
+  .phome .fchip .fc-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--mint); color: var(--seal); flex: none; }
+  .phome .fchip.ok .fc-ic { background: var(--seal); color: var(--seal-ink); }
+  .phome .fchip .fc-t { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+  .phome .fchip .fc-t b { font-size: 14px; font-weight: 600; }
+  .phome .fchip .fc-t small { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phome .fchip .fc-dots { display: flex; gap: 3px; }
+  .phome .fchip .fc-dots i { width: 10px; height: 4px; border-radius: 2px; background: var(--rule); }
+  .phome .fchip .fc-dots i.on { background: var(--seal); }
+  .phome .fchip .fc-chev { color: var(--muted); flex: none; }
+  /* filing sheet content: one column, full-width 44px segments and 48px selects, full-width Save */
+  .phome .fstep.in-sheet { box-shadow: none; border: 0; padding: 0; margin: 0; background: none; animation: none; opacity: 1; transform: none; }
+  .phome .fstep.in-sheet .fs-head { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .phome .fstep.in-sheet .fs-ic, .phome .fstep.in-sheet .fs-t b, .phome .fstep.in-sheet .fs-sp { display: none; }
+  .phome .fstep.in-sheet .fs-t small { font-size: 13.5px; color: var(--muted); }
+  .phome .fstep.in-sheet .prog { justify-self: start; }
+  .phome .fstep.in-sheet .fs-head .btn { order: 9; width: 100%; height: auto; min-height: 48px; justify-content: center; }
+  .phome .fstep.in-sheet .fs-grid { display: grid; grid-template-columns: 1fr !important; gap: 14px; margin-top: 14px; }
+  .phome .fstep.in-sheet .sg { display: flex; width: 100%; height: auto; }
+  .phome .fstep.in-sheet .sg button { flex: 1; min-height: 44px; white-space: nowrap; }
+  .phome .fstep.in-sheet .sel select { height: 48px; font-size: 16px; }
+  .phome .fstep.in-sheet .sel .chev { top: 16px; }
+  .phome .fstep.in-sheet.fsaved { display: grid; gap: 12px; }
+  .phome .fstep.in-sheet.fsaved .okdot, .phome .fstep.in-sheet.fsaved > b { display: none; }
+  .phome .fstep.in-sheet.fsaved .pills { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .phome .fstep.in-sheet.fsaved .pill { height: auto; min-height: 36px; justify-content: space-between; }
+  .phome .fstep.in-sheet.fsaved .note { display: block; font-size: 13px; color: var(--muted); white-space: normal; }
+  .phome .fstep.in-sheet.fsaved .btn { width: 100%; height: auto; min-height: 48px; justify-content: center; }
+  /* hero: one column, no emblem, H1 30px, chips in one sideways row */
+  .phome .hero { display: block; padding: 22px 18px 18px; border-radius: 20px; min-height: 0; margin-top: 0; }
+  .phome .emblem { display: none; }
+  .phome .hero h1 { font-size: 30px; line-height: 1.08; max-width: none; }
+  .phome .hero .sub { font-size: 15px; }
+  .phome .eyebrow { font-size: 12px; height: auto; min-height: 28px; }
+  .phome .hero .chips { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin-inline: -18px; padding: 2px 18px 4px; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .phome .hero .hchip { flex: none; scroll-snap-align: start; white-space: nowrap; min-height: 44px; }
+  .phome .sec-h { margin-top: 22px; }
+  .phome .sec-h p { display: none; }
+  /* tool cards scroll sideways: 82% width, snap, peek of the next */
+  .phome .tools3 { display: flex !important; overflow-x: auto; gap: 12px; margin-inline: calc(-1 * var(--m-pad, 16px)); padding: 4px var(--m-pad, 16px) 10px; scroll-snap-type: x mandatory; scroll-padding-inline: var(--m-pad, 16px); scrollbar-width: none; }
+  .phome .tools3 .tcard { flex: 0 0 82%; scroll-snap-align: start; min-height: 0; }
+  .phome .tcard .tc-inner { transform: none !important; }
+  .phome .tcard .tc-glare { display: none; }
+  .phome .trust3 { grid-template-columns: 1fr !important; gap: 10px; }
+}

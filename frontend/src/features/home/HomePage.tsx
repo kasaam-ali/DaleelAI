@@ -10,6 +10,9 @@ import { useOnline } from "../chat/useOnline"
 import Icon from "../../shell/icons"
 import type { AppView } from "../../shell/AppShell"
 import FilingStep from "./FilingStep"
+import FilingChip from "./FilingChip"
+import BottomSheet from "../../shell/BottomSheet"
+import { usePhone } from "../../shell/mobile"
 import { launchFromCard, tunedEyebrow } from "./filing"
 import { lawDateLabel } from "../../lib/lawDate"
 import HeroEmblem from "./HeroEmblem"
@@ -61,6 +64,25 @@ export default function HomePage({
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
   const saved = filingSaved && filingReady(profile)
+  const phone = usePhone()
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  function step(inSheet: boolean) {
+    return (
+      <FilingStep
+        profile={profile}
+        taxYear={taxYear}
+        taxYearSet={taxYearSet}
+        saved={saved}
+        copy={copy}
+        inSheet={inSheet}
+        onChange={onProfile}
+        onTaxYear={onTaxYear}
+        onSave={() => onFilingSaved(true)}
+        onEdit={() => onFilingSaved(false)}
+      />
+    )
+  }
 
   function submit() {
     const question = draft.trim()
@@ -77,17 +99,24 @@ export default function HomePage({
     <div className="min-h-0 flex-1 overflow-y-auto">
       {online ? null : <OfflineBanner queuedCount={0} copy={copy} />}
       <div className="phome">
-        <FilingStep
-          profile={profile}
-          taxYear={taxYear}
-          taxYearSet={taxYearSet}
-          saved={saved}
-          copy={copy}
-          onChange={onProfile}
-          onTaxYear={onTaxYear}
-          onSave={() => onFilingSaved(true)}
-          onEdit={() => onFilingSaved(false)}
-        />
+        {phone ? (
+          <FilingChip profile={profile} taxYear={taxYear} taxYearSet={taxYearSet} saved={saved} copy={copy} onOpen={() => setSheetOpen(true)} />
+        ) : (
+          step(false)
+        )}
+        {phone && sheetOpen ? (
+          <BottomSheet
+            title={copy(saved ? "profileTitle" : "fsTitle")}
+            closeLabel={copy("closeLabel")}
+            className="fs-sheet"
+            onClose={() => {
+              setSheetOpen(false)
+              window.setTimeout(() => document.querySelector<HTMLElement>("[data-filing-chip]")?.focus(), 0)
+            }}
+          >
+            {step(true)}
+          </BottomSheet>
+        ) : null}
         <section className="hero" data-reveal style={{ "--i": 1 } as CSSProperties} aria-labelledby="home-title">
           <div>
             <span className="eyebrow">

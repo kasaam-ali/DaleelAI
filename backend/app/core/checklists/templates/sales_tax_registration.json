@@ -21,13 +21,17 @@
     {
       "id": "section",
       "title": "Check which law applies",
+      "title_ru": "Dekhein kaun sa qanoon lagta hai",
       "detail": "Sales tax on goods is under the Sales Tax Act, 1990, section 14. Sales tax on services is provincial.",
+      "detail_ru": "Goods par sales tax Sales Tax Act, 1990 ki section 14 ke tehat hai. Services par sales tax provincial hai.",
       "sources": ["Sales Tax Act, 1990, section 14"]
     },
     {
       "id": "iris",
       "title": "Federal registration on IRIS",
+      "title_ru": "Federal registration IRIS par",
       "detail": "Goods registration starts on IRIS. A services answer adds the provincial step after this one.",
+      "detail_ru": "Goods ki registration IRIS se shuru hoti hai. Services ka jawab is ke baad provincial step jodta hai.",
       "sources": ["Sales Tax Act, 1990, section 14"],
       "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
     }

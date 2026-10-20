@@ -21,13 +21,17 @@
     {
       "id": "section",
       "title": "Read section 181",
+      "title_ru": "Section 181 parhein",
       "detail": "An AOP or company registers under section 181 of the Income Tax Ordinance, 2001. Use the entity name on the formation papers.",
+      "detail_ru": "AOP ya company Income Tax Ordinance, 2001 ki section 181 ke tehat register hoti hai. Formation papers wala entity name istemal karein.",
       "sources": ["Income Tax Ordinance, 2001, section 181"]
     },
     {
       "id": "iris",
       "title": "File the registration on IRIS",
+      "title_ru": "Registration IRIS par file karein",
       "detail": "The federal application is on IRIS. Provincial offices do not replace that step.",
+      "detail_ru": "Federal darkhwast IRIS par hai. Provincial daftar is step ki jagah nahi lete.",
       "sources": ["Income Tax Ordinance, 2001, section 181"],
       "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
     }

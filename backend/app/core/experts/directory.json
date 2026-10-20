@@ -1,6 +1,8 @@
 {
   "disclaimer": "Listings are from public directories and are not an endorsement.",
   "removal_contact": "Write to the project maintainer and name the firm and city to remove.",
+  "disclaimer_ru": "Yeh listings public directories se li gayi hain, yeh kisi ki taeed nahi.",
+  "removal_contact_ru": "Listing hatwane ke liye project maintainer ko likhein aur firm aur shehar ka naam batayein.",
   "experts": [
     {
       "id": "b1c1a1d0-0001-4000-8000-000000000001",

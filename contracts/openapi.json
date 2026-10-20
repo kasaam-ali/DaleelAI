@@ -435,6 +435,54 @@
       }
     },
     "/api/v1/checklists": {
+      "get": {
+        "summary": "List Checklists",
+        "operationId": "list_checklists_api_v1_checklists_get",
+        "parameters": [
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChecklistResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Checklists Api V1 Checklists Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "summary": "Create Checklist",
         "operationId": "create_checklist_api_v1_checklists_post",
@@ -468,6 +516,61 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecklistResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/checklists/{checklist_id}": {
+      "get": {
+        "summary": "Get Checklist",
+        "operationId": "get_checklist_api_v1_checklists__checklist_id__get",
+        "parameters": [
+          {
+            "name": "checklist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Checklist Id"
+            }
+          },
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -1454,6 +1557,14 @@
             "type": "string",
             "title": "Detail"
           },
+          "title_ru": {
+            "type": "string",
+            "title": "Title Ru"
+          },
+          "detail_ru": {
+            "type": "string",
+            "title": "Detail Ru"
+          },
           "sources": {
             "items": {
               "type": "string"
@@ -1481,6 +1592,8 @@
           "id",
           "title",
           "detail",
+          "title_ru",
+          "detail_ru",
           "sources",
           "done"
         ],
@@ -1509,6 +1622,22 @@
           "done": {
             "type": "boolean",
             "title": "Done"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "roman_urdu",
+                  "urdu"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           }
         },
         "type": "object",
@@ -1651,6 +1780,20 @@
             "type": "string",
             "title": "Advice"
           },
+          "advice_ru": {
+            "type": "string",
+            "title": "Advice Ru"
+          },
+          "advice_code": {
+            "type": "string",
+            "enum": [
+              "uncertain_category",
+              "simple_question",
+              "no_listing",
+              "ok"
+            ],
+            "title": "Advice Code"
+          },
           "disclaimer": {
             "type": "string",
             "title": "Disclaimer"
@@ -1665,6 +1808,8 @@
           "classification",
           "experts",
           "advice",
+          "advice_ru",
+          "advice_code",
           "disclaimer",
           "removal_contact"
         ],

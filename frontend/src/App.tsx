@@ -148,6 +148,7 @@ export default function App() {
     setClearError(null)
     try {
       const next = await clearStoredHistory(localStorage, sessionId, deleteSession)
+      history.startEmpty(next)
       setSessionId(next)
       setChatId(null)
     } catch {
@@ -244,7 +245,12 @@ export default function App() {
               <ChecklistsPage copy={copy} language={language} preferredTemplate={checklistTemplate} />
             ) : null}
             {view === "experts" ? (
-              <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
+              <ExpertsPage
+                copy={copy}
+                language={language}
+                initialQuery={expertQuery}
+                initialCategory={expertCategory}
+              />
             ) : null}
             {view === "updates" ? <UpdatesPage copy={copy} language={language} /> : null}
             {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}

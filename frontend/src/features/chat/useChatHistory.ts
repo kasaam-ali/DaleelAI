@@ -13,12 +13,17 @@ export function snippetsQueryKey(sessionId: string) {
   return ["chat-snippets", sessionId] as const
 }
 
+/** Sessions just created by "Clear chats": the server has nothing for them, so skip the GET until something changes. */
+const emptySessions = new Set<string>()
+
 export function useChatHistory(sessionId: string) {
   const queryClient = useQueryClient()
   const chatsQuery = useQuery({
     queryKey: chatsQueryKey(sessionId),
     queryFn: () => listChats(sessionId),
     retry: false,
+    initialData: emptySessions.has(sessionId) ? [] : undefined,
+    staleTime: emptySessions.has(sessionId) ? Infinity : 0,
   })
   const snippetQuery = useQuery({
     queryKey: snippetsQueryKey(sessionId),
@@ -95,7 +100,17 @@ export function useChatHistory(sessionId: string) {
     [queryClient, sessionId],
   )
 
+  /** Call before switching to a freshly cleared session: its list starts empty with no request. */
+  const startEmpty = useCallback(
+    (nextSessionId: string) => {
+      emptySessions.add(nextSessionId)
+      queryClient.setQueryData<ChatSummary[]>(chatsQueryKey(nextSessionId), [])
+    },
+    [queryClient],
+  )
+
   const refresh = useCallback(() => {
+    emptySessions.delete(sessionId)
     void queryClient.invalidateQueries({ queryKey: chatsQueryKey(sessionId) })
   }, [queryClient, sessionId])
 
@@ -107,5 +122,6 @@ export function useChatHistory(sessionId: string) {
     rename,
     remove,
     refresh,
+    startEmpty,
   }
 }

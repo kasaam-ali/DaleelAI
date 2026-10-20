@@ -90,7 +90,7 @@ export default function AnswerSlip({
         />
       ) : null}
 
-          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} /> : null}
+          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} language={language} /> : null}
           {turn.toolNote && !turn.toolCard ? (
             <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p>
           ) : null}
@@ -351,9 +351,11 @@ function AgentSteps({ turn, copy, language }: { turn: Turn; copy: Copy; language
 function ToolCard({
   card,
   copy,
+  language,
 }: {
   card: NonNullable<Turn["toolCard"]>
   copy: Copy
+  language: UiLanguage
 }) {
   const data = card.data
   const rows = Array.isArray(data.rows) ? (data.rows as Record<string, unknown>[]) : []
@@ -377,7 +379,11 @@ function ToolCard({
       </p>
       {typeof data.message === "string" ? <p className="mt-2 text-sm">{data.message}</p> : null}
       {typeof data.title === "string" ? <p className="mt-2">{data.title}</p> : null}
-      {typeof data.advice === "string" ? <p className="mt-2 text-sm">{data.advice}</p> : null}
+      {typeof data.advice === "string" ? (
+        <p className="mt-2 text-sm">
+          {language === "roman_urdu" && typeof data.advice_ru === "string" ? data.advice_ru : data.advice}
+        </p>
+      ) : null}
       {typeof data.disclaimer === "string" ? (
         <p className="mt-2 text-sm text-muted">{data.disclaimer}</p>
       ) : null}

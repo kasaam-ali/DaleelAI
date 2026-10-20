@@ -24,6 +24,7 @@ export default function Composer({
   placeholder,
   size = "default",
   showHint = true,
+  showNote = true,
 }: {
   value: string
   busy: boolean
@@ -39,6 +40,8 @@ export default function Composer({
   placeholder?: string
   size?: "default" | "large"
   showHint?: boolean
+  /** Home shows the disclaimer once at the page foot instead (premium-home.html). */
+  showNote?: boolean
 }) {
   const field = useRef<HTMLTextAreaElement>(null)
   const noteId = useId()
@@ -129,22 +132,28 @@ export default function Composer({
             aria-disabled={!ready}
             data-ready={ready ? "true" : "false"}
             aria-label={copy("send")}
-            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center px-4 text-sm font-medium ${
+            className={`mb-1 inline-flex h-11 min-w-11 shrink-0 items-center justify-center px-4 text-sm font-medium ${
               ready ? "bg-seal text-seal-ink" : "cursor-not-allowed border border-rule bg-elevated text-placeholder"
             } ${
               size === "large" ? "rounded-lg" : ""
             } ${muted ? "opacity-60" : ""}`}
           >
             {copy("send")}
-            {size === "large" ? <span aria-hidden="true"> ›</span> : null}
+            {size === "large" ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            ) : null}
           </button>
         )}
       </div>
       <div className={`mt-2 w-full ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
-        <p className="text-sm text-muted">
-          {copy("disclaimerShort")}
-          {showHint ? ` · ${copy("enterHint")}` : null}
-        </p>
+        {showNote ? (
+          <p className="text-sm text-muted">
+            {copy("disclaimerShort")}
+            {showHint ? ` · ${copy("enterHint")}` : null}
+          </p>
+        ) : null}
         {showCount ? (
           <p id={cut ? undefined : noteId} className={`text-sm ${countWarn ? "text-warning" : "text-muted"}`}>
             {copy("charCount").replace("{count}", count.toLocaleString("en-US"))}

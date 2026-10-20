@@ -15,9 +15,9 @@ describe("chat states", () => {
     expect(canAutoRetry(busy)).toBe(true)
     expect(canAutoRetry({ status: 429, code: "rate_limited", message: "slow down" })).toBe(true)
     expect(canAutoRetry({ status: null, code: "qa_failed", message: "no" })).toBe(false)
-    expect(retryDelayMs(0)).toBe(20_000)
-    expect(retryDelayMs(1)).toBe(40_000)
-    expect(retryDelayMs(2)).toBe(80_000)
+    expect(retryDelayMs(0)).toBe(14_000)
+    expect(retryDelayMs(1)).toBe(30_000)
+    expect(retryDelayMs(2)).toBe(60_000)
     expect(retryDelayMs(3)).toBeNull()
   })
 

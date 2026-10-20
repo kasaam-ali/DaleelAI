@@ -1,66 +1,68 @@
-/** Loading steps and the skeleton that sits under them. */
+/** Loading steps (SPEC §5.2A item 3, §6): a card with 4 steps and a connector, then the skeleton strip + lines. */
 
+import type { CSSProperties } from "react"
 import type { CopyKey } from "../../i18n"
+import Icon from "../../shell/icons"
 import type { StepStatus } from "./steps"
 
 type Copy = (key: CopyKey) => string
 
 const LABELS = ["stepUnderstand", "stepLibrary", "stepWrite", "stepCheck"] as const
-
-function Mark({ status }: { status: StepStatus }) {
-  if (status === "done") return <span aria-hidden="true" className="mt-0.5 text-seal">✓</span>
-  if (status === "active") {
-    return (
-      <span
-        aria-hidden="true"
-        className="mt-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-seal border-t-transparent"
-      />
-    )
-  }
-  return <span aria-hidden="true" className="mt-1 inline-block h-3 w-3 rounded-full border border-rule" />
-}
+/** Sub-labels we can show from what the stream carries today (no counts yet). */
+const DETAIL: Partial<Record<number, CopyKey>> = { 1: "stepLibrarySub" }
 
 export default function StatusSteps({
   phases,
+  times = [],
   copy,
   skeleton = true,
 }: {
   phases: StepStatus[]
+  times?: (number | null)[]
   copy: Copy
   skeleton?: boolean
 }) {
+  const writing = phases[2] !== "pending"
+  const busy = phases.some((phase) => phase !== "done")
   return (
-    <div data-motion-slot="status-steps">
-      <p className="text-sm font-medium text-ink">{copy("checkingLibrary")}</p>
-      <ol className="mt-3 grid gap-2" aria-busy={phases.includes("active")}>
+    <div data-motion-slot="status-steps" className="st-wrap">
+      {busy ? (
+        <p className="working">
+          <span className="orb" aria-hidden="true" />
+          {copy(writing ? "writingAnswer" : "checkingLibrary")}
+        </p>
+      ) : null}
+      <ol className="psteps" aria-busy={busy}>
         {LABELS.map((label, index) => {
           const status = phases[index] ?? "pending"
+          const cls = status === "done" ? "done" : status === "active" ? "act" : "todo"
+          const detail = DETAIL[index]
+          const time = times[index]
           return (
-            <li key={label} className="flex items-start gap-2 text-sm">
-              <Mark status={status} />
-              <span>
-                {copy(label)}
-                {index === 1 && status === "active" ? (
-                  <span className="block text-xs text-muted">{copy("stepLibrarySub")}</span>
-                ) : null}
+            <li key={label} className={cls} data-step={status} style={{ "--i": index } as CSSProperties}>
+              <span className="s" aria-hidden="true">
+                {status === "done" ? <Icon name="check" size="sm" /> : null}
               </span>
+              <span>
+                <b>{copy(label)}</b>
+                {status !== "pending" && detail ? <small>{copy(detail)}</small> : null}
+              </span>
+              <span className="t">{status === "done" && time != null ? `${time.toFixed(1)}s` : ""}</span>
             </li>
           )
         })}
       </ol>
       {skeleton ? (
-        <>
-          <div className="mt-4 grid grid-cols-4 gap-2" aria-hidden="true">
+        <div aria-hidden="true">
+          <div className="sk-strip">
             {LABELS.map((label) => (
-              <div key={label} className="waiting h-16" />
+              <div key={label} className="sk" />
             ))}
           </div>
-          <div className="mt-3 grid gap-2" aria-hidden="true">
-            <div className="waiting h-4 w-4/5" />
-            <div className="waiting h-4 w-full" />
-            <div className="waiting h-4 w-2/3" />
-          </div>
-        </>
+          <div className="sk" style={{ width: "90%" }} />
+          <div className="sk" />
+          <div className="sk" style={{ width: "65%" }} />
+        </div>
       ) : null}
     </div>
   )

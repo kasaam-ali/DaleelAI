@@ -28,6 +28,9 @@ const TITLE: Record<RefusalKind, CopyKey> = {
   provincial: "refusalProvincialTitle",
 }
 
+/** The prompt-injection refusal (EN or Roman Urdu) is not an evasion refusal. */
+const INJECTION = /reveal a hidden prompt|chhupa hua prompt/i
+
 const LABEL: Record<RefusalKind, CopyKey> = {
   evidence: "refusalEvidenceKind",
   scope: "refusalScopeKind",
@@ -72,8 +75,11 @@ export default function RefusalCard({
 }) {
   const chips = suggestions.length > 0 ? suggestions : FALLBACK[kind].map((key) => copy(key))
   const official = links.filter((link) => safeHref(link.url))
+  const injection = kind === "declined" && INJECTION.test(reason)
   const title =
-    kind === "provincial" && authority ? `${copy("handledBy")} ${authority}` : copy(TITLE[kind])
+    kind === "provincial" && authority
+      ? `${copy("handledBy")} ${authority}`
+      : copy(injection ? "refusalInjectionTitle" : TITLE[kind])
   return (
     <div
       data-motion-slot="refusal-card"

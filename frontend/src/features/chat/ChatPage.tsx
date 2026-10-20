@@ -49,6 +49,9 @@ function shownError(message: string | undefined, fallback: string, language: UiL
   return localizedError(text, language)
 }
 
+/** One offline-queue flush per page, even if StrictMode or a remount runs the effect twice. */
+const flushLock = { active: false }
+
 export default function ChatPage({
   language,
   profile,
@@ -272,6 +275,7 @@ export default function ChatPage({
           language: requested,
           tax_year: taxYear,
           profile,
+          client_request_id: id,
         },
         readSessionId(localStorage),
         (event) => {
@@ -347,7 +351,6 @@ export default function ChatPage({
   }
 
   const askRef = useRef(ask)
-  const flushGen = useRef(0)
   const consumeLaunchRef = useRef(onLaunchConsumed)
   const launched = useRef<string | null>(null)
   useEffect(() => {
@@ -364,20 +367,34 @@ export default function ChatPage({
 
   useEffect(() => {
     if (!online) return
-    const gen = ++flushGen.current
-    void (async () => {
-      while (flushGen.current === gen && queueRef.current.length > 0) {
-        const item = queueRef.current[0]
-        const ok = await askRef.current(item.text, { replaceId: item.id, flush: true })
-        if (flushGen.current !== gen) return
-        if (!ok || queueRef.current[0]?.id === item.id) return
-      }
-    })()
+    // Deferred so React StrictMode's mount/unmount/mount cannot start and then abort a send.
+    // One flush at a time; queued questions go out in order, each with its own client_request_id.
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled || flushLock.active) return
+      flushLock.active = true
+      void (async () => {
+        try {
+          while (queueRef.current.length > 0) {
+            const item = queueRef.current[0]
+            const ok = await askRef.current(item.text, { replaceId: item.id, flush: true })
+            if (!ok || queueRef.current[0]?.id === item.id) return
+          }
+        } finally {
+          flushLock.active = false
+        }
+      })()
+    })
+    return () => {
+      cancelled = true
+    }
   }, [online])
 
   function applyEvent(id: string, event: SseEvent) {
     if (event.event === "meta") {
       born.current = event.data.chat_id
+      // The next queued question must go to this chat even before the parent re-renders.
+      chatIdRef.current = event.data.chat_id
       setBucket((current) => ({ id: event.data.chat_id, turns: current.turns }))
       onActivity()
       const detected = asReplyLanguage(event.data.language)

@@ -312,11 +312,19 @@ def topics_for_note(text: str) -> list[TaxTopic]:
 
 _PROPERTY_NOTE = (
     "Authoritative cross-reference: Seller advance tax is Section 236C and buyer advance tax "
-    "is Section 236K. The Rs 15 lakh profit is capital gain on immovable property under "
+    "is Section 236K. Late or non-ATL filers face higher withholding under Section 100BA "
+    "and the Tenth Schedule."
+)
+_GAIN_NOTE = (
+    "Profit on selling the property is capital gain on immovable property under "
     "Section 37(1A), First Schedule Division VIII holding-period rates. A plot acquired before "
     "1 July 2024 still uses holding-period rates; a 2-year holding period is not automatically "
-    "zero. Late or non-ATL filers face higher withholding under Section 100BA "
-    "and the Tenth Schedule."
+    "zero."
+)
+_CASH_NOTE = (
+    "Authoritative cross-reference: Advance tax on cash withdrawal is Section 231AB. It applies "
+    "to persons not on the Active Taxpayers List (ATL); a filer on the ATL does not pay it. "
+    "Rates are in the First Schedule and the Tenth Schedule."
 )
 _REMITTANCE_NOTE = (
     "Authoritative cross-reference: Section 111(4) — foreign exchange through normal banking "
@@ -339,11 +347,18 @@ _INCOME_NOTE = (
 )
 _PROPERTY_NOTE_RU = (
     "Seller ka advance tax Section 236C hai aur buyer ka advance tax Section 236K hai. "
-    "Rs 15 lakh ka munafa immovable property par capital gain hai, Section 37(1A), "
-    "First Schedule Division VIII ke holding-period rates. 1 July 2024 se pehle liya hua plot "
-    "ab bhi holding-period rates par hai; 2 saal ka holding automatic zero nahi. "
     "Late filer ya jo ATL par nahi, un par Section 100BA aur Tenth Schedule ke mutabiq "
     "zyada withholding hoti hai."
+)
+_GAIN_NOTE_RU = (
+    "Property bechne ka munafa immovable property par capital gain hai, Section 37(1A), "
+    "First Schedule Division VIII ke holding-period rates. 1 July 2024 se pehle liya hua plot "
+    "ab bhi holding-period rates par hai; 2 saal ka holding automatic zero nahi."
+)
+_CASH_NOTE_RU = (
+    "Cash nikalne par advance tax Section 231AB hai. Yeh un logon par lagta hai jo Active "
+    "Taxpayers List (ATL) par nahi; ATL wala filer yeh nahi deta. "
+    "Rates First Schedule aur Tenth Schedule mein hain."
 )
 _REMITTANCE_NOTE_RU = (
     "Section 111(4): normal banking channel se aayi foreign exchange saal mein Rs 5 million "
@@ -392,8 +407,12 @@ def cross_reference_note(text: str, *, language: str = "en") -> str:
         keys.discard("property")
     roman = language == "roman_urdu"
     parts: list[str] = []
+    if "cash" in keys:
+        parts.append(_CASH_NOTE_RU if roman else _CASH_NOTE)
     if "property" in keys:
         parts.append(_PROPERTY_NOTE_RU if roman else _PROPERTY_NOTE)
+        if "capital_gain" in keys:
+            parts.append(_GAIN_NOTE_RU if roman else _GAIN_NOTE)
     if "remittance" in keys:
         parts.append(_REMITTANCE_NOTE_RU if roman else _REMITTANCE_NOTE)
     if "freelancer" in keys:

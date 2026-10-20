@@ -359,5 +359,7 @@
   "searchMove": "move karne ke liye",
   "searchOpenKey": "kholne ke liye",
   "searchCloseKey": "band karne ke liye",
-  "taxYearLabel": "Tax saal"
+  "taxYearLabel": "Tax saal",
+  "requestFailed": "Request nakam ho gayi ({status})",
+  "refusalInjectionTitle": "Main apne qawaid nahi badal sakta"
 }

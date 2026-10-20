@@ -198,3 +198,15 @@ def test_freelancer_note_names_154a_and_114_without_income_sections():
     assert "149" not in note
     assert "155" not in note
     assert "235" not in note
+
+
+def test_b12_original_cash_and_property_question_covers_both():
+    question = (
+        "What is the withholding tax rate difference between a filer and a non-filer "
+        "on cash withdrawal and property purchase?"
+    )
+    note = cross_reference_note(f"{question} {rewrite_search_query(question)}")
+    assert "231AB" in note
+    assert "236K" in note
+    assert "15 lakh" not in note
+    assert "capital gain" not in note.lower()

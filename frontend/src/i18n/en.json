@@ -359,5 +359,7 @@
   "searchMove": "to move",
   "searchOpenKey": "to open",
   "searchCloseKey": "to close",
-  "taxYearLabel": "Tax year"
+  "taxYearLabel": "Tax year",
+  "requestFailed": "Request failed ({status})",
+  "refusalInjectionTitle": "I can't change my rules"
 }

@@ -107,3 +107,37 @@
   .dsb.rail .tr-btn { width: 44px; height: 40px; flex: none; }
   .dsb.rail .brand-home { flex: none; justify-content: center; }
 }
+
+/* ---- Phones ≤767 (SPEC §10.1, PR M1). Every rule is inside this query, so desktop and tablet are untouched. ---- */
+.m-disc { display: none; }
+@media (max-width: 767px) {
+  :root { --m-pad: 16px; }
+  html, body { overflow-x: clip; }
+  .dtop { min-height: 56px; padding: max(6px, env(safe-area-inset-top)) 8px 6px 4px; gap: 4px; }
+  .dtop .title { font-size: 15px; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dtop .pill-btn { min-height: 44px; padding: 0 12px; font-size: 13px; }
+  .dtop .iconbtn { min-width: 44px; min-height: 44px; }
+  .dtop .theme-toggle { display: none; }
+  .dsb { width: min(86vw, 320px); }
+  .dsb .nav-item, .dsb .newchat, .dsb .searchbox, .dsb .filing-row, .dsb .status { min-height: 48px; }
+  .m-disc { display: flex; align-items: center; gap: 8px; margin: 8px var(--m-pad) 0; min-height: 44px; padding: 0 4px 0 14px; border-radius: 12px; background: var(--elevated); color: var(--muted); font-size: 13px; }
+  .m-disc span { flex: 1; min-width: 0; }
+  .m-disc .iconbtn { min-width: 44px; min-height: 44px; }
+  [data-composer="dock"] { position: sticky; bottom: var(--kb, 0px); padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
+  [data-composer] textarea { font-size: 16px; }
+  /* bottom sheets */
+  .m-scrim { position: fixed; inset: 0; background: rgba(4, 17, 12, 0.42); z-index: 55; animation: m-fade 0.2s ease both; }
+  .m-sheet { position: fixed; inset-inline: 0; bottom: 0; z-index: 60; max-height: 88dvh; overflow: auto; background: var(--field); color: var(--ink); border-radius: 20px 20px 0 0; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -12px 40px rgba(4, 17, 12, 0.22); animation: m-up 0.2s var(--ease-out, ease) both; }
+  .m-sheet .grab { display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--rule-strong); opacity: 0.5; margin: 8px auto 0; }
+  .ms-head { display: flex; align-items: center; gap: 8px; padding: 6px 4px 4px 20px; position: sticky; top: 0; background: var(--field); z-index: 1; }
+  .ms-head h2 { flex: 1; margin: 0; font: 600 17px/1.3 Inter, sans-serif; letter-spacing: -0.01em; }
+  .ms-head .iconbtn { min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; }
+  .ms-body { padding: 4px 20px 20px; }
+  @keyframes m-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes m-fade { from { opacity: 0; } }
+}
+@media (max-width: 767px) and (pointer: coarse) { .dsb .searchbox kbd { display: none; } }
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .dsb { transition: none !important; }
+  .m-sheet, .m-scrim { animation: none !important; }
+}

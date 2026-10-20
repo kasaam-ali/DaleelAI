@@ -121,6 +121,12 @@ a {
   cursor: pointer;
 }
 
+/* Unlayered, so it must sit after the pointer rule: Tailwind's cursor-not-allowed utility is layered and loses to it. */
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 textarea {
   cursor: text;
 }

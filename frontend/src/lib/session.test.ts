@@ -8,6 +8,7 @@ import {
   PROFILE_KEY,
   SESSION_KEY,
   clearLocalHistory,
+  clearStoredHistory,
   currentTaxYear,
   readAnswerLanguage,
   readCorpusDates,
@@ -78,6 +79,31 @@ describe("session", () => {
     expect(store.data.get(SESSION_KEY)).toBe(next)
     expect(store.data.has(CHAT_KEY)).toBe(false)
     expect(store.data.has(CORPUS_DATES_KEY)).toBe(false)
+  })
+
+  it("deletes the server session before rotating the local id", async () => {
+    const store = memory()
+    const first = readSessionId(store)
+    store.setItem(CHAT_KEY, "chat-1")
+    const seen: string[] = []
+    const next = await clearStoredHistory(store, first, async (sessionId) => {
+      seen.push(sessionId)
+    })
+    expect(seen).toEqual([first])
+    expect(next).not.toBe(first)
+    expect(store.data.get(SESSION_KEY)).toBe(next)
+    expect(store.data.has(CHAT_KEY)).toBe(false)
+  })
+
+  it("keeps the local session when the server delete fails", async () => {
+    const store = memory()
+    const first = readSessionId(store)
+    await expect(
+      clearStoredHistory(store, first, async () => {
+        throw new Error("down")
+      }),
+    ).rejects.toThrow("down")
+    expect(store.data.get(SESSION_KEY)).toBe(first)
   })
 
   it("remembers a law-as-of date for a saved answer", () => {

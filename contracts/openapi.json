@@ -77,6 +77,95 @@
         }
       }
     },
+    "/api/v1/session": {
+      "delete": {
+        "summary": "Delete Session",
+        "operationId": "delete_session_api_v1_session_delete",
+        "parameters": [
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/feedback": {
       "post": {
         "summary": "Feedback",
@@ -600,8 +689,72 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "x-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ]
       }
     },
     "/api/v1/updates/{item_id}": {
@@ -667,6 +820,52 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evaluation/answers": {
+      "get": {
+        "summary": "Answers Report",
+        "operationId": "answers_report_api_v1_evaluation_answers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
               }
             }
           }
@@ -1867,11 +2066,65 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "DependencyCheck": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "slow",
+              "down"
+            ],
+            "title": "Status"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "required": [
+          "status",
+          "latency_ms"
+        ],
+        "title": "DependencyCheck"
+      },
+      "DependencyChecks": {
+        "type": "object",
+        "properties": {
+          "api": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "qdrant": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "postgres": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "embeddings": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          }
+        },
+        "required": [
+          "api",
+          "qdrant",
+          "postgres",
+          "llm",
+          "embeddings"
+        ],
+        "title": "DependencyChecks"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
             "type": "string",
-            "const": "ok",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
             "title": "Status"
           },
           "version": {
@@ -1886,6 +2139,11 @@
             "type": "string",
             "title": "Corpus Version"
           },
+          "corpus_date": {
+            "type": "string",
+            "title": "Corpus Date",
+            "default": ""
+          },
           "supported_tax_years": {
             "items": {
               "type": "string"
@@ -1899,6 +2157,9 @@
             },
             "type": "object",
             "title": "Models"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/DependencyChecks"
           }
         },
         "type": "object",
@@ -1908,7 +2169,8 @@
           "env",
           "corpus_version",
           "supported_tax_years",
-          "models"
+          "models",
+          "checks"
         ],
         "title": "HealthResponse"
       },
@@ -2492,6 +2754,16 @@
           "summary": {
             "type": "string",
             "title": "Summary"
+          },
+          "summary_en": {
+            "type": "string",
+            "title": "Summary En",
+            "default": ""
+          },
+          "summary_ru": {
+            "type": "string",
+            "title": "Summary Ru",
+            "default": ""
           },
           "who_is_affected": {
             "anyOf": [

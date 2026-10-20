@@ -4,20 +4,36 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getJson } from "./client"
 
+export type DependencyCheck = {
+  status: "ok" | "slow" | "down"
+  latency_ms: number
+}
+
 export type Health = {
-  status: "ok"
+  status: "ok" | "degraded"
   version: string
   env: string
   corpus_version: string
+  corpus_date?: string
   supported_tax_years: string[]
   models: Record<string, string>
+  checks?: {
+    api: DependencyCheck
+    qdrant: DependencyCheck
+    postgres: DependencyCheck
+    llm: DependencyCheck
+    embeddings: DependencyCheck
+  }
 }
 
 export type ServiceState = "checking" | "online" | "degraded" | "offline"
 
-export function serviceState(online: boolean, health: { error: boolean; ok: boolean }): ServiceState {
+export function serviceState(
+  online: boolean,
+  health: { error: boolean; ok: boolean; status?: string | null },
+): ServiceState {
   if (!online) return "offline"
-  if (health.error) return "degraded"
+  if (health.error || (health.ok && health.status === "degraded")) return "degraded"
   if (health.ok) return "online"
   return "checking"
 }

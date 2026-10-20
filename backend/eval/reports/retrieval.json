@@ -1,0 +1,58 @@
+{
+  "measured_at": "2026-10-19",
+  "index": "stand-in",
+  "split": "test",
+  "rows": 160,
+  "scored_rows": 136,
+  "live_models": false,
+  "not_run": [
+    "qdrant",
+    "cross-encoder rerank",
+    "verification"
+  ],
+  "dataset": {
+    "total": 240,
+    "en": 120,
+    "roman_urdu": 120,
+    "special": 40,
+    "dev": 80,
+    "test": 160,
+    "kinds": {
+      "answerable": 200,
+      "evasion": 8,
+      "injection": 8,
+      "provincial": 8,
+      "tax_year": 8,
+      "unanswerable": 8
+    }
+  },
+  "stages": [
+    {
+      "name": "lexical",
+      "status": "stand_in",
+      "recall_at_5": 1.0,
+      "coverage": null,
+      "mean_latency_ms": 0,
+      "rows": 160,
+      "reason": "Lexical stand-in index (22 passages). 136 of 160 test rows have a gold section; recall@5 uses those. This is not the Qdrant documents collection."
+    },
+    {
+      "name": "+rerank",
+      "status": "stand_in",
+      "recall_at_5": 1.0,
+      "coverage": null,
+      "mean_latency_ms": 0,
+      "rows": 160,
+      "reason": "Lexical rerank on the stand-in pool, with a bonus when the query names the section. The cross-encoder was not loaded."
+    },
+    {
+      "name": "+verification",
+      "status": "not_rerun",
+      "recall_at_5": null,
+      "coverage": null,
+      "mean_latency_ms": null,
+      "rows": 0,
+      "reason": "Verification calls an outside model. No provider key was set, so this pass did not call one."
+    }
+  ]
+}

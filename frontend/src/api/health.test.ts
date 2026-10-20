@@ -14,6 +14,11 @@ describe("serviceState", () => {
 
   it("is online only when the browser is online and the health check succeeded", () => {
     expect(serviceState(true, { error: false, ok: true })).toBe("online")
+    expect(serviceState(true, { error: false, ok: true, status: "ok" })).toBe("online")
     expect(serviceState(true, { error: false, ok: false })).toBe("checking")
+  })
+
+  it("is degraded when Postgres reports the service as degraded", () => {
+    expect(serviceState(true, { error: false, ok: true, status: "degraded" })).toBe("degraded")
   })
 })

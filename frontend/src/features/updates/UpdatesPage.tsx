@@ -1,7 +1,7 @@
-/** FBR updates feed, with a domain filter and a saved replay. */
+/** FBR updates feed, with a domain filter. Saved replay is admin-only (POST /api/v1/updates/replay with X-Internal-Token, server side). */
 
 import { useState } from "react"
-import { listUpdates, replayUpdates, summaryFor, type UpdateList } from "../../api/updates"
+import { listUpdates, summaryFor, type UpdateList } from "../../api/updates"
 import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
 
@@ -22,22 +22,6 @@ export default function UpdatesPage({ copy, language }: { copy: Copy; language: 
     } catch (caught) {
       setResult(null)
       setError(caught instanceof Error ? caught.message : copy("updatesFailed"))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const internalToken = import.meta.env.VITE_INTERNAL_TOKEN ?? ""
-
-  async function replay() {
-    setBusy(true)
-    setError(null)
-    try {
-      await replayUpdates(internalToken)
-      setResult(await listUpdates(domain))
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : copy("updatesFailed")
-      setError(message === "The internal token does not match." ? copy("updatesToken") : message)
     } finally {
       setBusy(false)
     }
@@ -68,11 +52,6 @@ export default function UpdatesPage({ copy, language }: { copy: Copy; language: 
         <button type="button" disabled={busy} className="min-h-11 border border-rule px-3 text-sm" onClick={() => void load()}>
           {copy("updatesRefresh")}
         </button>
-        {internalToken ? (
-          <button type="button" disabled={busy} className="min-h-11 bg-seal px-4 text-paper" onClick={() => void replay()}>
-            {copy("updatesReplay")}
-          </button>
-        ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
       {result ? (

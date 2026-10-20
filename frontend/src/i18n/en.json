@@ -180,8 +180,6 @@
   "updatesDomain": "Domain",
   "updatesAll": "All domains",
   "updatesRefresh": "Refresh",
-  "updatesReplay": "Run saved replay",
-  "updatesToken": "The internal token does not match.",
   "updatesFailed": "The updates feed could not be loaded.",
   "updatesNone": "No updates stored yet.",
   "privacyTitle": "Privacy and sources",
@@ -363,5 +361,7 @@
   "searchMove": "to move",
   "searchOpenKey": "to open",
   "searchCloseKey": "to close",
-  "taxYearLabel": "Tax year"
+  "taxYearLabel": "Tax year",
+  "requestFailed": "Request failed ({status})",
+  "refusalInjectionTitle": "I can't change my rules"
 }

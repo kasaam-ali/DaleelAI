@@ -13,7 +13,11 @@ const KNOWN: Record<string, CopyKey> = {
     "evasionRefusal",
 }
 
+const REQUEST_FAILED = /^Request failed \((\d{3})\)$/
+
 export function localizedError(message: string, language: UiLanguage): string {
+  const failed = REQUEST_FAILED.exec(message)
+  if (failed) return t(language, "requestFailed").replace("{status}", failed[1])
   const key = KNOWN[message]
   if (!key || language !== "roman_urdu") return message
   return t(language, key)

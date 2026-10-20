@@ -76,6 +76,7 @@ class ChatRequest(BaseModel):
     language: Literal["auto", "en", "roman_urdu", "urdu"] = "auto"
     tax_year: str | None = None
     profile: Profile | None = None
+    client_request_id: str | None = Field(default=None, max_length=64)
 
     @field_validator("tax_year")
     @classmethod

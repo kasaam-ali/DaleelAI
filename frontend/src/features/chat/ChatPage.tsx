@@ -37,6 +37,8 @@ import { asTurnError, canAutoRetry, retryDelayMs } from "./failure"
 import { turnsFromHistory } from "./history"
 import OfflineBanner from "./OfflineBanner"
 import StatusSteps from "./StatusSteps"
+import Icon from "../../shell/icons"
+import "./states.css"
 import { PENDING_PHASES, reducePhases } from "./steps"
 import type { Turn } from "./types"
 import { useOnline } from "./useOnline"
@@ -178,6 +180,8 @@ export default function ChatPage({
     element.scrollTop = element.scrollHeight
   }, [bucket, chatId])
 
+  const [retryTotal, setRetryTotal] = useState<number | null>(null)
+  const [announce, setAnnounce] = useState("")
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
 
@@ -193,6 +197,7 @@ export default function ChatPage({
     const delay = retryDelayMs(retryRef.current.attempt)
     if (delay == null) return
     let left = Math.round(delay / 1000)
+    setRetryTotal(left)
     patch(id, (current) => ({ ...current, autoRetryIn: left }))
     retryRef.current.timer = window.setInterval(() => {
       left -= 1
@@ -202,6 +207,7 @@ export default function ChatPage({
       }
       clearRetry()
       retryRef.current.attempt += 1
+      setAnnounce(copy("autoRetrying"))
       patch(id, (current) => ({ ...current, autoRetryIn: null }))
       void askRef.current(question, { replaceId: id })
     }, 1000)
@@ -248,16 +254,19 @@ export default function ChatPage({
         draft: "",
         sources: [],
         phases: [...PENDING_PHASES],
+        phaseTimes: [null, null, null, null],
+        sentAt: Date.now(),
         queued: false,
         stopped: false,
         autoRetryIn: null,
+        autoRetryCancelled: false,
         final: null,
         error: null,
         toolCard: null,
         toolNote: false,
       }))
     } else {
-      setTurns((prev) => [...prev, blankTurn(id, message, message !== raw, false)])
+      setTurns((prev) => [...prev, { ...blankTurn(id, message, message !== raw, false), sentAt: Date.now() }])
     }
     const run = ++runRef.current
     const live = () => runRef.current === run
@@ -413,7 +422,7 @@ export default function ChatPage({
       patch(id, (current) => ({
         ...current,
         status: "",
-        phases: reducePhases(current.phases, event.data.node, event.data.status),
+        ...phaseUpdate(current, event.data.node, event.data.status),
       }))
     } else if (event.event === "token") {
       patch(id, (current) => ({ ...current, draft: current.draft + event.data.text, status: "" }))
@@ -499,7 +508,7 @@ export default function ChatPage({
 
   function cancelAutoRetry(id: string) {
     clearRetry()
-    patch(id, (current) => ({ ...current, autoRetryIn: null }))
+    patch(id, (current) => ({ ...current, autoRetryIn: null, autoRetryCancelled: true }))
   }
 
   async function copyQuestion(question: string) {
@@ -513,6 +522,9 @@ export default function ChatPage({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {online ? null : <OfflineBanner queuedCount={queuedCount} copy={copy} />}
+      <p className="sr-only" aria-live="polite" data-retry-announce>
+        {announce}
+      </p>
       <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
         <div
           className="mx-auto flex w-full max-w-5xl flex-col px-4 py-8"
@@ -546,12 +558,28 @@ export default function ChatPage({
               >
                 <div className="min-w-0 xl:col-start-1 xl:row-start-1">
                   <div className="flex justify-end">
-                    <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
+                    <p
+                      className={
+                        turn.queued
+                          ? "qbubble max-w-[min(85%,40rem)] whitespace-pre-wrap text-ink"
+                          : "max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink"
+                      }
+                    >
                       {turn.question}
                     </p>
                   </div>
                   {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
+                    {turn.queued ? (
+                      <p className="qstate" data-queued>
+                        <Icon name="wifiOff" size="sm" />
+                        {copy("queued")}
+                      </p>
+                    ) : null}
+                    {turn.queued && turn.error ? (
+                      <p className="mt-1 text-right text-sm text-muted">{turn.error.message}</p>
+                    ) : null}
                 </div>
+                {turn.queued ? null : (
                 <div className="mt-4 flex min-w-0 gap-3 xl:col-start-1 xl:row-start-2">
                   <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center bg-seal text-seal-ink" aria-hidden="true">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -566,10 +594,9 @@ export default function ChatPage({
                       copy={copy}
                       onSelect={(next) => chooseAnswerLanguage(next, turn)}
                     />
-                    {turn.queued ? <p className="text-sm text-muted">{copy("queued")}</p> : null}
                     {turn.status === "sending" ? <p className="text-sm text-muted">{copy("queueSending")}</p> : null}
                     {showSteps(turn) ? (
-                      <StatusSteps phases={turn.phases} copy={copy} skeleton={!streaming} />
+                      <StatusSteps phases={turn.phases} times={turn.phaseTimes} copy={copy} skeleton={!streaming} />
                     ) : null}
                     {turn.stopped && !turn.final && !turn.error ? (
                       <div data-motion-slot="stopped" role="status" className="border border-rule bg-field px-4 py-4">
@@ -588,6 +615,9 @@ export default function ChatPage({
                       <ErrorCard
                         error={turn.error}
                         secondsLeft={turn.autoRetryIn}
+                        totalSeconds={retryTotal}
+                        cancelled={turn.autoRetryCancelled}
+                        requestId={turn.id}
                         copy={copy}
                         onRetry={() => retryNow(turn)}
                         onCopy={() => void copyQuestion(turn.question)}
@@ -607,6 +637,7 @@ export default function ChatPage({
                     ) : null}
                   </div>
                 </div>
+                )}
                 <SourcesRail
                   turn={turn}
                   language={language}
@@ -650,6 +681,15 @@ export default function ChatPage({
   )
 }
 
+function phaseUpdate(turn: Turn, node: string, status: "start" | "end"): Pick<Turn, "phases" | "phaseTimes"> {
+  const phases = reducePhases(turn.phases, node, status)
+  const elapsed = turn.sentAt == null ? null : Math.max(0, Date.now() - turn.sentAt) / 1000
+  const phaseTimes = phases.map((phase, index) =>
+    phase === "done" && turn.phases[index] !== "done" ? elapsed : (turn.phaseTimes[index] ?? null),
+  )
+  return { phases, phaseTimes }
+}
+
 function showSteps(turn: Turn): boolean {
   if (turn.queued || turn.error || turn.stopped || turn.final || turn.toolCard) return false
   if (turn.draft || turn.sources.length > 0) return turn.phases[3] !== "done"
@@ -671,6 +711,9 @@ function blankTurn(id: string, question: string, redacted: boolean, queued: bool
     stopped: false,
     replyLanguage: null,
     autoRetryIn: null,
+    autoRetryCancelled: false,
+    sentAt: null,
+    phaseTimes: [null, null, null, null],
     final: null,
     error: null,
     messageId: null,

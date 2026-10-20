@@ -47,8 +47,8 @@ describe("ChatSearchPalette", () => {
       root.render(
         <ChatSearchPalette
           chats={[
-            row("1", "Freelancer income tax", "2026-10-19T08:00:00Z"),
-            row("2", "Crypto notes", "2026-10-19T07:00:00Z"),
+            row("1", "Freelancer income tax", new Date(Date.now() - 60_000).toISOString()),
+            row("2", "Crypto notes", new Date(Date.now() - 120_000).toISOString()),
           ]}
           snippets={{ "2": "The bank deducts tax at a fixed rate" }}
           copy={copy as never}

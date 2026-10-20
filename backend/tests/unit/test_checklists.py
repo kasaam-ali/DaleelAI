@@ -130,7 +130,7 @@ def test_list_and_get_stay_inside_the_session():
     assert bad_session.status_code == 400
     assert bad_session.json()["error"]["message"] == "X-Session-Id must be a UUID."
     bad_id = client.get("/api/v1/checklists/not-a-uuid", headers={"X-Session-Id": mine})
-    assert bad_id.status_code == 400
+    assert bad_id.status_code == 422
     assert bad_id.json()["error"]["message"] == "checklist id must be a UUID."
     absent = client.get(f"/api/v1/checklists/{uuid.uuid4()}", headers={"X-Session-Id": mine})
     assert absent.status_code == 404

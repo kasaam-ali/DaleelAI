@@ -98,6 +98,7 @@ def test_city_filter_and_simple_questions_skip_listings():
     assert found["experts"]
     assert {row["city"] for row in found["experts"]} == {"Karachi"}
     assert found["disclaimer"]
+    assert found["disclaimer_ru"] and found["removal_contact_ru"]
     assert found["removal_contact"]
     simple = find_experts(
         "What salary tax applies to Rs 1200000 in TY2027?",

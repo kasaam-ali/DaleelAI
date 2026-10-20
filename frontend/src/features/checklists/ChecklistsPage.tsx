@@ -138,7 +138,7 @@ export default function ChecklistsPage({
       {error ? <p className="mt-3 text-sm text-low">{error}</p> : null}
       {saved ? (
         <div className="mt-6 border border-rule bg-field px-4 py-4">
-          <p className="text-lg">{saved.title}</p>
+          <p className="text-lg">{checklistTitle(saved, language)}</p>
           <p className="mt-1 text-sm text-muted">
             {copy("checklistProgress")}: {Math.round(saved.progress * 100)}%. {copy("checklistSaved")}
           </p>
@@ -190,6 +190,13 @@ export default function ChecklistsPage({
       ) : null}
     </section>
   )
+}
+
+/** The title follows the shell language, like the steps do. */
+export function checklistTitle(saved: Checklist, language: UiLanguage): string {
+  if (language === "roman_urdu" && saved.title_ru) return saved.title_ru
+  if (language !== "roman_urdu" && saved.title_en) return saved.title_en
+  return saved.title
 }
 
 function stepText(step: Checklist["steps"][number], language: UiLanguage) {

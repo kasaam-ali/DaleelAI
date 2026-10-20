@@ -396,6 +396,8 @@ class ChecklistResponse(BaseModel):
     id: str
     template_id: str
     title: str
+    title_en: str = ""
+    title_ru: str = ""
     steps: list[ChecklistStep]
     progress: float
 
@@ -443,6 +445,8 @@ class ExpertFindResponse(BaseModel):
     advice_code: Literal["uncertain_category", "simple_question", "no_listing", "ok"]
     disclaimer: str
     removal_contact: str
+    disclaimer_ru: str = ""
+    removal_contact_ru: str = ""
 
 
 class ExpertUpsert(BaseModel):

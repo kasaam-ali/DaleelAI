@@ -25,6 +25,8 @@ export type ExpertFind = {
   advice_code: "uncertain_category" | "simple_question" | "no_listing" | "ok"
   disclaimer: string
   removal_contact: string
+  disclaimer_ru?: string
+  removal_contact_ru?: string
 }
 
 export async function findExperts(

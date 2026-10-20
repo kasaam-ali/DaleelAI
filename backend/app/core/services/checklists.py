@@ -290,6 +290,8 @@ def _public(
         "id": checklist_id,
         "template_id": template["id"],
         "title": title,
+        "title_en": template["title"],
+        "title_ru": template["title_ru"],
         "steps": shown,
         "progress": round(done / total, 2) if total else 0,
     }

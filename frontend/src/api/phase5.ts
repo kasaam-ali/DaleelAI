@@ -62,6 +62,8 @@ export type Checklist = {
   id: string
   template_id: string
   title: string
+  title_en?: string
+  title_ru?: string
   steps: {
     id: string
     title: string

@@ -363,5 +363,11 @@
   "searchCloseKey": "band karne ke liye",
   "taxYearLabel": "Tax saal",
   "requestFailed": "Request nakam ho gayi ({status})",
-  "refusalInjectionTitle": "Main apne qawaid nahi badal sakta"
+  "refusalInjectionTitle": "Main apne qawaid nahi badal sakta",
+  "category_income_tax": "Income tax (aamdani)",
+  "category_sales_tax": "Sales tax (bikri)",
+  "category_customs": "Customs (kastam)",
+  "category_corporate_secp": "Company / SECP ke mamlaat",
+  "category_audit_notice": "Audit aur notice",
+  "category_property": "Property (jaidad)"
 }

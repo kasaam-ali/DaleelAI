@@ -141,7 +141,7 @@ def _checklist_id(checklist_id: str) -> JSONResponse | None:
     try:
         uuid.UUID(checklist_id)
     except (ValueError, TypeError):
-        return _error(400, "invalid_request", "checklist id must be a UUID.")
+        return _error(422, "invalid_request", "checklist id must be a UUID.")
     return None
 
 

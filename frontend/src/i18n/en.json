@@ -363,5 +363,11 @@
   "searchCloseKey": "to close",
   "taxYearLabel": "Tax year",
   "requestFailed": "Request failed ({status})",
-  "refusalInjectionTitle": "I can't change my rules"
+  "refusalInjectionTitle": "I can't change my rules",
+  "category_income_tax": "Income tax",
+  "category_sales_tax": "Sales tax",
+  "category_customs": "Customs",
+  "category_corporate_secp": "Company / SECP",
+  "category_audit_notice": "Audit and notices",
+  "category_property": "Property"
 }

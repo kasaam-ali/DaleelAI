@@ -75,6 +75,8 @@ export default function ExpertsPage({
     }
   }
 
+  const roman = language === "roman_urdu"
+
   return (
     <section>
       <h2 className="page-title">{copy("expertsTitle")}</h2>
@@ -118,7 +120,7 @@ export default function ExpertsPage({
                     className="min-h-11 border border-rule px-3 text-sm"
                     onClick={() => void search(item)}
                   >
-                    {item}
+                    {categoryLabel(item, copy)}
                   </button>
                 ),
               )}
@@ -133,7 +135,7 @@ export default function ExpertsPage({
                   {expert.firm ? `, ${expert.firm}` : ""}
                 </p>
                 <p className="text-muted">
-                  {expert.city}. {expert.specialties.join(", ")}
+                  {expert.city}. {expert.specialties.map((item) => categoryLabel(item, copy)).join(", ")}
                 </p>
                 <p className="text-muted">
                   {expert.source}. {expert.last_updated}
@@ -144,10 +146,29 @@ export default function ExpertsPage({
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-sm">{result.disclaimer}</p>
-          <p className="mt-1 text-sm text-muted">{result.removal_contact}</p>
+          <p className="mt-4 text-sm">
+            {roman && result.disclaimer_ru ? result.disclaimer_ru : result.disclaimer}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {roman && result.removal_contact_ru ? result.removal_contact_ru : result.removal_contact}
+          </p>
         </div>
       ) : null}
     </section>
   )
+}
+
+const CATEGORY_KEYS: Record<string, CopyKey> = {
+  income_tax: "category_income_tax",
+  sales_tax: "category_sales_tax",
+  customs: "category_customs",
+  corporate_secp: "category_corporate_secp",
+  audit_notice: "category_audit_notice",
+  property: "category_property",
+}
+
+/** Human label for a category key such as income_tax; unknown keys fall back to readable text. */
+export function categoryLabel(key: string, copy: Copy): string {
+  const known = CATEGORY_KEYS[key]
+  return known ? copy(known) : key.replace(/_/g, " ")
 }

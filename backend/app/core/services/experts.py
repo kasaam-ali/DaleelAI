@@ -103,6 +103,8 @@ def find_experts(
         "advice_code": code,
         "disclaimer": directory["disclaimer"],
         "removal_contact": directory["removal_contact"],
+        "disclaimer_ru": directory.get("disclaimer_ru", ""),
+        "removal_contact_ru": directory.get("removal_contact_ru", ""),
     }
 
 

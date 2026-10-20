@@ -163,7 +163,6 @@ export default function AnswerSlip({
           ) : null}
 
           <AgentSteps turn={turn} copy={copy} language={language} />
-          <p className="mt-5 max-w-[68ch] text-sm text-muted">{copy("disclaimer")}</p>
 
           {turn.messageId ? (
             <div className="mt-4">

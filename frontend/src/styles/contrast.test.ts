@@ -81,10 +81,17 @@ describe("spec values", () => {
     const index = readFileSync(join(__dirname, "..", "index.css"), "utf8")
     for (const sheet of [css, index]) {
       for (const match of sheet.matchAll(/border-radius:\s*([^;]+);/g)) {
-        expect(match[1]).toMatch(/^var\(--r-(xs|sm|md|lg|xl)\)$/)
+        expect(match[1]).toMatch(/^var\(--r-(xs|sm|md|lg|xl|full)\)$/)
       }
     }
     expect(css).toContain("--r-xs: 6px")
     expect(css).toContain("--r-xl: 24px")
+    expect(css).toContain("--r-full: 9999px")
+    expect(index).toContain("--radius-full: var(--r-full)")
+  })
+
+  it("uses the §8 spacing scale 4/8/12/16/20/24/32/48", () => {
+    const scale = [...css.matchAll(/--space-(\d): (\d+)px/g)].map((m) => [Number(m[1]), Number(m[2])])
+    expect(scale).toEqual([[1, 4], [2, 8], [3, 12], [4, 16], [5, 20], [6, 24], [7, 32], [8, 48]])
   })
 })

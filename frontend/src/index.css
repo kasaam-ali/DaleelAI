@@ -51,7 +51,7 @@
   --radius-xl: var(--r-md);
   --radius-2xl: var(--r-lg);
   --radius-3xl: var(--r-xl);
-  --radius-full: var(--r-xl);
+  --radius-full: var(--r-full);
 }
 
 html {

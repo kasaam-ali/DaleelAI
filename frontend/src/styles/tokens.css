@@ -50,14 +50,16 @@
   --r-md: 16px;
   --r-lg: 20px;
   --r-xl: 24px;
+  --r-full: 9999px;
   /* Spacing (4px grid). */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
   /* Elevation (§8B). */
   --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 4%, transparent),

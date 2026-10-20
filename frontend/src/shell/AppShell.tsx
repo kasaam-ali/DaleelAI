@@ -188,7 +188,7 @@ export default function AppShell({
           onTaxYear={onTaxYear}
           onClearFiling={onClearFiling}
         />
-        {/* TODO(PR 8): open About & settings at Service status once that section lands. */}
+        {/* TODO(PR 8): StatusRow opens About & settings at sec=status once that section lands. */}
         <StatusRow service={service} copy={copy} onOpen={() => choose("privacy")} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">

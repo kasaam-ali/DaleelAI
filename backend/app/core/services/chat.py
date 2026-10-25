@@ -278,7 +278,11 @@ async def iter_chat_events(
                     failure = exc
         if failure is not None or result is None:
             if streamed:
-                draft = plain_answer(sanitize_answer("".join(streamed), language), language)
+                draft = plain_answer(
+                    sanitize_answer("".join(streamed), language),
+                    language,
+                    n_sources=len(collected_sources),
+                )
                 stored_sources = collected_sources
                 final = _final(
                     draft,
@@ -342,7 +346,7 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            plain_answer(result.answer, language),
+            plain_answer(result.answer, language, n_sources=len(result.sources)),
             result.answer_source,
             result.verified,
             result.model,

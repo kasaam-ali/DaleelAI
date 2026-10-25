@@ -133,3 +133,140 @@ def test_char_by_char_stream_never_flashes_a_ref():
         assert not PARTIAL.search(shown), shown
     shown += s.flush()
     assert " ".join(shown.split()) == " ".join(plain_answer(text).split())
+
+
+# QA retest @ 2293db6: raw model text that left orphan fragments after the strip.
+ORPHANS = [
+    # 1) truncated tails
+    (
+        "en",
+        "The advance tax on cash withdrawal for persons who are **not on the Active Taxpayers "
+        "List (non-filers)** is governed by **Section 231AB**.",
+        "The advance tax on cash withdrawal for persons who are **not on the Active Taxpayers "
+        "List (non-filers)** applies.",
+    ),
+    (
+        "en",
+        "The advance tax on cash withdrawal is covered by **Section 231AB** — "
+        "“Advance tax on cash withdrawal” [1][2].",
+        "The advance tax on cash withdrawal is covered by the rules on "
+        "“Advance tax on cash withdrawal” [1][2].",
+    ),
+    (
+        "en",
+        "Advance tax for non-filers (people who have not filed a return by the due dates) is "
+        "Section 236K [1].",
+        "Advance tax for non-filers (people who have not filed a return by the due dates) "
+        "applies [1].",
+    ),
+    (
+        "en",
+        "This is Section 231AB, which states that banks deduct 0.8% [1].",
+        "This rule states that banks deduct 0.8% [1].",
+    ),
+    (
+        "en",
+        "- **Section 231AB(1)** requires every banking company to deduct tax [1].",
+        "- This rule requires every banking company to deduct tax [1].",
+    ),
+    # orphans already stripped by an older build must also be repaired
+    (
+        "en",
+        "Cash withdrawal tax (non-filers) is governed by.",
+        "Cash withdrawal tax (non-filers) applies.",
+    ),
+    (
+        "en",
+        "Rates are listed in the First Schedule [1].",
+        "Rates are listed in the First Schedule [1].",
+    ),
+    # 2) empty Reference / Citations lines and label-less bullets
+    (
+        "en",
+        "File by 31 December [1].\n\n**References**\n- **Section 118** – filing deadline for "
+        "companies [1]\n- **Section 114** – who must file a return [2]",
+        "File by 31 December [1].",
+    ),
+    (
+        "roman_urdu",
+        "Return due date se pehle file karein [1].\n\n**Citations:**\n- **Section 118** – due "
+        "date for furnishing return [1]\n- – notice ke zariye due date [1]",
+        "Return due date se pehle file karein [1].",
+    ),
+    ("en", "Pay on time [1]. Reference: and the Tenth Schedule 1.", "Pay on time [1]."),
+    ("en", "- – filing deadline for companies [1]", "- Filing deadline for companies [1]"),
+    ("en", "Keep receipts [1].\n\n[1].", "Keep receipts [1]."),
+    # 3) Roman Urdu hanging postpositions
+    (
+        "roman_urdu",
+        "Aakhri tareekh woh din hai jo **Section 118** ke mutabiq “due date” hai [1].",
+        "Aakhri tareekh woh din hai jo “due date” hai [1].",
+    ),
+    (
+        "roman_urdu",
+        "Agar taxpayer ko Section 114(4) ke tehat notice milti hai [1].",
+        "Agar taxpayer ko notice milti hai [1].",
+    ),
+    (
+        "roman_urdu",
+        "Withheld tax aur Section 149(3) tahat admissible tax credit ka adjustment [1].",
+        "Withheld tax aur admissible tax credit ka adjustment [1].",
+    ),
+    (
+        "roman_urdu",
+        "Agar taxpayer ko ke tehat notice milti hai.",
+        "Agar taxpayer ko notice milti hai.",
+    ),
+    ("roman_urdu", "Woh din hai jo ke mutabiq due date hai.", "Woh din hai jo due date hai."),
+    ("roman_urdu", "Tax aur tahat admissible credit.", "Tax aur admissible credit."),
+    (
+        "roman_urdu",
+        "Employee ke “Salary” head ke tehat tax.",
+        "Employee ke “Salary” head ke tehat tax.",
+    ),
+    # 4) full-width citation markup
+    ("en", "File by 30 September【1†L10-L12】.", "File by 30 September[1]."),
+    (
+        "roman_urdu",
+        "Bank tax kaatta hai 【1】 aur rate 0.8% hai 【2】.",
+        "Bank tax kaatta hai [1] aur rate 0.8% hai [2].",
+    ),
+    # 5) retrieval-note label leaking into prose
+    (
+        "en",
+        "Authoritative cross-reference: Advance tax on cash withdrawal is Section 231AB. "
+        "Banks deduct 0.8% [1].",
+        "Advance tax on cash withdrawal applies. Banks deduct 0.8% [1].",
+    ),
+]
+
+
+@pytest.mark.parametrize(("lang", "raw", "want"), ORPHANS)
+def test_no_orphans_after_strip(lang, raw, want):
+    got = plain_answer(raw, lang)
+    assert got == want
+    assert not REF.search(got)
+    assert not re.search(r"【|\b(?:by|is)\s*[—–]?\s*[.]|^\s*[-*]\s*[–—]|cross-reference", got, re.M)
+
+
+def test_chips_never_point_past_sources():
+    got = plain_answer("Banks deduct tax [3]. Filers are exempt [1][2].", n_sources=2)
+    assert got == "Banks deduct tax. Filers are exempt [1][2]."
+
+
+def test_stream_drops_reference_block_across_chunks():
+    chunks = [
+        "File by 31 December [1].\n\n",
+        "**References**\n",
+        "- **Section 118** – filing deadline [1]\n",
+        "- **Section 114** – who must file [2]",
+    ]
+    s = PlainStream("en")
+    shown = "".join(s.push(c) for c in chunks) + s.flush()
+    assert shown.strip() == "File by 31 December [1]."
+
+
+def test_already_stripped_bullet_gets_a_subject_and_no_space_before_dot():
+    raw = "- Requires every bank to **deduct 0.8%**\u202f[3]. \n- Filers are exempt [1]."
+    got = plain_answer(raw, n_sources=2)
+    assert got == "- This rule requires every bank to **deduct 0.8%**. \n- Filers are exempt [1]."

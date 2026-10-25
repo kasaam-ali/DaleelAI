@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getJson } from "./client"
 
 export type DependencyCheck = {
-  status: "ok" | "slow" | "down"
+  status: "ok" | "slow" | "down" | "off"
   latency_ms: number
 }
 

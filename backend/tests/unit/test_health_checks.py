@@ -80,6 +80,16 @@ def test_postgres_down_marks_the_service_degraded():
     ok = {"status": "ok", "latency_ms": 1}
     assert overall_status({"postgres": down, "qdrant": ok}) == "degraded"
     assert overall_status({"postgres": ok, "qdrant": down, "llm": down}) == "ok"
+    assert overall_status({"postgres": {"status": "off", "latency_ms": 0}}) == "ok"
+
+
+def test_embeddings_use_fastembeds_default_cache(monkeypatch, tmp_path):
+    monkeypatch.delenv("FASTEMBED_CACHE_PATH", raising=False)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    settings = Settings(adapters=Adapters(embedder="fastembed"))
+    assert check_embeddings(settings) == "down"
+    (tmp_path / "fastembed_cache" / "model").mkdir(parents=True)
+    assert check_embeddings(settings) == "ok"
 
 
 def test_health_reports_checks_without_waiting_on_them():
@@ -94,12 +104,12 @@ def test_health_reports_checks_without_waiting_on_them():
     assert time.perf_counter() - started < 1.0
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "degraded"
+    assert body["status"] == "ok"
     assert body["corpus_date"] == CORPUS_DATE
     assert set(body["checks"]) == {"api", "qdrant", "postgres", "llm", "embeddings"}
     assert body["checks"]["api"]["status"] == "ok"
     assert body["checks"]["llm"]["status"] == "ok"
     assert body["checks"]["qdrant"]["status"] == "down"
-    assert body["checks"]["postgres"]["status"] == "down"
+    assert body["checks"]["postgres"]["status"] == "off"
     assert body["checks"]["embeddings"]["status"] == "ok"
     assert isinstance(body["checks"]["api"]["latency_ms"], int)

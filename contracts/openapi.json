@@ -2219,7 +2219,8 @@
             "enum": [
               "ok",
               "slow",
-              "down"
+              "down",
+              "off"
             ],
             "title": "Status"
           },

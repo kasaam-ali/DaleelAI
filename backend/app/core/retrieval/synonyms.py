@@ -7,7 +7,7 @@ TAX_SYNONYMS: dict[str, list[str]] = {
     "petrol": ["petrol", "diesel", "fuel", "gasoline", "petroleum", "fuel levy", "petroleum levy"],
     "car": ["vehicle", "motor vehicle", "automobile", "transport", "car"],
     "bike": ["motorcycle", "motorbike", "two wheeler", "scooter"],
-    "salary": ["income", "wages", "remuneration", "pay", "salary", "earnings"],
+    "salary": ["wages", "remuneration", "pay", "salary", "earnings"],
     "business": ["company", "firm", "enterprise", "sole proprietorship", "aop", "business"],
     "freelancer": [
         "independent contractor",

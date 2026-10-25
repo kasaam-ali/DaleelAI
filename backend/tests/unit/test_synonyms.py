@@ -7,21 +7,25 @@ def test_salary_adds_synonyms_without_repeating_itself():
     added = added_terms("salary tax")
 
     assert "salary" not in added
-    assert added[:5] == ["income", "wages", "remuneration", "pay", "earnings"]
-    assert len(added) <= 6
+    assert added == ["wages", "remuneration", "pay", "earnings"]
+
+
+def test_income_alone_does_not_pull_in_salary_terms():
+    # "income tax return" was expanded with salary words, which routed to s.12/s.149.
+    assert "salary" not in added_terms("deadline to file my income tax return")
 
 
 def test_match_is_whole_word_and_case_insensitive():
     assert added_terms("salaryman") == []
-    assert "income" in added_terms("SALARY")
+    assert "wages" in added_terms("SALARY")
 
 
 def test_two_groups_stop_at_six_added_terms():
     added = added_terms("salary and property")
 
     assert len(added) == 6
-    assert added[:5] == ["income", "wages", "remuneration", "pay", "earnings"]
-    assert added[5] == "real estate"
+    assert added[:4] == ["wages", "remuneration", "pay", "earnings"]
+    assert added[4:] == ["real estate", "immovable property"]
     assert "land" not in added
 
 

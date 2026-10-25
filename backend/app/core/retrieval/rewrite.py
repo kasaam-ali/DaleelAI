@@ -107,6 +107,27 @@ TOPICS: tuple[TaxTopic, ...] = (
         ),
     ),
     TaxTopic(
+        "return_filing",
+        (
+            "Section 114 return of income who must file Section 118 due date "
+            "for furnishing return of income filing deadline"
+        ),
+        ("114", "118"),
+        (
+            "file return",
+            "file my return",
+            "file my income tax return",
+            "file the return",
+            "filing return",
+            "return filing",
+            "income tax return",
+            "return file",
+            "return jama",
+            "section 114",
+            "section 118",
+        ),
+    ),
+    TaxTopic(
         "senior_profit",
         (
             "profit on debt senior citizen Behbood Savings Certificates pensioner "
@@ -197,6 +218,7 @@ TOPICS: tuple[TaxTopic, ...] = (
             "tankhwa",
             "tanakhwa",
             "salary",
+            "salaried",
             "wages",
             "naukri",
             "office wale",
@@ -284,6 +306,9 @@ def detect_topics(text: str) -> list[TaxTopic]:
     ]
     keys = {topic.key for topic in found}
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.
+    # The freelancer and notice templates already search Section 114.
+    if keys & {"freelancer", "notice"}:
+        found = [topic for topic in found if topic.key != "return_filing"]
     if "senior_profit" in keys:
         found = [topic for topic in found if topic.key != "capital_gain"]
     # Cash withdrawal is Section 231AB. A capital-gain aside is not a plot sale,

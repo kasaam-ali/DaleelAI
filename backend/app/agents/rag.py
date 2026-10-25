@@ -28,8 +28,10 @@ from app.core.retrieval.rewrite import (
     detect_topics,
     hit_section,
     is_generic_web_hit,
+    _is_raw_desi,
     is_statutory_hit,
     matching_topic_sections,
+    maybe_llm_queries,
     retrieval_keep,
     rewrite_queries,
     topics_for_note,
@@ -631,9 +633,15 @@ def _abstain(request, rules, web_ranked: list[tuple[RankedHit, float]]) -> RagRe
 
 
 async def _search_queries(llm, request: RagRequest, budget: CallBudget) -> list[str]:
-    """Lexicon queries only. An extra model rewrite would block the first token."""
-    del llm, budget
-    return rewrite_queries(request.question, request.search_query)
+    """Lexicon queries first. Roman Urdu the lexicon cannot read gets one English rewrite.
+
+    The corpus is English, so a raw Roman Urdu query retrieves nothing.
+    """
+    queries = rewrite_queries(request.question, request.search_query)
+    if request.language != "roman_urdu" or detect_topics(request.question):
+        return queries
+    english = await maybe_llm_queries(llm, request.question, budget)
+    return (english + [q for q in queries if not _is_raw_desi(q)])[:4] or queries
 
 
 def attach_cross_reference(blocks: list[ContextBlock], request: RagRequest) -> list[ContextBlock]:

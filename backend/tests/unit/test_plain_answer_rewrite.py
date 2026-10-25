@@ -270,3 +270,56 @@ def test_already_stripped_bullet_gets_a_subject_and_no_space_before_dot():
     raw = "- Requires every bank to **deduct 0.8%**\u202f[3]. \n- Filers are exempt [1]."
     got = plain_answer(raw, n_sources=2)
     assert got == "- This rule requires every bank to **deduct 0.8%**. \n- Filers are exempt [1]."
+
+
+@pytest.mark.parametrize(
+    ("draft", "want"),
+    [
+        (
+            "Special provisions of Section 100BA apply. Under this rule, non-filers pay more [1].",
+            "Under this rule, non-filers pay more [1].",
+        ),
+        (
+            "Tax is charged at the higher tax rate specified in Section 100BA and the Tenth "
+            "Schedule. Filers pay less [2].",
+            "Filers pay less [2].",
+        ),
+        (
+            "The only provision (for persons who have not filed a return by the due dates) "
+            "is Section 100BA. Keep records [1].",
+            "Keep records [1].",
+        ),
+        (
+            "Banks deduct tax [1]. (applies to persons not on the Active Taxpayers List; filers "
+            "are exempt – see the cross-reference in the context[1].)",
+            "Banks deduct tax [1].",
+        ),
+        (
+            "Agar taxpayer ko Section 114 ke tehet notice jari hota hai. "
+            "Return 30 September tak file karein [1].",
+            "Return 30 September tak file karein [1].",
+        ),
+        ("Return jo ya to likha ho. Return file karein [1].", "Return file karein [1]."),
+        ("Last date 30 September hai [1]. (", "Last date 30 September hai [1]."),
+        (
+            "The authoritative cross-reference states that this tax applies [1]. "
+            "Pay by 30 June [2].",
+            "Pay by 30 June [2].",
+        ),
+    ],
+)
+def test_broken_sentences_are_dropped(draft, want):
+    assert plain_answer(draft) == want
+
+
+def test_good_sentences_and_abbreviations_survive_the_drop():
+    draft = "Rs. 50,000 is taxed at 5% [1]. Employee ke “Salary” head ke tehat tax [2]."
+    assert plain_answer(draft) == draft
+
+
+def test_stream_drops_broken_sentences_like_final():
+    draft = "Special provisions of Section 100BA apply. Pay tax by 30 June [1]. ("
+    stream = PlainStream()
+    pieces = ["Special provisions of Sec", "tion 100BA apply. ", "Pay tax by 30 June [1]. ("]
+    out = "".join(stream.push(p) for p in pieces) + stream.flush()
+    assert out.strip() == plain_answer(draft) == "Pay tax by 30 June [1]."

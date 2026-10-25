@@ -186,8 +186,71 @@ def _cap_chips(text: str, n_sources: int | None) -> str:
 
 def plain_answer(text: str, language: str = "en", n_sources: int | None = None) -> str:
     out, _ = _drop_ref_blocks(_pre(text or ""))
-    out = _strip(out, n_sources)
+    out = _drop_broken(_strip(out, n_sources))
     return out.strip()
+
+
+# Structural signs that a sentence lost a noun when a ref was stripped. These
+# are generic shapes (a preposition or postposition with nothing after it, a
+# lone "applies", unmatched brackets), not one rule per answer we have seen.
+_END = r"(?=(?:\[\d+\])*\s*[.!?;:]?\s*$)"
+_STRANDED = re.compile(
+    r"\b(?:of|by|under|per)\s+(?:apply|applies|is|are)\b"
+    rf"|\b(?:of|by|under|to|per|and|or|the|with|see){_END}"
+    rf"|\b(?:and|or)\s+the\s+[A-Z]\w*\s+Schedule{_END}"
+    r"|\b(?:specified|prescribed|provided|mentioned)\s+and\s+the\b"
+    r"|\b(?:ko|jo|se|ka|aur|ya)\s+(?:tehet|tehat|tahat|mutabiq)\b"
+    rf"|\b(?:tehet|tehat|tahat|mutabiq|ke|ki|ka|ko|mein){_END}"
+    r"|\bjo\s+ya\s+to\b"
+    r"|\bcross[\s\-\u2010\u2011]?references?\b"
+    r"|\bin\s+the\s+(?:provided\s+)?context\b"
+    r"|^\W*\)?\s*applies\b"
+    # A legal noun with no content left: "The only provision (...) applies."
+    rf"|^\W*(?:the\s+)?(?:only\s+|relevant\s+|special\s+)*(?:provisions?|rules?|clauses?)\b"
+    rf"[^.!?]*\bappl(?:y|ies){_END}",
+    re.I,
+)
+# Sentence end: punctuation (plus chips) then space and a capital, bracket or bullet.
+_SPLIT = re.compile(
+    r"(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bRs\.)(?<!\bNo\.)(?<=[.!?])"
+    r"((?:\s*\[\d+\])*)[ \t]+(?=[A-Z(\[*\-])"
+)
+
+
+def _broken(sentence: str) -> bool:
+    body = re.sub(r"\[\d+\]", "", sentence).strip(" \t-*>#")
+    if not body:
+        return False
+    if body.count("(") != body.count(")"):
+        return True
+    if body.startswith("(") and body.rstrip(".!? ").endswith(")"):
+        return True  # only a parenthetical fragment
+    words = len(re.findall(r"[A-Za-z]{2,}", body))
+    if words < 2 and not re.search(r"\d", body) and not body.endswith(":"):
+        return True  # debris such as "applies." or a lone "("
+    return bool(_STRANDED.search(body))
+
+
+def _drop_broken_line(line: str) -> str:
+    lead = re.match(r"^[ \t]*(?:[-*•>]|\d+[.)])?[ \t]*", line).group(0)
+    rest = _SPLIT.sub(lambda m: m.group(1) + "\x00", line[len(lead) :])
+    parts = rest.split("\x00")
+    kept = [part.strip() for part in parts if not _broken(part)]
+    if len(kept) == len(parts):
+        return line
+    body = " ".join(p for p in kept if p)
+    if not body and line.strip():
+        return "\x01"  # whole line was broken: drop it
+    return lead + body
+
+
+def _drop_broken(text: str) -> str:
+    """Drop sentences left grammatically broken after the ref strip."""
+    lines = [_drop_broken_line(line) for line in text.split("\n")]
+    out = "\n".join(line for line in lines if line != "\x01")
+    out = re.sub(r"\(\s*\)", "", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return re.sub(r"\n{3,}", "\n\n", out)
 
 
 def _pre(text: str) -> str:
@@ -230,6 +293,9 @@ class PlainStream:
         self._buf = ""
         self._started = False
         self._in_refs = False
+        # True when the next piece starts a fresh sentence, so whole-sentence
+        # checks are safe. Word-level releases mid-sentence skip them.
+        self._at_start = True
 
     def push(self, text: str) -> str:
         self._buf += text or ""
@@ -252,13 +318,18 @@ class PlainStream:
 
     def flush(self) -> str:
         ready, self._buf = self._buf, ""
-        return self._clean(ready) if ready else ""
+        return self._clean(ready, final=True) if ready else ""
 
-    def _clean(self, piece: str) -> str:
+    def _clean(self, piece: str, final: bool = False) -> str:
         lead = piece[: len(piece) - len(piece.lstrip())]
         tail = piece[len(piece.rstrip()) :]
         text, self._in_refs = _drop_ref_blocks(_pre(piece), self._in_refs)
-        body = _strip(text).strip()
+        body = _strip(text)
+        whole = self._at_start and (final or bool(re.search(r"[.!?\n]\s*$", piece)))
+        self._at_start = bool(re.search(r"[.!?\n]\s*$", piece))
+        if whole:
+            body = _drop_broken(body)
+        body = body.strip()
         if not body:
             return "\n" if "\n" in piece else ""
         if not self._started:

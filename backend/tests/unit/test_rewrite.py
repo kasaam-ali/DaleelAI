@@ -224,6 +224,7 @@ def test_return_deadline_question_searches_section_114_not_salary():
 
 
 def test_salaried_roman_urdu_reaches_the_salary_template():
-    keys = {topic.key for topic in detect_topics("salaried bande ka tax kitna hai 1 lakh mahana par?")}
+    question = "salaried bande ka tax kitna hai 1 lakh mahana par?"
+    keys = {topic.key for topic in detect_topics(question)}
 
     assert "salary" in keys

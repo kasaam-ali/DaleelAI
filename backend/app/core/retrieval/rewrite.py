@@ -292,7 +292,7 @@ TOPICS: tuple[TaxTopic, ...] = (
 
 _LLM_REWRITE = (
     "Turn this Pakistani tax question into short English statutory search queries. "
-    "Name Income Tax Ordinance sections when they apply. "
+    "Name Income Tax Ordinance sections when they apply. At most 3 queries, under 15 words each. "
     'Reply with JSON only: {"queries": ["..."]}.'
 )
 
@@ -524,13 +524,16 @@ async def maybe_llm_queries(llm, text: str, budget) -> list[str]:
 def _parse_llm_queries(text: str) -> list[str]:
     start = text.find("{")
     end = text.rfind("}")
+    if start != -1 and end <= start:
+        # max_tokens cut the JSON off. Keep the queries that closed.
+        return _closed_queries(text[start:])
     if start == -1 or end <= start:
         line = text.strip().strip('"').splitlines()[0].strip() if text.strip() else ""
         return [line[:300]] if line and not _is_raw_desi(line) else []
     try:
         payload = json.loads(text[start : end + 1])
     except json.JSONDecodeError:
-        return []
+        return _closed_queries(text[start:])
     raw = payload.get("queries") if isinstance(payload, dict) else None
     if not isinstance(raw, list):
         return []
@@ -541,6 +544,11 @@ def _parse_llm_queries(text: str) -> list[str]:
         if len(queries) == 4:
             break
     return queries
+
+
+def _closed_queries(text: str) -> list[str]:
+    found = re.findall(r'"((?:[^"\\]|\\.){3,300})"\s*[,\]]', text)
+    return [q.strip() for q in found if q.strip() and not _is_raw_desi(q)][:4]
 
 
 def _normalize(text: str) -> str:

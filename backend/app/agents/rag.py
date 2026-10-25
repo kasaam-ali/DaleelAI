@@ -28,7 +28,6 @@ from app.core.retrieval.rewrite import (
     detect_topics,
     hit_section,
     is_generic_web_hit,
-    _is_raw_desi,
     is_statutory_hit,
     matching_topic_sections,
     maybe_llm_queries,
@@ -641,7 +640,7 @@ async def _search_queries(llm, request: RagRequest, budget: CallBudget) -> list[
     if request.language != "roman_urdu" or detect_topics(request.question):
         return queries
     english = await maybe_llm_queries(llm, request.question, budget)
-    return (english + [q for q in queries if not _is_raw_desi(q)])[:4] or queries
+    return [*english[:3], *queries][:4]
 
 
 def attach_cross_reference(blocks: list[ContextBlock], request: RagRequest) -> list[ContextBlock]:

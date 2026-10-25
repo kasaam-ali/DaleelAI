@@ -467,7 +467,8 @@ def test_cash_withdrawal_endpoint_does_not_speak_the_property_note():
             },
         ).text
     )
-    assert "236C" in plot[-2][1]["answer"]
+    assert "advance tax" in plot[-2][1]["answer"].lower()
+    assert "236C" not in plot[-2][1]["answer"]
 
 
 def test_keyless_router_refuses_roman_urdu_evasion_spellings():

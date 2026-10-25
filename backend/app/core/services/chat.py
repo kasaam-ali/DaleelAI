@@ -24,6 +24,7 @@ from app.api.v1.schemas import (
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
 from app.core.demo import demo_in_language, match_demo
+from app.core.plain_answer import plain_answer, plain_delta
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
@@ -240,7 +241,7 @@ async def iter_chat_events(
                     continue
                 emitted += 1
                 streamed.append(data)
-                yield {"event": "token", "data": {"text": data}}
+                yield {"event": "token", "data": {"text": plain_delta(data, language)}}
             if not task.done():
                 task.cancel()
             try:
@@ -271,7 +272,7 @@ async def iter_chat_events(
                     failure = exc
         if failure is not None or result is None:
             if streamed:
-                draft = sanitize_answer("".join(streamed), language)
+                draft = plain_answer(sanitize_answer("".join(streamed), language), language)
                 stored_sources = collected_sources
                 final = _final(
                     draft,
@@ -317,7 +318,7 @@ async def iter_chat_events(
             yield {"event": "done", "data": {}}
             return
         if emitted == 0:
-            yield {"event": "token", "data": {"text": result.answer}}
+            yield {"event": "token", "data": {"text": plain_answer(result.answer, language)}}
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
             library = "web"
@@ -335,7 +336,7 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            result.answer,
+            plain_answer(result.answer, language),
             result.answer_source,
             result.verified,
             result.model,

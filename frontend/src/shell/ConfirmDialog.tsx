@@ -64,7 +64,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="min-h-11 rounded-lg bg-low px-3 text-sm font-medium text-field"
+            className="min-h-11 rounded-lg bg-low px-3 text-sm font-medium text-on-strong"
           >
             {confirmLabel}
           </button>

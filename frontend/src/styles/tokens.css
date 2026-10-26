@@ -1,0 +1,122 @@
+/* Option 2 · Emerald Ledger (SPEC.md §8A), navy secondary. Values from daleel-proto premium/tokens.json.
+   Checked by src/styles/contrast.test.ts. Light is :root; dark overrides on [data-theme="dark"]. */
+
+:root {
+  --paper: #f4f6f2;
+  --field: #ffffff;
+  --elevated: #eaf0ea;
+  --sidebar: #f9faf7;
+  --ink: #0c1f17;
+  --muted: #43554c;
+  --rule: #dae3dc;
+  --rule-strong: #829489;
+  --brand: #0a3d2c;
+  --brand-2: #0a2a5c;
+  --brand-ink: #ffffff;
+  --hero-muted: #bcd3c7;
+  --seal: #0d6b47;
+  --seal-ink: #ffffff;
+  --link: #0a4f8c;
+  --mint: #e4f3e9;
+  --verified: #0f6b3a;
+  --verified-soft: #e4f3e9;
+  --warn: #7d520c;
+  --warn-soft: #fcf1d8;
+  --refusal: #56389a;
+  --refusal-soft: #f0ecfa;
+  --low: #b42318;
+  --error: #b42318;
+  --error-soft: #fdecea;
+  --gold: #c9a43b;
+  --web: #7d520c;
+  --gold-soft: #fcf1d8;
+  --placeholder: #5b6d63;
+  --nav-ink: #0c1f17;
+  --nav-muted: #43554c;
+  --nav-on: #0a3d2c;
+  --nav-on-bg: #e2efe6;
+  --on-strong: #ffffff;
+  /* Aliases kept for existing class names. */
+  --warning: var(--warn);
+  --sidebar-ink: var(--nav-ink);
+  --sidebar-muted: var(--nav-muted);
+  /* Focus ring (§11.2): 2px seal, 2px offset. */
+  --focus: var(--seal);
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  /* Radius (PR 1): 6 / 10 / 16 / 20 / 24 only. */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 20px;
+  --r-xl: 24px;
+  --r-full: 9999px;
+  /* Spacing (4px grid). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  /* Elevation (§8B). */
+  --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 4%, transparent),
+    0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent),
+    0 8px 24px -8px color-mix(in srgb, var(--ink) 12%, transparent);
+  --shadow-card: var(--card-highlight), var(--shadow);
+  --shadow-hover: 0 24px 48px -16px color-mix(in srgb, var(--brand) 32%, transparent);
+  --header-bg: color-mix(in srgb, var(--paper) 90%, transparent);
+  --header-blur: 10px;
+  /* Motion (§8C). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease: var(--ease-out);
+  --d-fast: 140ms;
+  --d-base: 240ms;
+  --d-slow: 420ms;
+  --d-page: 520ms;
+  --stagger: 60ms;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --paper: #04110c;
+  --field: #0a1c15;
+  --elevated: #10271e;
+  --sidebar: #030c08;
+  --ink: #e5f0ea;
+  --muted: #97ada1;
+  --rule: #1b3328;
+  --rule-strong: #567064;
+  --brand: #0b3a2a;
+  --brand-2: #13305f;
+  --brand-ink: #ffffff;
+  --hero-muted: #b2cbbf;
+  --seal: #3cc48a;
+  --seal-ink: #022014;
+  --link: #93b8ee;
+  --mint: #0e2b1f;
+  --verified: #63d394;
+  --verified-soft: #0e2b1f;
+  --warn: #f2c464;
+  --warn-soft: #2a2111;
+  --refusal: #c4b2f7;
+  --refusal-soft: #1f1939;
+  --low: #ff8f84;
+  --error: #ff8f84;
+  --error-soft: #301416;
+  --gold: #d9b85a;
+  --web: #f2c464;
+  --gold-soft: #2a2111;
+  --placeholder: #82988c;
+  --nav-ink: #e5f0ea;
+  --nav-muted: #97ada1;
+  --nav-on: #e5f0ea;
+  --nav-on-bg: #123024;
+  --on-strong: #140806;
+  --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}

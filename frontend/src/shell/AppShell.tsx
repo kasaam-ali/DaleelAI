@@ -442,7 +442,6 @@ export default function AppShell({
             <Icon name={collapsed ? "panelRight" : "panelLeft"} />
           </button>
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{title}</p>
-          <p className="hidden max-w-56 truncate text-xs text-muted xl:block">{copy("disclaimerShort")}</p>
           <HeaderMenu
             label={copy("languageLabel")}
             trigger={<span>{language === "en" ? "EN" : copy("romanUrdu")}</span>}
@@ -479,7 +478,6 @@ export default function AppShell({
             {service === "offline" ? copy("serviceUnreachable") : copy("serviceDegraded")}
           </p>
         ) : null}
-        <p className="border-b border-rule px-4 py-2 text-xs text-muted lg:hidden">{copy("disclaimerShort")}</p>
         <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
           {children}
         </main>
@@ -509,7 +507,7 @@ export default function AppShell({
                     setConfirmClear(false)
                     onClearHistory()
                   }}
-                  className="min-h-11 bg-low px-3 text-sm font-medium text-field"
+                  className="min-h-11 bg-low px-3 text-sm font-medium text-on-strong"
                 >
                   {copy("clearHistory")}
                 </button>

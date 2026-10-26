@@ -89,6 +89,7 @@ export default function Composer({
   return (
     <form
       onSubmit={onForm}
+      data-composer={placement}
       className={placement === "dock" ? "border-t border-rule bg-paper px-4 py-3" : ""}
     >
       <div

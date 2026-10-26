@@ -15,6 +15,7 @@ import { statusText, type Service } from "./navEvents"
 import StatusRow from "./StatusRow"
 import ToolsNav from "./ToolsNav"
 import { useModal } from "./useModal"
+import { readDiscHidden, useKeyboardInset, writeDiscHidden } from "./mobile"
 import "./shell.css"
 
 export type { AppView }
@@ -85,6 +86,15 @@ export default function AppShell({
   const title = view === "chat" ? chatTitle : copy(TITLES[view] ?? "navHome")
 
   useModal(menuOpen, sidebarRef, () => onMenu(false))
+  const [discShown, setDiscShown] = useState(() => !readDiscHidden())
+
+  function hideDisc() {
+    writeDiscHidden()
+    setDiscShown(false)
+    setNotice(copy("discHidden"))
+  }
+
+  useKeyboardInset()
 
   useEffect(() => {
     writeRail(localStorage, rail)
@@ -228,7 +238,7 @@ export default function AppShell({
           </button>
           <button
             type="button"
-            className="iconbtn"
+            className="iconbtn theme-toggle"
             aria-label={copy("themeToggle")}
             title={copy("themeToggle")}
             aria-pressed={theme === "dark"}
@@ -237,6 +247,14 @@ export default function AppShell({
             <Icon name="sun" />
           </button>
         </header>
+        {discShown ? (
+          <div className="m-disc" data-mobile-disclaimer>
+            <span>{copy("disclaimerShort")}</span>
+            <button type="button" className="iconbtn" aria-label={copy("closeLabel")} title={copy("closeLabel")} onClick={hideDisc}>
+              <Icon name="close" size="sm" />
+            </button>
+          </div>
+        ) : null}
         {service === "offline" || service === "degraded" ? (
           <p className="flex items-center gap-2 border-b border-rule px-4 py-2 text-xs text-muted lg:hidden" role="status">
             <span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-warning" />

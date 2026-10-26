@@ -9,7 +9,7 @@ sentence still reads well. Nothing is replaced with a vague "the law".
 import re
 
 _NUM = r"\d{1,3}[A-Z]{0,4}(?:\s?\(\w{1,4}\))*"
-_ONE = rf"(?:Sections?|Sec\.?|s\.|§§?|u/s\.?)\s*{_NUM}"
+_ONE = rf"(?:Sections?|Sec\.?|s\.|§§?|u/s\.?|Rules?)\s*{_NUM}"
 _REF = rf"{_ONE}(?:\s*(?:,|and|or|aur|ya|/|&)\s*(?:(?:Sections?|Sec\.?|s\.|§)\s*)?{_NUM})*"
 _LAW = (
     r"(?:\s+(?:of|in)\s+the\s+(?:[A-Z][\w\-]*\s+){0,6}?(?:Ordinance|Act|Rules)"
@@ -81,6 +81,17 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
         "applies",
     ),
     (re.compile(rf"\b(?:falls?|comes?)\s+under\s+{R}", _I), "applies"),
+    # Roman Urdu: "Ordinance ke Section 118 ke tehat" keeps "Ordinance ke tehat".
+    (
+        re.compile(
+            rf"\b(Ordinance|Act|Rules)((?:,?\s*\d{{4}})?)\s+(?:ki|ke|ka)\s+{R}\s+"
+            rf"(ke\s+tehat|ke\s+tahat|ke\s+mutabiq)\b",
+            _I,
+        ),
+        r"\1\2 \3",
+    ),
+    # "Section 122 notice" -> "FBR notice": keep the noun a label needs.
+    (re.compile(rf"\b{R}\s+(notices?)\b", _I), r"FBR \1"),
     # Roman Urdu: "Section 149 ke tehat ...", "Section 149 lagta hai".
     (
         re.compile(

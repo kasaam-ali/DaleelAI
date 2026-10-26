@@ -23,8 +23,8 @@ from app.api.v1.schemas import (
 )
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
-from app.core.demo import demo_in_language, match_demo
 from app.core.deadline_binder import bind_filing_dates
+from app.core.demo import demo_in_language, match_demo
 from app.core.plain_answer import PlainStream, plain_answer
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii

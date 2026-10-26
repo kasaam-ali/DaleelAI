@@ -17,6 +17,9 @@ import HowAnswered from "./answer/HowAnswered"
 import SourcesStrip from "./answer/SourcesStrip"
 import { citable, citedNumbers, fill, formatDate, fullRef } from "./answer/refs"
 import type { OpenSource } from "./answer/types"
+import { ChecklistCard, ExpertsCard, FilerCard, NoticeCard, UpdatesCard } from "./toolcards/cards"
+import { HIDES_ANSWER } from "./toolcards/toolCards"
+import "./toolcards/toolcards.css"
 
 type Copy = (key: CopyKey) => string
 
@@ -45,8 +48,10 @@ export default function AnswerSlip({
   const final = turn.final
   const cited = citable(turn.sources).length > 0
   const kind = final ? refusalKind(turn.intent, final.answer_source, final.model) : null
-  const text = final ? annotatePkr(localizedError(final.answer, language)) : turn.draft
-  const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
+  const tool = turn.toolCard
+  const hideText = Boolean(tool && HIDES_ANSWER.has(tool.type))
+  const text = hideText ? "" : final ? annotatePkr(localizedError(final.answer, language)) : turn.draft
+  const waiting = !text && !hideText && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
   const markers = citedNumbers(text, turn.sources.length)
   const year = (final?.tax_year ?? turn.taxYear ?? "").replace(/^TY/, "")
   const showStrip = !kind && (turn.sources.length > 0 || Boolean(final && !turn.toolCard))
@@ -86,7 +91,7 @@ export default function AnswerSlip({
             </div>
           ) : null}
 
-          {final && !kind && year ? (
+          {final && !kind && year && !tool ? (
             <p className="ameta">
               {final.answer_source === "web"
                 ? `${copy("taxYear")} ${year} · ${fill(copy("checkedOn"), { date: formatDate(turn.sources.find((source) => source.library === "web")?.fetched_at ?? final.corpus_date) })}`
@@ -95,6 +100,7 @@ export default function AnswerSlip({
             </p>
           ) : null}
 
+          {tool ? <ToolCardFor card={tool} copy={copy} language={language} /> : null}
           {text && !kind ? (
             <AnswerBody
               text={text}
@@ -123,10 +129,9 @@ export default function AnswerSlip({
             />
           ) : null}
 
-          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} language={language} /> : null}
           {turn.toolNote && !turn.toolCard ? <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p> : null}
 
-          {final && !kind ? (
+          {final && !kind && !tool ? (
             <HowAnswered
               final={final}
               kept={turn.sources.filter((source) => source.library !== "web").length}
@@ -188,6 +193,17 @@ export default function AnswerSlip({
       </div>
     </article>
   )
+}
+
+/** PR 5b cards by tool_result type; the calculator keeps its plain card until PR 6; unknown types show nothing. */
+function ToolCardFor({ card, copy, language }: { card: NonNullable<Turn["toolCard"]>; copy: Copy; language: UiLanguage }) {
+  if (card.type === "filer_comparison") return <FilerCard data={card.data} copy={copy} />
+  if (card.type === "notice") return <NoticeCard copy={copy} />
+  if (card.type === "checklist") return <ChecklistCard data={card.data} copy={copy} language={language} />
+  if (card.type === "experts") return <ExpertsCard data={card.data} copy={copy} language={language} />
+  if (card.type === "updates") return <UpdatesCard data={card.data} copy={copy} />
+  if (card.type === "calculation") return <ToolCard card={card} copy={copy} language={language} />
+  return null
 }
 
 function ToolCard({

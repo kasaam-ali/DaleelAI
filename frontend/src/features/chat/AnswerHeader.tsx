@@ -15,11 +15,14 @@ export default function AnswerHeader({
   selected,
   copy,
   onSelect,
+  hideDetected = false,
 }: {
   detected: ReplyLanguage | null
   selected: ReplyLanguage | null
   copy: Copy
   onSelect: (language: ReplyLanguage) => void
+  /** English tool questions don't show the detected-language label (SPEC §5.9). */
+  hideDetected?: boolean
 }) {
   if (!detected) return null
   return (
@@ -27,8 +30,12 @@ export default function AnswerHeader({
       data-motion-slot="answer-header"
       className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted"
     >
-      <span>{detected === "roman_urdu" ? copy("detectedRomanUrdu") : copy("detectedEnglish")}</span>
-      <span aria-hidden="true">·</span>
+      {hideDetected ? null : (
+        <>
+          <span>{detected === "roman_urdu" ? copy("detectedRomanUrdu") : copy("detectedEnglish")}</span>
+          <span aria-hidden="true">·</span>
+        </>
+      )}
       <span>{copy("answerIn")}</span>
       <div role="radiogroup" aria-label={copy("answerIn")} className="inline-flex gap-1 bg-elevated p-1">
         {OPTIONS.map((option) => (

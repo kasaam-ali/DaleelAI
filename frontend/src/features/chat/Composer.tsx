@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useState, useRef, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react"
 import type { CopyKey } from "../../i18n"
+import type { RedactedPart } from "../../lib/pii"
+import Icon from "../../shell/icons"
+import "./guard.css"
 
 type Copy = (key: CopyKey) => string
 
@@ -29,7 +32,8 @@ export default function Composer({
   value: string
   busy: boolean
   error: string | null
-  preview: string | null
+  /** The masked question, split so placeholders can be highlighted. Null when nothing is masked. */
+  preview: RedactedPart[] | null
   copy: Copy
   onChange: (value: string) => void
   onSubmit: () => void
@@ -85,6 +89,10 @@ export default function Composer({
   }
 
   const ready = value.trim().length > 0
+  const hint = error === copy("writeQuestion") || (value.length > 0 && !ready) ? copy("writeQuestion") : null
+  const failure = error && error !== copy("writeQuestion") ? error : null
+  const previewId = `${noteId}-preview`
+  const describedBy = [cut || showCount || hint || failure ? noteId : "", preview ? previewId : ""].filter(Boolean).join(" ")
 
   return (
     <form
@@ -113,7 +121,7 @@ export default function Composer({
           onPaste={onPaste}
           onKeyDown={onKeyDown}
           placeholder={placeholder ?? copy("placeholder")}
-          aria-describedby={cut || showCount ? noteId : undefined}
+          aria-describedby={describedBy || undefined}
           className={`max-h-40 w-full resize-none bg-transparent px-2 py-3 text-base text-ink outline-none ${
             size === "large" ? "min-h-14" : "min-h-12"
           }`}
@@ -129,7 +137,6 @@ export default function Composer({
         ) : (
           <button
             type="submit"
-            disabled={!ready}
             aria-disabled={!ready}
             data-ready={ready ? "true" : "false"}
             aria-label={copy("send")}
@@ -148,34 +155,70 @@ export default function Composer({
           </button>
         )}
       </div>
-      <div className={`mt-2 w-full ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
-        {showNote ? (
-          <p className="text-sm text-muted">
-            {copy("disclaimerShort")}
-            {showHint ? ` · ${copy("enterHint")}` : null}
-          </p>
-        ) : null}
-        {showCount ? (
-          <p id={cut ? undefined : noteId} className={`text-sm ${countWarn ? "text-warning" : "text-muted"}`}>
-            {copy("charCount").replace("{count}", count.toLocaleString("en-US"))}
-          </p>
-        ) : null}
-        {cut ? (
-          <p id={noteId} className="mt-1 text-sm text-warning" role="alert">
-            {copy("pasteCut")}
-          </p>
-        ) : null}
+      <div className={`gmeta mt-2 w-full ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
         {preview ? (
-          <p className="mt-1 max-w-[68ch] text-sm">
-            {copy("redactionPreview")} {preview}
+          <p className="gprev" id={previewId} aria-live="polite">
+            <span className="h">
+              <Icon name="lock" size="sm" />
+              {copy("redactionPreview")}
+            </span>
+            <span className="pv">
+              {copy("redactionWillSend")} <b><Masked parts={preview} /></b>
+            </span>
           </p>
         ) : null}
-        {error ? (
-          <p className="mt-1 text-sm text-low" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <span id={noteId} className="contents">
+          {cut ? (
+            <p className="gerr" role="status">
+              <Icon name="alert" size="sm" />
+              <span>
+                {copy("pasteCutTitle")}
+                <small>{copy("pasteCutDetail")}</small>
+              </span>
+            </p>
+          ) : null}
+          {hint && !cut ? (
+            <p className="gerr mut" role="status">
+              <Icon name="info" size="sm" />
+              <span>{hint}</span>
+            </p>
+          ) : null}
+          {failure ? (
+            <p className="gerr e" role="alert">
+              <Icon name="alert" size="sm" />
+              <span>{failure}</span>
+            </p>
+          ) : null}
+          {showCount ? (
+            <p className={`gcnt${countWarn ? " warn" : ""}`}>
+              {copy("charCounter").replace("{count}", count.toLocaleString("en-US"))}
+            </p>
+          ) : null}
+        </span>
       </div>
+      {showNote ? (
+        <p className={`composer-note mt-2 w-full text-sm text-muted ${placement === "dock" ? "mx-auto max-w-5xl" : ""}`}>
+          {copy("disclaimerShort")}
+          {showHint ? ` · ${copy("enterHint")}` : null}
+        </p>
+      ) : null}
     </form>
+  )
+}
+
+/** Masked text with each placeholder ([CNIC], [NTN], …) highlighted. */
+export function Masked({ parts }: { parts: RedactedPart[] }) {
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.tag ? (
+          <mark key={index} className="mk">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
   )
 }

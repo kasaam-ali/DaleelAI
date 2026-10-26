@@ -318,6 +318,29 @@ def sanitize_answer(text: str, language: str) -> str:
     )
 
 
+_FILING_SECTION = re.compile(r"\bSection\s+11[48]\b", re.I)
+
+
+def blocks_cover_filing_dates(blocks: list[ContextBlock]) -> bool:
+    """True when section 114 or 118 (return filing / due dates) is in context."""
+    return any(_FILING_SECTION.search(block.text) for block in blocks)
+
+
+def _due_date_rule(blocks: list[ContextBlock]) -> str:
+    if not blocks_cover_filing_dates(blocks):
+        return (
+            "Do not state any return filing due date, deadline, day, month or year "
+            "for filing, and do not add a line about where due dates are published. "
+        )
+    return (
+        "For a filing due date, copy each date exactly as the context states it for each "
+        "taxpayer kind it covers. Companies may have a different date from individuals and "
+        "associations of persons; never give companies the individuals' date unless the "
+        "context says so. If the context gives no date for a kind, say nothing about it. "
+        "Never invent a day, month or year. "
+    )
+
+
 def _generate_messages(
     *,
     question: str,
@@ -346,10 +369,7 @@ def _generate_messages(
         "§, clause label or statute code in the answer, and never mention a "
         "cross-reference or the context itself. The sources list shows the sections. "
         "Never invent page numbers, chunk ids, or labels like 332-(1A). Do not invent. "
-        "For a due date, give the date for each taxpayer kind the context covers "
-        "(individuals, associations of persons, companies), not only one. Tax year N ends "
-        "on 30 June N, so a date the context gives as day and month falls in that year "
-        "or the next as the context says. Never write 'the due date prescribed' with no date. "
+        f"{_due_date_rule(blocks)}"
         f"{gap_rule}"
         f"{web}"
     )

@@ -148,6 +148,8 @@ _TIDY: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?m)^[ \t]*(?:\[\d+\][ \t]*)+[.,;]?[ \t]*$\n?"), ""),
     (re.compile(r"\(\s*(?:jaise|maslan|see|e\.g\.,?|i\.e\.,?)?\s*[,;/]*\s*\)", _I), ""),
     (re.compile(r"\[\s*\]"), ""),
+    # Debris left after a sub-section ref is stripped: "(sub-)", "(sub-", "sub-section"
+    (re.compile(r"\s*\(\s*sub[\s-]*(?:sections?|clauses?)?\s*\)?(?=[\s.,;:]|$)", _I), ""),
     (re.compile(r"\*\*\s*\*\*"), ""),
     (re.compile(r"\b(?:under|per|as per|according to)\s*(?=[,.;:!?]|$)", _I | re.M), ""),
     (re.compile(r"(?m)^([ \t]*[-*>]?[ \t]*),\s*"), r"\1"),

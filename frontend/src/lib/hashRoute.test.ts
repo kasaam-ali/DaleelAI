@@ -1,7 +1,7 @@
 /** Checks hash routes, including a copied chat link. */
 
 import { describe, expect, it } from "vitest"
-import { parseHash } from "./hashRoute"
+import { hashFor, parseHash } from "./hashRoute"
 
 const ID = "6f1c2a40-7b0e-4a1d-9c3e-1a2b3c4d5e6f"
 
@@ -20,5 +20,21 @@ describe("parseHash", () => {
 
   it("ignores a chat path that is not a uuid", () => {
     expect(parseHash("#/chat/notes")).toEqual({ view: "chat", chatId: null })
+  })
+})
+
+describe("Nav v2 hash routes", () => {
+  it("reads #/about, #/checklists and #/chat/new", () => {
+    expect(parseHash("#/about")).toEqual({ view: "privacy", chatId: null })
+    expect(parseHash("#/checklists")).toEqual({ view: "checklist", chatId: null })
+    expect(parseHash("#/chat/new")).toEqual({ view: "chat", chatId: null })
+    expect(parseHash("#/privacy")).toEqual({ view: "privacy", chatId: null })
+  })
+
+  it("writes the v2 hashes", () => {
+    expect(hashFor("home")).toBe("")
+    expect(hashFor("privacy")).toBe("#/about")
+    expect(hashFor("checklist")).toBe("#/checklists")
+    expect(hashFor("calculator")).toBe("#/calculator")
   })
 })

@@ -29,6 +29,8 @@ export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
 export const CORPUS_DATES_KEY = "daleelai.corpus_dates"
 export const TAX_YEAR_KEY = "daleelai.tax_year"
+export const FILING_SAVED_KEY = "daleelai.filing_saved"
+export const RAIL_KEY = "daleelai.rail"
 
 export type QueuedQuestion = { id: string; text: string }
 export type ClientTaxYear = "TY2026" | "TY2027"
@@ -236,4 +238,41 @@ export function readTaxYear(storage: StorageLike, now = new Date()): ClientTaxYe
 
 export function writeTaxYear(storage: StorageLike, taxYear: ClientTaxYear): void {
   storage.setItem(TAX_YEAR_KEY, taxYear)
+}
+
+/** True once the user has picked a tax year; before that the default is used but not counted as set. */
+export function hasStoredTaxYear(storage: StorageLike): boolean {
+  const stored = storage.getItem(TAX_YEAR_KEY)
+  return stored === "TY2026" || stored === "TY2027"
+}
+
+export function clearTaxYear(storage: StorageLike): void {
+  storage.removeItem(TAX_YEAR_KEY)
+}
+
+export function readFilingSaved(storage: StorageLike): boolean {
+  return storage.getItem(FILING_SAVED_KEY) === "1"
+}
+
+export function writeFilingSaved(storage: StorageLike, saved: boolean): void {
+  if (saved) storage.setItem(FILING_SAVED_KEY, "1")
+  else storage.removeItem(FILING_SAVED_KEY)
+}
+
+export function readRail(storage: StorageLike): boolean {
+  return storage.getItem(RAIL_KEY) === "1"
+}
+
+export function writeRail(storage: StorageLike, rail: boolean): void {
+  storage.setItem(RAIL_KEY, rail ? "1" : "0")
+}
+
+/** How many of the 4 filing fields are set: filer status, taxpayer type, province, tax year. */
+export function filingCount(profile: Profile, taxYearSet: boolean): number {
+  return [profile.filer_status, profile.taxpayer_type, profile.province].filter(Boolean).length + (taxYearSet ? 1 : 0)
+}
+
+/** Save needs taxpayer type and filer status. */
+export function filingReady(profile: Profile): boolean {
+  return Boolean(profile.taxpayer_type && profile.filer_status)
 }

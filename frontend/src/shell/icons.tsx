@@ -2,6 +2,7 @@
 
 export type IconName =
   | "menu"
+  | "listck"
   | "plus"
   | "home"
   | "chat"
@@ -27,8 +28,15 @@ export type IconName =
   | "trash"
   | "check"
   | "close"
+  | "user"
+  | "gear"
+  | "dots"
+  | "chev"
+  | "checkShield"
+  | "calc"
 
 const PATHS: Record<IconName, string> = {
+  listck: "M9 6h11M9 12h11M9 18h11M3.5 6l1.2 1.2L7 4.8M3.5 12l1.2 1.2L7 10.8M3.5 18l1.2 1.2L7 16.8",
   menu: "M4 7h16M4 12h16M4 17h16",
   plus: "M12 5v14M5 12h14",
   home: "M4 11.2 12 4.5l8 6.7V19.5H15v-5.2H9v5.2H4z",
@@ -55,17 +63,23 @@ const PATHS: Record<IconName, string> = {
   trash: "M5 7.5h14M9.5 7.5V5.8h5V7.5M7.2 7.5l.7 11h8.2l.7-11",
   check: "M5 12.5 10 17.5 19 7.5",
   close: "M7 7l10 10M17 7 7 17",
+  user: "M8.5 8.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5",
+  gear: "M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7",
+  dots: "M5 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0M11 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0M17 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0",
+  chev: "m9 6 6 6-6 6",
+  checkShield: "M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6zM9 12l2.2 2.2L15.5 10",
+  calc: "M8.5 3.5h7a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 6 18V6a2.5 2.5 0 0 1 2.5-2.5zM9 7.5h6M9 12h.01M12 12h.01M15 12h.01M9 15.5h.01M12 15.5h.01M15 15.5h.01",
 }
 
-export default function Icon({ name }: { name: IconName }) {
+export default function Icon({ name, size = "md", className = "" }: { name: IconName; size?: "sm" | "md"; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className="h-5 w-5 shrink-0"
+      className={`${size === "sm" ? "h-4 w-4" : "h-5 w-5"} shrink-0 ${className}`}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth={size === "sm" ? "1.7" : "1.5"}
       strokeLinecap="round"
       strokeLinejoin="round"
     >

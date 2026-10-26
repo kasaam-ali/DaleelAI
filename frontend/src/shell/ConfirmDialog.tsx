@@ -1,7 +1,7 @@
 /** Confirm or cancel. Cancel is focused first, and Tab stays inside the dialog. */
 
 import { useRef, type ReactNode } from "react"
-import { useDialogFocus } from "./useDialogFocus"
+import { useModal } from "./useModal"
 
 export default function ConfirmDialog({
   title,
@@ -21,7 +21,7 @@ export default function ConfirmDialog({
   onCancel: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  useDialogFocus(true, panelRef, () => {
+  useModal(true, panelRef, () => {
     if (!pending) onCancel()
   })
 
@@ -64,7 +64,8 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="min-h-11 rounded-lg bg-low px-3 text-sm font-medium text-on-strong"
+            data-destructive
+            className="min-h-11 rounded-lg bg-error px-3 text-sm font-medium text-on-strong"
           >
             {confirmLabel}
           </button>

@@ -95,6 +95,7 @@ export default function HistoryList({
   onDelete,
   onOpenNew,
   onToast,
+  heading,
 }: {
   chats: ChatSummary[]
   activeId: string | null
@@ -104,6 +105,8 @@ export default function HistoryList({
   onDelete: (chatId: string) => Promise<void>
   onOpenNew: () => void
   onToast: (message: string) => void
+  /** Shown before the first group's label, e.g. "Recents · Today". */
+  heading?: string
 }) {
   const [menu, setMenu] = useState<{ id: string; top: number; left: number } | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -206,9 +209,9 @@ export default function HistoryList({
 
   return (
     <div className="mt-3" aria-label={copy("recentChats")}>
-      {groups.map((group) => (
+      {groups.map((group, index) => (
         <section key={group.id} className="mt-3">
-          <h2 className="px-2 text-xs text-sidebar-muted">{group.label}</h2>
+          <h2 className="px-2 text-xs text-sidebar-muted">{index === 0 && heading ? `${heading} · ${group.label}` : group.label}</h2>
           <ul className="mt-1">
             {group.chats.map((chat) => {
               const active = chat.id === activeId
@@ -226,9 +229,10 @@ export default function HistoryList({
                         title={title}
                         aria-current={active ? "true" : undefined}
                         onClick={() => onSelect(chat.id)}
-                        className={`min-w-0 flex-1 truncate px-2 text-left text-sm ${active ? "font-medium text-seal" : ""}`}
+                        className={`flex min-h-10 min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left text-sm ${active ? "font-semibold text-seal" : ""}`}
                       >
-                        {title}
+                        <Icon name="chat" />
+                        <span className="min-w-0 truncate">{title}</span>
                       </button>
                       {deleting ? (
                         <span className="motion-spin mr-2 inline-block h-3.5 w-3.5 rounded-full border-2 border-rule border-t-seal" aria-hidden="true" />
@@ -244,7 +248,7 @@ export default function HistoryList({
                             active || menu?.id === chat.id ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover:opacity-100"
                           } group-focus-within:opacity-100`}
                         >
-                          <span aria-hidden="true">⋯</span>
+                          <Icon name="dots" size="sm" />
                         </button>
                       )}
                     </div>

@@ -170,6 +170,7 @@ class PostgresStore:
         template_id: str,
         answers: dict[str, Any],
         steps: list[dict[str, Any]],
+        language: str = "en",
     ) -> str:
         self.ensure()
         checklist_id = uuid.uuid4()
@@ -178,8 +179,8 @@ class PostgresStore:
                 self._ensure_session(cur, session_id)
                 cur.execute(
                     """
-                    INSERT INTO checklists (id, session_id, template_id, answers, steps)
-                    VALUES (%s, %s, %s, %s::jsonb, %s::jsonb)
+                    INSERT INTO checklists (id, session_id, template_id, answers, steps, language)
+                    VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s)
                     """,
                     (
                         checklist_id,
@@ -187,6 +188,7 @@ class PostgresStore:
                         template_id,
                         json.dumps(answers),
                         json.dumps(steps),
+                        language,
                     ),
                 )
             conn.commit()
@@ -205,7 +207,7 @@ class PostgresStore:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT template_id, answers, steps
+                    SELECT template_id, answers, steps, COALESCE(language, 'en')
                     FROM checklists
                     WHERE id = %s AND session_id = %s
                     """,
@@ -214,12 +216,8 @@ class PostgresStore:
                 row = cur.fetchone()
                 if row is None:
                     return None
-                steps = row[2]
-                if isinstance(steps, str):
-                    steps = json.loads(steps)
-                answers = row[1]
-                if isinstance(answers, str):
-                    answers = json.loads(answers)
+                steps = _json_value(row[2])
+                answers = _json_value(row[1])
                 found = False
                 for step in steps:
                     if step.get("id") == step_id:
@@ -241,7 +239,41 @@ class PostgresStore:
             "template_id": row[0],
             "answers": answers,
             "steps": steps,
+            "language": row[3] or "en",
         }
+
+    def list_checklists(self, *, session_id: str) -> list[dict[str, Any]]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id::text, template_id, answers, steps, COALESCE(language, 'en')
+                    FROM checklists
+                    WHERE session_id = %s
+                    ORDER BY updated_at DESC
+                    """,
+                    (_uuid(session_id),),
+                )
+                rows = cur.fetchall()
+        return [_checklist_saved(row) for row in rows]
+
+    def get_checklist(self, *, session_id: str, checklist_id: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id::text, template_id, answers, steps, COALESCE(language, 'en')
+                    FROM checklists
+                    WHERE id = %s AND session_id = %s
+                    """,
+                    (_uuid(checklist_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+        if row is None:
+            return None
+        return _checklist_saved(row)
 
     def list_experts(self) -> list[dict[str, Any]]:
         self.ensure()
@@ -702,6 +734,22 @@ class PostgresStore:
 
 def _uuid(value: str) -> uuid.UUID:
     return uuid.UUID(value)
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
+def _checklist_saved(row: tuple) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "template_id": row[1],
+        "answers": _json_value(row[2]),
+        "steps": _json_value(row[3]),
+        "language": row[4] or "en",
+    }
 
 
 def _iso(value: Any) -> str:

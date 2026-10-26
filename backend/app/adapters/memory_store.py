@@ -125,6 +125,7 @@ class MemorySessionStore:
         template_id: str,
         answers: dict[str, Any],
         steps: list[dict[str, Any]],
+        language: str = "en",
     ) -> str:
         checklist_id = str(uuid.uuid4())
         self.checklists[checklist_id] = {
@@ -132,8 +133,59 @@ class MemorySessionStore:
             "template_id": template_id,
             "answers": answers,
             "steps": steps,
+            "language": language,
         }
         return checklist_id
+
+    def update_checklist_step(
+        self,
+        *,
+        session_id: str,
+        checklist_id: str,
+        step_id: str,
+        done: bool,
+    ) -> dict[str, Any] | None:
+        row = self.checklists.get(checklist_id)
+        if row is None or row["session_id"] != session_id:
+            return None
+        found = False
+        for step in row["steps"]:
+            if step["id"] == step_id:
+                step["done"] = done
+                found = True
+        if not found:
+            return None
+        return {
+            "id": checklist_id,
+            "template_id": row["template_id"],
+            "answers": row["answers"],
+            "steps": row["steps"],
+            "language": row.get("language") or "en",
+        }
+
+    def list_checklists(self, *, session_id: str) -> list[dict[str, Any]]:
+        rows = [
+            self._checklist_row(checklist_id, row)
+            for checklist_id, row in self.checklists.items()
+            if row["session_id"] == session_id
+        ]
+        rows.reverse()
+        return rows
+
+    def get_checklist(self, *, session_id: str, checklist_id: str) -> dict[str, Any] | None:
+        row = self.checklists.get(checklist_id)
+        if row is None or row["session_id"] != session_id:
+            return None
+        return self._checklist_row(checklist_id, row)
+
+    def _checklist_row(self, checklist_id: str, row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": checklist_id,
+            "template_id": row["template_id"],
+            "answers": row["answers"],
+            "steps": row["steps"],
+            "language": row.get("language") or "en",
+        }
 
     def delete_session(self, session_id: str) -> None:
         message_ids: set[str] = set()

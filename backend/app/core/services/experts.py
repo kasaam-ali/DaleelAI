@@ -7,6 +7,24 @@ from typing import Any
 from app.core.classifier import KeywordClassifier, Prediction
 
 _PATH = Path(__file__).resolve().parent.parent / "experts" / "directory.json"
+_ADVICE = {
+    "uncertain_category": (
+        "The category is uncertain. Pick one and search again.",
+        "Category clear nahi. Ek chunein aur dobara talash karein.",
+    ),
+    "simple_question": (
+        "This looks like a short question. Ask it in chat before you hire anyone.",
+        "Yeh chhota sawal lagta hai. Kisi ko hire karne se pehle chat mein poochain.",
+    ),
+    "no_listing": (
+        "No listing in that city covers this category.",
+        "Is sheher mein is category ki koi listing nahi.",
+    ),
+    "ok": (
+        "These are public listings for that category. Contact them yourself.",
+        "Yeh is category ki public listings hain. Khud rabta karein.",
+    ),
+}
 _CITIES = {
     "karachi": "Karachi",
     "lahore": "Lahore",
@@ -65,23 +83,28 @@ def find_experts(
         matched.append({**row, "match_score": score})
     matched.sort(key=lambda row: (-row["match_score"], row["name"], row["city"]))
     if prediction.low_confidence and not category:
-        advice = "The category is uncertain. Pick one and search again."
+        code = "uncertain_category"
         shown = []
     elif prediction.complexity == "simple" and not category:
-        advice = "This looks like a short question. Ask it in chat before you hire anyone."
+        code = "simple_question"
         shown = []
     elif not matched:
-        advice = "No listing in that city covers this category."
+        code = "no_listing"
         shown = []
     else:
-        advice = "These are public listings for that category. Contact them yourself."
+        code = "ok"
         shown = matched[:5]
+    english, roman = _ADVICE[code]
     return {
         "classification": prediction.public(),
         "experts": shown,
-        "advice": advice,
+        "advice": english,
+        "advice_ru": roman,
+        "advice_code": code,
         "disclaimer": directory["disclaimer"],
         "removal_contact": directory["removal_contact"],
+        "disclaimer_ru": directory.get("disclaimer_ru", ""),
+        "removal_contact_ru": directory.get("removal_contact_ru", ""),
     }
 
 

@@ -110,7 +110,8 @@ TOPICS: tuple[TaxTopic, ...] = (
         "return_filing",
         (
             "Section 114 return of income who must file Section 118 due date "
-            "for furnishing return of income filing deadline"
+            "for furnishing return of income filing deadline individual association of persons "
+            "30th September company 31st December"
         ),
         ("114", "118"),
         (
@@ -126,6 +127,15 @@ TOPICS: tuple[TaxTopic, ...] = (
             "section 114",
             "section 118",
         ),
+    ),
+    TaxTopic(
+        "pension",
+        (
+            "pension received by an employee salary Section 12 pension or annuity "
+            "Second Schedule exemption of pension retirement benefit"
+        ),
+        ("12",),
+        ("pension", "pensioner", "retired", "retirement", "buzurg"),
     ),
     TaxTopic(
         "senior_profit",
@@ -300,9 +310,7 @@ _LLM_REWRITE = (
 def detect_topics(text: str) -> list[TaxTopic]:
     blob = _normalize(text)
     found = [
-        topic
-        for topic in TOPICS
-        if any(_has_trigger(blob, trigger) for trigger in topic.triggers)
+        topic for topic in TOPICS if any(_has_trigger(blob, trigger) for trigger in topic.triggers)
     ]
     keys = {topic.key for topic in found}
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.

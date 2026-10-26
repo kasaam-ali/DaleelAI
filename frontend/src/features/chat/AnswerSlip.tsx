@@ -1,12 +1,13 @@
 /** One answer card: text, sources, agent steps, copy, and feedback. */
 
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 import type { FeedbackReason, Source } from "../../api/chat"
 import { annotatePkr, formatPkr } from "../../lib/money"
 import { safeHref } from "../../lib/safeUrl"
 import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
 import { localizedError } from "../../i18n/errors"
+import Icon from "../../shell/icons"
 import RefusalCard from "./RefusalCard"
 import { refusalKind } from "./refusal"
 import type { Turn } from "./types"
@@ -54,15 +55,21 @@ export default function AnswerSlip({
       ) : null}
 
       {!final && turn.sources.length > 0 ? (
-        <section data-motion-slot="sources-strip" aria-label={copy("sources")} className="mb-4">
-          <p className="text-sm font-medium text-muted">{copy("checkingSources")}</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {turn.sources.map((source, index) => (
-              <div key={`${source.doc_id}-${index}`} className="border border-rule bg-field px-3 py-2 text-sm">
-                <p className="font-medium text-seal">
-                  {source.section ? `${copy("section")} ${source.section}` : source.title}
-                </p>
-                <p className="text-muted">{source.title}</p>
+        <section data-motion-slot="sources-strip" aria-label={copy("sources")} className="strip-wrap">
+          <div className="strip-head">
+            <span className="badge checking">
+              <Icon name="refresh" size="sm" />
+              {copy("checkingSources")}
+            </span>
+          </div>
+          <div className="strip">
+            {turn.sources.slice(0, 4).map((source, index) => (
+              <div key={`${source.doc_id}-${index}`} className="src" style={{ "--i": index } as CSSProperties}>
+                <span className="src-top">
+                  <span className="n">{index + 1}</span>
+                  <b>{source.section ? `${copy("section")} ${source.section}` : source.title}</b>
+                </span>
+                <small>{source.title}</small>
               </div>
             ))}
           </div>
@@ -83,6 +90,7 @@ export default function AnswerSlip({
           authority={final.action_links.find((link) => link.authority)?.authority ?? null}
           query={final.trace?.search_query ?? null}
           retrieved={final.trace?.retrieved ?? null}
+          rerankTop={final.trace?.rerank_top ?? null}
           suggestions={final.follow_ups}
           links={final.action_links}
           copy={copy}

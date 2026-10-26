@@ -29,8 +29,15 @@ export function canAutoRetry(error: TurnError): boolean {
   return error.status === 429 || error.status === 503
 }
 
-/** 20s, then 40s, then 80s. After that the card waits for a manual retry. */
+const BACKOFF_MS = [14_000, 30_000, 60_000]
+
+/** 14 s, then 30 s, then 60 s (SPEC §5.2A item 10). After that the card waits for a manual retry. */
 export function retryDelayMs(attempt: number): number | null {
-  if (attempt < 0 || attempt >= 3) return null
-  return 20_000 * 2 ** attempt
+  return BACKOFF_MS[attempt] ?? null
+}
+
+/** Short request id for the error card footer, e.g. "7f3a·c21e". */
+export function shortRequestId(id: string): string {
+  const hex = id.replace(/[^0-9a-f]/gi, "").toLowerCase()
+  return hex.length >= 8 ? `${hex.slice(0, 4)}·${hex.slice(4, 8)}` : id
 }

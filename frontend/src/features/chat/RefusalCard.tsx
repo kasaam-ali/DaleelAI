@@ -1,24 +1,20 @@
 /** A limit of the library, not a failed request. */
 
+import type { CSSProperties } from "react"
 import type { ActionLink } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import { safeHref } from "../../lib/safeUrl"
+import Icon, { type IconName } from "../../shell/icons"
 import type { RefusalKind } from "./refusal"
 
 type Copy = (key: CopyKey) => string
 
-const ACCENT: Record<RefusalKind, string> = {
-  evidence: "var(--muted)",
-  scope: "var(--seal)",
-  declined: "var(--low)",
-  provincial: "var(--warning)",
-}
-
-const CHIP_CLASS: Record<RefusalKind, string> = {
-  evidence: "bg-elevated text-muted",
-  scope: "bg-mint text-seal",
-  declined: "bg-elevated text-low",
-  provincial: "bg-elevated text-warning",
+/** Accent per kind (SPEC §5.2A item 9): evidence violet, scope link blue, declined red, provincial amber. */
+const ACCENT: Record<RefusalKind, { k: string; soft: string; icon: IconName }> = {
+  evidence: { k: "var(--refusal)", soft: "var(--refusal-soft)", icon: "compass" },
+  scope: { k: "var(--link)", soft: "color-mix(in srgb, var(--link) 12%, var(--field))", icon: "map" },
+  declined: { k: "var(--error)", soft: "var(--error-soft)", icon: "ban" },
+  provincial: { k: "var(--warn)", soft: "var(--warn-soft)", icon: "map" },
 }
 
 const TITLE: Record<RefusalKind, CopyKey> = {
@@ -52,12 +48,28 @@ const FALLBACK: Record<RefusalKind, CopyKey[]> = {
   provincial: ["suggestRestaurant", "suggestGoodsTax"],
 }
 
+const OFFICIAL: Record<RefusalKind, CopyKey> = {
+  evidence: "refusalOfficial",
+  scope: "refusalOfficial",
+  declined: "refusalDeclinedOfficial",
+  provincial: "refusalProvincialOfficial",
+}
+
+const NOT_SEARCHED: Record<Exclude<RefusalKind, "evidence">, CopyKey> = {
+  scope: "refusalNotSearchedScope",
+  declined: "refusalNotSearchedDeclined",
+  provincial: "refusalNotSearchedProvincial",
+}
+
+type LinkRow = { href: string; title: string; detail: string; external: boolean }
+
 export default function RefusalCard({
   kind,
   reason,
   authority,
   query,
   retrieved,
+  rerankTop = null,
   suggestions,
   links,
   copy,
@@ -68,92 +80,134 @@ export default function RefusalCard({
   authority: string | null
   query: string | null
   retrieved: number | null
+  rerankTop?: number | null
   suggestions: string[]
   links: ActionLink[]
   copy: Copy
   onAsk: (question: string) => void
 }) {
   const chips = suggestions.length > 0 ? suggestions : FALLBACK[kind].map((key) => copy(key))
-  const official = links.filter((link) => safeHref(link.url))
   const injection = kind === "declined" && INJECTION.test(reason)
   const title =
     kind === "provincial" && authority
       ? `${copy("handledBy")} ${authority}`
       : copy(injection ? "refusalInjectionTitle" : TITLE[kind])
-  return (
-    <div
-      data-motion-slot="refusal-card"
-      className="border border-rule bg-field"
-      style={{ borderInlineStartWidth: 4, borderInlineStartColor: ACCENT[kind] }}
-    >
-      <div className="px-4 py-4">
-        <p className={`inline-block px-2 py-1 text-xs font-medium ${CHIP_CLASS[kind]}`}>{copy(LABEL[kind])}</p>
-        <h3 className="mt-3 font-statute text-xl font-medium">{title}</h3>
-        <p className="mt-2 max-w-[62ch] text-sm">{reason}</p>
+  const helpline: LinkRow = { href: "tel:051111772772", title: copy("helpline"), detail: copy("helplineHours"), external: false }
+  const fixed: LinkRow[] =
+    kind === "evidence"
+      ? [helpline, { href: "https://www.fbr.gov.pk/", title: copy("fbrLaws"), detail: copy("fbrLawsDetail"), external: true }]
+      : kind === "declined"
+        ? [{ href: "https://iris.fbr.gov.pk/", title: copy("iris"), detail: copy("irisDetail"), external: true }, { ...helpline, detail: copy("helplineDetail") }]
+        : []
+  const official: LinkRow[] = [
+    ...fixed,
+    ...links.flatMap((link) => {
+      const href = safeHref(link.url)
+      return href ? [{ href, title: link.label, detail: link.authority, external: true }] : []
+    }),
+  ]
+  const accent = ACCENT[kind]
+  const style = { "--k": accent.k, "--k-soft": accent.soft } as CSSProperties
+  const tryBlock = (
+    <div className="rsec">
+      <h4>{copy(TRY[kind])}</h4>
+      <div className="rchips">
+        {chips.map((question) => (
+          <button key={question} type="button" onClick={() => onAsk(question)}>
+            <Icon name="arrow" size="sm" />
+            {question}
+          </button>
+        ))}
       </div>
-      <div className="border-t border-rule px-4 py-3">
-        <h4 className="text-sm font-medium text-muted">{copy(TRY[kind])}</h4>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {chips.map((question) => (
-            <button
-              key={question}
-              type="button"
-              onClick={() => onAsk(question)}
-              className="min-h-11 border border-rule bg-paper px-3 text-start text-sm"
+    </div>
+  )
+  const linkBlock =
+    official.length > 0 ? (
+      <div className="rsec">
+        <h4>{copy(OFFICIAL[kind])}</h4>
+        <div className="rlinks">
+          {official.map((link) => (
+            <a
+              key={link.href + link.title}
+              className="rlink"
+              href={link.href}
+              {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             >
-              {question}
-            </button>
+              <Icon name="globe" size="sm" />
+              <span>
+                <b>{link.title}</b>
+                <small>{link.detail}</small>
+              </span>
+              <Icon name="chev" size="sm" />
+            </a>
           ))}
         </div>
       </div>
-      {kind === "evidence" || kind === "declined" || official.length > 0 ? (
-        <div className="border-t border-rule px-4 py-3">
-          <h4 className="text-sm font-medium text-muted">{copy("refusalOfficial")}</h4>
-          {kind === "evidence" || kind === "declined" ? (
-            <p className="mt-2 text-sm">
-              {copy("helpline")} · {copy("helplineDetail")}
-            </p>
-          ) : null}
-          <ul className="mt-2 grid gap-2">
-            {(kind === "evidence" ? [{ href: "https://www.fbr.gov.pk/", label: copy("fbrLaws") }] : []).map((link) => (
-              <li key={link.href}>
-                <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-sm text-seal">
-                  {link.label}
-                </a>
-              </li>
-            ))}
-            {(kind === "declined" ? [{ href: "https://iris.fbr.gov.pk/", label: copy("iris") }] : []).map((link) => (
-              <li key={link.href}>
-                <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-sm text-seal">
-                  {link.label}
-                </a>
-              </li>
-            ))}
-            {official.map((link) => (
-              <li key={link.url}>
-                <a href={safeHref(link.url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-sm text-seal">
-                  {link.label}
-                  <span className="text-muted"> · {link.authority}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+    ) : null
+  return (
+    <div data-motion-slot="refusal-card" data-kind={kind} className="card rcard" style={style}>
+      <div className="rhead">
+        <span className="ri">
+          <Icon name={accent.icon} />
+        </span>
+        <div>
+          <span className="kind">{copy(LABEL[kind])}</span>
+          <h3>{title}</h3>
+          <p>{reason}</p>
         </div>
-      ) : null}
-      <div className="border-t border-rule px-4 py-3 text-sm text-muted">
+      </div>
+      {kind === "provincial" ? (
+        <>
+          {linkBlock}
+          {tryBlock}
+        </>
+      ) : (
+        <>
+          {tryBlock}
+          {linkBlock}
+        </>
+      )}
+      <div className="rsec">
         {kind === "evidence" ? (
-          <details>
-            <summary className="cursor-pointer font-medium">{copy("refusalSearched")}</summary>
-            {query ? <p className="mt-2 bg-elevated px-2 py-2 text-ink" dir="ltr">{query}</p> : null}
-            <p className="mt-2">{retrieved == null ? copy("stepNone") : `${retrieved} · ${copy("stepRetrieved")}`}</p>
+          <details className="searched" open>
+            <summary>
+              <Icon name="search" size="sm" />
+              {copy("refusalSearched")}
+              <Icon name="chev" size="sm" className="chev" />
+            </summary>
+            {query ? (
+              <span className="sq" dir="ltr">
+                <Icon name="search" size="sm" />
+                {query}
+              </span>
+            ) : null}
+            <p className="scount">{copy("refusalTraceNote")}</p>
+            <div className="miss">
+              <b>{copy("refusalRowRetrieved")}</b>
+              <span>{retrieved == null ? copy("stepNone") : String(retrieved)}</span>
+              <i aria-hidden="true">
+                <em style={{ width: retrieved ? "100%" : "0%" }} />
+              </i>
+            </div>
+            <div className="miss">
+              <b>{copy("refusalRowRerank")}</b>
+              <span>{rerankTop == null ? copy("stepNone") : rerankTop.toFixed(2)}</span>
+              <i aria-hidden="true">
+                <em style={{ width: `${Math.round(Math.max(0, Math.min(1, rerankTop ?? 0)) * 100)}%` }} />
+              </i>
+            </div>
+            <div className="miss">
+              <b>{copy("refusalRowVerified")}</b>
+              <span>0 · {copy("refusalNoAnswer")}</span>
+              <i aria-hidden="true">
+                <em style={{ width: "0%" }} />
+              </i>
+            </div>
           </details>
         ) : (
-          <p>
-            {kind === "scope"
-              ? copy("refusalNotSearchedScope")
-              : kind === "declined"
-                ? copy("refusalNotSearchedDeclined")
-                : copy("refusalNotSearchedProvincial")}
+          <p className="notsearched">
+            <Icon name="info" size="sm" />
+            {copy(NOT_SEARCHED[kind])}
           </p>
         )}
       </div>

@@ -25,6 +25,9 @@ function turn(): Turn {
     stopped: false,
     replyLanguage: "en",
     autoRetryIn: null,
+    autoRetryCancelled: false,
+    sentAt: null,
+    phaseTimes: [null, null, null, null],
     final: {
       answer: ENGLISH,
       answer_source: "none",

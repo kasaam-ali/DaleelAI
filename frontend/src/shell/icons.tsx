@@ -2,6 +2,16 @@
 
 export type IconName =
   | "menu"
+  | "globe"
+  | "refresh"
+  | "wifiOff"
+  | "copy"
+  | "info"
+  | "arrow"
+  | "alert"
+  | "compass"
+  | "map"
+  | "ban"
   | "listck"
   | "plus"
   | "home"
@@ -36,6 +46,16 @@ export type IconName =
   | "calc"
 
 const PATHS: Record<IconName, string> = {
+  globe: "M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17",
+  refresh: "M19 12a7 7 0 1 1-2.1-5M19 4.5V9h-4.5",
+  wifiOff: "M4 4l16 16M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5-2.7M14.5 10.4A10 10 0 0 1 19 13M2.5 9.5a14 14 0 0 1 4-2.6M11 6.1a14 14 0 0 1 10.5 3.4M12 19.4v.2",
+  copy: "M10 8h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM5 15V6a1 1 0 0 1 1-1h9",
+  info: "M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0M12 11v5M12 8h.01",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  alert: "M12 4 2.5 20h19zM12 10v4M12 17h.01",
+  compass: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0M15 9l-2 5-4 1 2-5z",
+  map: "M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14",
+  ban: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0M6.5 6.5l11 11",
   listck: "M9 6h11M9 12h11M9 18h11M3.5 6l1.2 1.2L7 4.8M3.5 12l1.2 1.2L7 10.8M3.5 18l1.2 1.2L7 16.8",
   menu: "M4 7h16M4 12h16M4 17h16",
   plus: "M12 5v14M5 12h14",

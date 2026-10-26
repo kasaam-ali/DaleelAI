@@ -129,7 +129,7 @@ export default function AppShell({
   profile: Profile
   chats: ChatSummary[]
   activeChatId: string | null
-  service: "checking" | "online" | "degraded"
+  service: "checking" | "online" | "degraded" | "offline"
   menuOpen: boolean
   copy: Copy
   onView: (view: AppView) => void
@@ -368,15 +368,17 @@ export default function AppShell({
               <span
                 aria-hidden="true"
                 className={`inline-block h-2 w-2 rounded-full ${
-                  service === "online" ? "bg-seal" : service === "degraded" ? "bg-warning" : "bg-sidebar-muted"
+                  service === "online" ? "bg-seal" : service === "checking" ? "bg-sidebar-muted" : "bg-warning"
                 }`}
               />
               <span className={collapsed ? "lg:sr-only" : ""}>
                 {service === "online"
                   ? copy("serviceOnline")
-                  : service === "degraded"
-                    ? copy("serviceDegraded")
-                    : copy("serviceChecking")}
+                  : service === "offline"
+                    ? copy("serviceUnreachable")
+                    : service === "degraded"
+                      ? copy("serviceDegraded")
+                      : copy("serviceChecking")}
               </span>
             </p>
           </div>
@@ -435,6 +437,15 @@ export default function AppShell({
             ]}
           />
         </header>
+        {service === "offline" || service === "degraded" ? (
+          <p className="flex items-center gap-2 border-b border-rule px-4 py-2 text-xs text-muted lg:hidden" role="status">
+            <span
+              aria-hidden="true"
+              className="inline-block h-2 w-2 shrink-0 rounded-full bg-warning"
+            />
+            {service === "offline" ? copy("serviceUnreachable") : copy("serviceDegraded")}
+          </p>
+        ) : null}
         <p className="border-b border-rule px-4 py-2 text-xs text-muted lg:hidden">{copy("disclaimerShort")}</p>
         <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
           {children}

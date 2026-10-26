@@ -6,9 +6,7 @@ import {
   sendFeedback,
   streamChat,
   type FeedbackReason,
-  type FinalData,
   type SseEvent,
-  type StoredMessage,
 } from "../../api/chat"
 import type { CopyKey } from "../../i18n"
 import { localizedError } from "../../i18n/errors"
@@ -16,8 +14,10 @@ import { redactPii } from "../../lib/pii"
 import {
   asReplyLanguage,
   readAnswerLanguage,
+  readCorpusDates,
   readOfflineQueue,
   readSessionId,
+  rememberCorpusDate,
   writeAnswerLanguage,
   writeOfflineQueue,
   type AnswerLanguage,
@@ -26,12 +26,13 @@ import {
   type UiLanguage,
 } from "../../lib/session"
 import AnswerHeader from "./AnswerHeader"
-import AnswerSlip from "./AnswerSlip"
+import AnswerSlip, { SourcesRail } from "./AnswerSlip"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
 import EmptyState from "./EmptyState"
 import ErrorCard from "./ErrorCard"
 import { asTurnError, canAutoRetry, retryDelayMs } from "./failure"
+import { turnsFromHistory } from "./history"
 import OfflineBanner from "./OfflineBanner"
 import StatusSteps from "./StatusSteps"
 import { PENDING_PHASES, reducePhases } from "./steps"
@@ -133,8 +134,18 @@ export default function ChatPage({
     getChat(sessionId, chatId)
       .then((detail) => {
         if (cancelled || born.current === chatId) return
-        const loaded = turnsFromHistory(detail.messages)
-        setBucket((current) => keepLiveTurns(current, chatId, loaded, queueRef.current))
+        setBucket((current) => {
+          const dates = { ...readCorpusDates(localStorage) }
+          for (const turn of current.turns) {
+            if (turn.messageId && turn.final?.corpus_date) dates[turn.messageId] = turn.final.corpus_date
+          }
+          return keepLiveTurns(
+            current,
+            chatId,
+            turnsFromHistory(detail.messages, dates),
+            queueRef.current,
+          )
+        })
       })
       .catch(() => {
         if (cancelled || born.current === chatId) return
@@ -355,13 +366,18 @@ export default function ChatPage({
     } else if (event.event === "sources") {
       patch(id, (current) => ({ ...current, sources: event.data.sources }))
     } else if (event.event === "final") {
-      patch(id, (current) => ({
-        ...current,
-        final: event.data,
-        draft: event.data.answer,
-        taxYear: event.data.tax_year,
-        status: "",
-      }))
+      patch(id, (current) => {
+        if (current.messageId && event.data.corpus_date) {
+          rememberCorpusDate(localStorage, current.messageId, event.data.corpus_date)
+        }
+        return {
+          ...current,
+          final: event.data,
+          draft: event.data.answer,
+          taxYear: event.data.tax_year,
+          status: "",
+        }
+      })
     } else if (event.event === "error") {
       patch(id, (current) => ({
         ...current,
@@ -452,14 +468,19 @@ export default function ChatPage({
             turns.map((turn) => {
               const streaming = Boolean(turn.draft) || turn.sources.length > 0
               return (
-              <div key={turn.id} className="rise-in mt-6">
-                <div className="flex justify-end">
-                  <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
-                    {turn.question}
-                  </p>
+              <div
+                key={turn.id}
+                className="rise-in mt-6 w-full xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-10"
+              >
+                <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                  <div className="flex justify-end">
+                    <p className="max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink">
+                      {turn.question}
+                    </p>
+                  </div>
+                  {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
                 </div>
-                {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
-                <div className="mt-4 flex gap-3">
+                <div className="mt-4 flex min-w-0 gap-3 xl:col-start-1 xl:row-start-2">
                   <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center bg-seal text-seal-ink" aria-hidden="true">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
                       <path d="M6 5.5h7.2L17 9.2V18.5H6v-13z" strokeLinejoin="round" />
@@ -503,7 +524,6 @@ export default function ChatPage({
                     {!turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn)) ? (
                       <AnswerSlip
                         turn={turn}
-                        language={language}
                         copy={copy}
                         onAsk={(question) => void ask(question)}
                         onFeedback={(rating, reason) => {
@@ -513,6 +533,12 @@ export default function ChatPage({
                     ) : null}
                   </div>
                 </div>
+                <SourcesRail
+                  turn={turn}
+                  language={language}
+                  copy={copy}
+                  className="xl:col-start-2 xl:row-start-2 xl:mt-4"
+                />
               </div>
               )
             })
@@ -604,73 +630,4 @@ function mergeQueued(turns: Turn[], queued: { id: string; text: string }[]): Tur
     .filter((item) => !ids.has(item.id))
     .map((item) => blankTurn(item.id, item.text, false, true))
   return extra.length === 0 ? turns : [...turns, ...extra]
-}
-
-function turnsFromHistory(messages: StoredMessage[]): Turn[] {
-  const turns: Turn[] = []
-  let question: StoredMessage | null = null
-  for (const message of messages) {
-    if (message.role === "user") {
-      if (question) turns.push(historyTurn(question, null))
-      question = message
-    } else if (question) {
-      turns.push(historyTurn(question, message))
-      question = null
-    }
-  }
-  if (question) turns.push(historyTurn(question, null))
-  return turns
-}
-
-function historyTurn(question: StoredMessage, answer: StoredMessage | null): Turn {
-  const source = answer?.answer_source
-  const confidence = answer?.confidence
-  const final: FinalData | null =
-    answer && (source === "verified" || source === "web" || source === "none")
-      ? {
-          answer: answer.content,
-          answer_source: source,
-          confidence: confidence === "high" || confidence === "low" ? confidence : "medium",
-          verified: Boolean(answer.verified),
-          model: answer.model ?? "",
-          tax_year: answer.tax_year ?? "",
-          corpus_date: "",
-          action_links: [],
-          follow_ups: [],
-          cached: false,
-          trace: answer.intent
-            ? {
-                intent: answer.intent,
-                search_query: "",
-                retrieved: null,
-                rerank_top: null,
-                verified: answer.verified,
-                latency_ms: null,
-              }
-            : null,
-        }
-      : null
-  return {
-    id: question.id,
-    question: question.content,
-    redacted: false,
-    status: "",
-    draft: answer?.content ?? "",
-    sources: answer?.sources ?? [],
-    intent: answer?.intent ?? null,
-    detectedLanguage: asReplyLanguage(answer?.language ?? question.language),
-    phases: [...PENDING_PHASES],
-    queued: false,
-    stopped: false,
-    replyLanguage: null,
-    autoRetryIn: null,
-    final,
-    error: null,
-    messageId: answer?.id ?? null,
-    taxYear: answer?.tax_year ?? null,
-    feedback: answer?.feedback ?? null,
-    feedbackNote: null,
-    toolNote: false,
-    toolCard: null,
-  }
 }

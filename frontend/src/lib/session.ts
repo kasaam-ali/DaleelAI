@@ -27,6 +27,7 @@ export const ANSWER_LANGUAGE_KEY = "daleelai.answer_language"
 export const OFFLINE_QUEUE_KEY = "daleelai.offline_queue"
 export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
+export const CORPUS_DATES_KEY = "daleelai.corpus_dates"
 
 export type QueuedQuestion = { id: string; text: string }
 
@@ -74,7 +75,33 @@ export function clearLocalHistory(storage: StorageLike): string {
   const created = crypto.randomUUID()
   storage.setItem(SESSION_KEY, created)
   storage.removeItem(CHAT_KEY)
+  storage.removeItem(CORPUS_DATES_KEY)
   return created
+}
+
+export function readCorpusDates(storage: StorageLike): Record<string, string> {
+  const raw = storage.getItem(CORPUS_DATES_KEY)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== "object") return {}
+    const dates: Record<string, string> = {}
+    for (const [id, value] of Object.entries(parsed)) {
+      if (typeof value === "string" && value.trim()) dates[id] = value
+    }
+    return dates
+  } catch {
+    return {}
+  }
+}
+
+export function rememberCorpusDate(storage: StorageLike, messageId: string, date: string) {
+  const when = date.trim()
+  if (!messageId || !when) return
+  const dates = readCorpusDates(storage)
+  if (dates[messageId] === when) return
+  dates[messageId] = when
+  storage.setItem(CORPUS_DATES_KEY, JSON.stringify(dates))
 }
 
 export function readProfile(storage: StorageLike): Profile {

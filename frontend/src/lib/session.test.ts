@@ -3,15 +3,18 @@
 import { describe, expect, it } from "vitest"
 import {
   CHAT_KEY,
+  CORPUS_DATES_KEY,
   EMPTY_PROFILE,
   PROFILE_KEY,
   SESSION_KEY,
   clearLocalHistory,
   readAnswerLanguage,
+  readCorpusDates,
   readLanguage,
   readOfflineQueue,
   readProfile,
   readSessionId,
+  rememberCorpusDate,
   sanitizeProfile,
   writeAnswerLanguage,
   writeLanguage,
@@ -71,6 +74,16 @@ describe("session", () => {
     expect(next).not.toBe(first)
     expect(store.data.get(SESSION_KEY)).toBe(next)
     expect(store.data.has(CHAT_KEY)).toBe(false)
+    expect(store.data.has(CORPUS_DATES_KEY)).toBe(false)
+  })
+
+  it("remembers a law-as-of date for a saved answer", () => {
+    const store = memory()
+    rememberCorpusDate(store, "message-1", "2026-10-14")
+    expect(readCorpusDates(store)).toEqual({ "message-1": "2026-10-14" })
+    store.setItem(CORPUS_DATES_KEY, "2026-10-14")
+    clearLocalHistory(store)
+    expect(readCorpusDates(store)).toEqual({})
   })
 
   it("keeps the shell language and the per-chat answer language apart", () => {

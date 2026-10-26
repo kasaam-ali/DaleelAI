@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 
 from app.agents.answer import sanitize_answer
 from app.agents.rag import RagResult
-from app.agents.router import lexicon_route, resolve_reply_language
+from app.agents.router import is_prompt_injection, lexicon_route, resolve_reply_language
 from app.api.v1.schemas import (
     AgentTrace,
     ChatRequest,
@@ -37,6 +37,10 @@ QaRunner = Callable[[ChatRequest, str, str], Awaitable[RagResult]]
 _REFUSAL = (
     "I can't help with hiding income, evading tax, or fake documents. "
     "For legal filing, use IRIS or call FBR at 051-111-772-772."
+)
+_INJECTION_REFUSAL = (
+    "I can't ignore the rules or reveal a hidden prompt. "
+    "Ask a tax question and I will answer from the ordinance."
 )
 _NOT_READY = "That tool is not available yet."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
@@ -382,7 +386,7 @@ async def iter_chat_events(
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:
-        answer = _short_reply(routed.intent, routed.authority)
+        answer = _short_reply(routed.intent, routed.authority, body.message)
         links = match_action_links(body.message, rules, domains=set())
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, links)
@@ -623,14 +627,14 @@ async def _yield_demo(store, session, chat_id, message_id, question, demo, tax_y
         search_query=question,
         retrieved=0,
         rerank_top=None,
-        verified=True,
+        verified=False,
         latency_ms=0,
     )
     final = FinalData(
         answer=answer,
         answer_source="none",
-        confidence="high",
-        verified=True,
+        confidence="low",
+        verified=False,
         model="demo-cache",
         tax_year=tax_year,
         corpus_date=corpus_date,
@@ -690,8 +694,10 @@ def _statutory_section(payload: dict[str, Any]) -> str | None:
     return found.group(1) if found else None
 
 
-def _short_reply(intent: str, authority: str | None) -> str:
+def _short_reply(intent: str, authority: str | None, message: str = "") -> str:
     if intent == "refuse":
+        if is_prompt_injection(message):
+            return _INJECTION_REFUSAL
         return _REFUSAL
     if intent == "chitchat":
         return _CHITCHAT

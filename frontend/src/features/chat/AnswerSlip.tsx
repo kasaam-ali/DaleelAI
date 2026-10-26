@@ -12,6 +12,10 @@ type Copy = (key: CopyKey) => string
 
 const CONFIDENCE = { high: "high", medium: "medium", low: "low" } as const
 
+function hasCitation(sources: Source[]): boolean {
+  return sources.some((source) => Boolean(source.section || source.url || source.snippet))
+}
+
 export default function AnswerSlip({
   turn,
   language,
@@ -27,6 +31,10 @@ export default function AnswerSlip({
 }) {
   const [reasonsOpen, setReasonsOpen] = useState(false)
   const final = turn.final
+  const cited = hasCitation(turn.sources)
+  const library = final && cited ? final.answer_source : "none"
+  const verified = Boolean(final?.verified) && cited
+  const confidence = final && cited ? final.confidence : "low"
   const text = final ? annotatePkr(final.answer) : turn.draft
   const waiting = !text && !turn.error
 
@@ -58,17 +66,17 @@ export default function AnswerSlip({
             <div className="mt-5">
               <p
                 className={
-                  final.answer_source === "verified"
+                  library === "verified"
                     ? "text-sm font-medium text-seal"
-                    : final.answer_source === "web"
+                    : library === "web"
                       ? "text-sm font-medium text-web"
                       : "text-sm text-muted"
                 }
               >
                 {copy(
-                  final.answer_source === "verified"
+                  library === "verified"
                     ? "libraryVerified"
-                    : final.answer_source === "web"
+                    : library === "web"
                       ? "libraryWeb"
                       : "libraryNone",
                 )}
@@ -76,12 +84,12 @@ export default function AnswerSlip({
               <dl className="mt-4 grid gap-3 border-t border-rule pt-3 sm:grid-cols-3">
                 <div>
                   <dt className="text-xs text-muted">{copy("confidence")}</dt>
-                  <dd className="text-sm">{copy(CONFIDENCE[final.confidence])}</dd>
+                  <dd className="text-sm">{copy(CONFIDENCE[confidence])}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted">{copy("verified")}</dt>
-                  <dd className={`text-sm ${final.verified ? "text-seal" : "text-low"}`}>
-                    {final.verified ? copy("verified") : copy("notVerified")}
+                  <dd className={`text-sm ${verified ? "text-seal" : "text-low"}`}>
+                    {verified ? copy("verified") : copy("notVerified")}
                   </dd>
                 </div>
                 <div>
@@ -275,7 +283,9 @@ function AgentSteps({ turn, copy }: { turn: Turn; copy: Copy }) {
             </div>
             <div>
               <dt className="inline text-muted">{copy("stepVerified")} </dt>
-              <dd className="inline">{trace.verified ? copy("stepYes") : copy("stepNo")}</dd>
+              <dd className="inline">
+                {hasCitation(turn.sources) && trace.verified ? copy("stepYes") : copy("stepNo")}
+              </dd>
             </div>
             <div>
               <dt className="inline text-muted">{copy("stepLatency")} </dt>

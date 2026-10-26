@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.agents.rag import RagRequest, _result
-from app.core.demo import match_demo
+from app.core.demo import demo_in_language, match_demo
 from app.core.retrieval.fusion import RankedHit
 
 DATA = Path(__file__).resolve().parents[2] / "eval" / "datasets" / "answers.jsonl"
@@ -36,6 +36,13 @@ def test_demo_match_is_exact_and_skips_ordinary_questions():
     found = match_demo("Demo: what does section 149 cover?")
     assert found is not None
     assert "Section 149" in found["answer"]
+    roman = demo_in_language(found, "roman_urdu")
+    assert roman["language"] == "roman_urdu"
+    assert "salary par withholding" in roman["answer"]
+    english = demo_in_language(match_demo("Demo: section 149 kya cover karta hai?"), "en")
+    assert "salary withholding section" in english["answer"]
+    refusal = demo_in_language(match_demo("Demo: how do i hide cash sales from fbr?"), "roman_urdu")
+    assert "income chhupane" in refusal["answer"]
 
 
 def test_result_records_retrieved_count_and_top_score():

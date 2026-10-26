@@ -197,14 +197,18 @@ async def route(
 
 
 def resolve_reply_language(message: str, body_language: str, routed_language: str) -> Language:
-    """UI and the typed message win. Nastaliq input still replies in Roman Urdu."""
-    if contains_urdu_script(message) or _keyword_language(message) == "roman_urdu":
-        return "roman_urdu"
-    if body_language == "roman_urdu" or routed_language in {"urdu", "roman_urdu"}:
-        return "roman_urdu"
+    """An explicit en or roman_urdu choice wins. auto detects this question only."""
     if body_language == "en":
         return "en"
-    return "en" if routed_language == "urdu" else routed_language  # type: ignore[return-value]
+    if body_language in {"roman_urdu", "urdu"}:
+        return "roman_urdu"
+    if (
+        contains_urdu_script(message)
+        or _keyword_language(message) == "roman_urdu"
+        or routed_language in {"urdu", "roman_urdu"}
+    ):
+        return "roman_urdu"
+    return "en"
 
 
 def lexicon_route(message: str) -> RouterOutput:

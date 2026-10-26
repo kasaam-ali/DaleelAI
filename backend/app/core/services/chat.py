@@ -283,6 +283,7 @@ async def iter_chat_events(
                     sanitize_answer("".join(streamed), language),
                     language,
                     n_sources=len(collected_sources),
+                    fallback=True,
                 )
                 stored_sources = collected_sources
                 final = _final(
@@ -329,7 +330,10 @@ async def iter_chat_events(
             yield {"event": "done", "data": {}}
             return
         if emitted == 0:
-            yield {"event": "token", "data": {"text": plain_answer(result.answer, language)}}
+            yield {
+                "event": "token",
+                "data": {"text": plain_answer(result.answer, language, fallback=True)},
+            }
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
             library = "web"
@@ -347,7 +351,7 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            plain_answer(result.answer, language, n_sources=len(result.sources)),
+            plain_answer(result.answer, language, n_sources=len(result.sources), fallback=True),
             result.answer_source,
             result.verified,
             result.model,

@@ -197,10 +197,21 @@ def _cap_chips(text: str, n_sources: int | None) -> str:
     return re.sub(r"\[(\d+)\]", lambda m: m.group(0) if int(m.group(1)) <= n_sources else "", text)
 
 
-def plain_answer(text: str, language: str = "en", n_sources: int | None = None) -> str:
+def plain_answer(
+    text: str, language: str = "en", n_sources: int | None = None, *, fallback: bool = False
+) -> str:
     out, _ = _drop_ref_blocks(_pre(text or ""))
-    out = _drop_broken(_strip(out, n_sources))
-    return out.strip()
+    out = _drop_broken(_strip(out, n_sources)).strip()
+    if fallback and not out and (text or "").strip():
+        return EMPTY_FALLBACK.get(language, EMPTY_FALLBACK["en"])
+    return out
+
+
+# Shown when every sentence was stripped, so the reply is never blank.
+EMPTY_FALLBACK = {
+    "en": "This is not clear from the sources I found. Please check the FBR website.",
+    "roman_urdu": "Yeh baat sources se clear nahi. FBR website check karein.",
+}
 
 
 # Structural signs that a sentence lost a noun when a ref was stripped. These
@@ -220,6 +231,8 @@ _STRANDED = re.compile(
     # Meta talk about the retrieved text: "the context does not provide", "context mein"
     r"|\b(?:the|this|given|provided)\s+context\b"
     r"|\bcontext\s+(?:mein|me|main|se|ke|ki|ka|does|did|is|only|says|states|provides|gives)\b"
+    r"|\b(?:provided|available|given|retrieved|supplied)\s+(?:rules?|information|info|text|sources?|documents?|data|material|excerpts?|sections?)\b"
+    r"|\b(?:information|sources?|text)\s+(?:does|do|did)\s+not\s+(?:specify|mention|provide|state|say|give)\b"
     r"|^\W*\)?\s*applies\b"
     # A legal noun with no content left: "The only provision (...) applies."
     rf"|^\W*(?:the\s+)?(?:only\s+|relevant\s+|special\s+)*(?:provisions?|rules?|clauses?)\b"

@@ -25,6 +25,7 @@ def expand_parents(
     sections: dict[str, str],
     *,
     token_budget: int = 6000,
+    max_block_tokens: int | None = None,
 ) -> list[ContextBlock]:
     """One block per parent, in hit order. Unknown parents fall back to the chunk text."""
     seen: set[str] = set()
@@ -35,15 +36,34 @@ def expand_parents(
         if parent_id in seen:
             continue
         seen.add(parent_id)
-        text = sections.get(parent_id, str(hit.payload.get("text", "")))
+        text = _labeled_text(hit.payload, sections.get(parent_id, str(hit.payload.get("text", ""))))
+        trimmed = False
+        if max_block_tokens and estimate_tokens(text) > max_block_tokens:
+            text = text[: max_block_tokens * _CHARS_PER_TOKEN]
+            trimmed = True
         if used >= token_budget:
             break
         tokens = estimate_tokens(text)
         if used + tokens <= token_budget:
-            blocks.append(ContextBlock(parent_id=parent_id, text=text))
+            blocks.append(ContextBlock(parent_id=parent_id, text=text, trimmed=trimmed))
             used += tokens
             continue
         room = (token_budget - used) * _CHARS_PER_TOKEN
         blocks.append(ContextBlock(parent_id=parent_id, text=text[:room], trimmed=True))
         break
     return blocks
+
+
+def _labeled_text(payload: dict, text: str) -> str:
+    section = str(payload.get("section") or "").strip()
+    if not section:
+        return text
+    header = str(payload.get("header") or "")
+    kind = "Rule" if " > Rule " in header else "Section"
+    title = str(payload.get("section_title") or "").strip()
+    label = f"{kind} {section}"
+    if title:
+        label += f" {title}"
+    if text.startswith(label) or text.startswith(f"Section {section}"):
+        return text
+    return f"{label}.\n{text}"

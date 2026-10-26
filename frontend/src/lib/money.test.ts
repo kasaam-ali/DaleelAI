@@ -1,3 +1,5 @@
+/** Checks rupee grouping and the lakh or crore hint. */
+
 import { describe, expect, it } from "vitest"
 import { annotatePkr, formatPkr } from "./money"
 

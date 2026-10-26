@@ -1,3 +1,5 @@
+"""Checks section splitting, headers, overlap, and near-duplicate removal."""
+
 import json
 
 from pipeline.chunk import (

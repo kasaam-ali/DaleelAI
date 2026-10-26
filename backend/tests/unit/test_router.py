@@ -1,3 +1,5 @@
+"""Checks the intent router and the keyword fallback when every model is down."""
+
 import json
 from datetime import date
 
@@ -5,9 +7,10 @@ import pytest
 
 from app.agents.router import (
     ChatTurn,
-    RouterParseError,
     RouterRequest,
     keyword_route,
+    lexicon_route,
+    resolve_reply_language,
     route,
 )
 from app.core.ports import AllProvidersUnavailable, ChatMessage, LLMResult
@@ -83,7 +86,7 @@ async def test_urdu_script_overrides_model_language():
 
     output = await route(llm, request("تنخواہ پر ٹیکس کتنا ہے؟"))
 
-    assert output.language == "urdu"
+    assert output.language == "roman_urdu"
     assert llm.role == "fast"
 
 
@@ -101,18 +104,22 @@ async def test_only_the_last_four_turns_are_sent():
     assert "freelancer" in prompt
 
 
-async def test_invalid_json_is_not_a_keyword_fallback():
+async def test_invalid_json_uses_the_keyword_router():
     llm = ScriptedLLM("I cannot help with that.")
 
-    with pytest.raises(RouterParseError):
-        await route(llm, request("What is section 149?"))
+    output = await route(llm, request("What is section 149?"))
+
+    assert output.intent == "qa"
+    assert "149" in output.search_query
 
 
-async def test_qa_without_search_query_is_rejected():
+async def test_qa_without_search_query_falls_back_to_keyword():
     llm = ScriptedLLM(model_json(search_query="  "))
 
-    with pytest.raises(RouterParseError):
-        await route(llm, request("What is section 149?"))
+    output = await route(llm, request("What is section 149?"))
+
+    assert output.intent == "qa"
+    assert "149" in output.search_query
 
 
 async def test_providers_down_uses_keyword_router():
@@ -163,10 +170,29 @@ def test_keyword_qa_keeps_the_message_as_the_search_query():
     assert output.jurisdiction == "federal"
     assert output.authority == "FBR"
     assert output.tax_year == "TY2027"
-    assert output.search_query == "section 149 salary withholding TY2027"
+    assert "149" in output.search_query
+    assert "salary" in output.search_query.lower()
+
+
+def test_long_plot_question_stays_on_qa_without_a_model():
+    message = (
+        "Yar maine 2 saal pehle 40 lakh ka plot liya tha ab 55 lakh ka bech raha hoon, "
+        "transfer aur munafe par kitna tax lagega?"
+    )
+    output = lexicon_route(message)
+
+    assert output.intent == "qa"
+    assert "236C" in output.search_query
 
 
 def test_greeting_plus_a_real_question_is_not_chitchat():
     output = keyword_route("hi what does section 149 say about salary")
 
     assert output.intent == "qa"
+
+
+def test_reply_language_is_roman_urdu_for_script_or_ui():
+    assert resolve_reply_language("تنخواہ پر ٹیکس", "en", "en") == "roman_urdu"
+    assert resolve_reply_language("Mujhe notice mila hai", "en", "en") == "roman_urdu"
+    assert resolve_reply_language("What is section 149?", "roman_urdu", "en") == "roman_urdu"
+    assert resolve_reply_language("What is section 149?", "en", "en") == "en"

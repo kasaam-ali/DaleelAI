@@ -1,3 +1,5 @@
+/** Writes a rupee amount, and adds a lakh or crore hint from 1 lakh up. */
+
 const CRORE = 10_000_000
 const LAKH = 100_000
 const MONEY = /(Rs\.?|PKR)\s*(\d[\d,]*\d|\d+)(\s*\([^)]*\))?/gi

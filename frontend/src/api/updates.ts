@@ -1,3 +1,5 @@
+/** Loads the updates feed and asks for a saved replay. */
+
 import { API_URL } from "./client"
 
 export type UpdateItem = {

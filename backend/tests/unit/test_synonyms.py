@@ -1,3 +1,5 @@
+"""Checks TAX_SYNONYMS expansion and the cap on added terms."""
+
 from app.core.retrieval.synonyms import added_terms, expand_search_query
 
 

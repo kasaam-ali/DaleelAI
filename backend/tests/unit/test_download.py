@@ -1,3 +1,5 @@
+"""Checks that a catalog download keeps a file only when the hash matches."""
+
 import hashlib
 
 import httpx

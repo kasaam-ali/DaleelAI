@@ -1,3 +1,5 @@
+/** Reads /health so the shell can show whether the API is up. */
+
 import { useQuery } from '@tanstack/react-query'
 import { getJson } from './client'
 

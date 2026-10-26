@@ -1,3 +1,5 @@
+/** Checks the SSE parser. */
+
 import { describe, expect, it } from "vitest"
 import { parseSseBlock, takeSseEvents } from "./chat"
 

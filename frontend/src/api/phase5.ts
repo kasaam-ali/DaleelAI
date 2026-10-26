@@ -1,3 +1,5 @@
+/** Uploads a notice and reads or saves a checklist. */
+
 import { API_URL } from "./client"
 import { readSessionId } from "../lib/session"
 

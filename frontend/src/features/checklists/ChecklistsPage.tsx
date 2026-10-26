@@ -1,3 +1,5 @@
+/** Checklist steps, saved progress, and print or share. */
+
 import { useEffect, useState } from "react"
 import {
   checklistTemplates,
@@ -88,10 +90,10 @@ export default function ChecklistsPage({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="font-statute text-3xl">{copy("checklistTitle")}</h2>
+    <section>
+      <h2 className="page-title">{copy("checklistTitle")}</h2>
       <p className="mt-2 max-w-[46ch] text-muted">{copy("checklistHelp")}</p>
-      <div className="mt-4 grid gap-3">
+      <div className="panel mt-4 grid gap-3 px-4 py-4">
         <label className="text-sm">
           {copy("checklistTitle")}
           <select

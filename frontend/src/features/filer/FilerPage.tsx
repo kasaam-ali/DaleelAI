@@ -1,3 +1,5 @@
+/** Filer and non-filer side by side, with a savings bar and the NTN checklist link. */
+
 import { useState, type FormEvent } from "react"
 import { compareFiler, type FilerComparison, type TaxYear } from "../../api/tax"
 import type { CopyKey } from "../../i18n"
@@ -64,12 +66,14 @@ export default function FilerPage({
   }
 
   return (
-    <section className="mt-8" aria-labelledby="filer-title">
-      <h2 id="filer-title" className="text-base font-medium">
+    <section aria-labelledby="filer-title">
+      <h2 id="filer-title" className="page-title">
         {copy("filerTitle")}
       </h2>
       <p className="mt-1 max-w-[68ch] text-sm text-muted">{copy("filerHelp")}</p>
-      <form onSubmit={(event) => void onSubmit(event)} className="mt-4 grid gap-4">
+      <form onSubmit={(event) => void onSubmit(event)} className="panel mt-4 grid gap-4 px-4 py-4">
+        <fieldset className="grid gap-4">
+          <legend className="text-sm font-medium">{copy("yourDetails")}</legend>
         <label className="text-sm">
           {copy("taxYear")}
           <select
@@ -115,10 +119,11 @@ export default function FilerPage({
             />
           </label>
         ) : null}
+        </fieldset>
         <button
           type="submit"
           disabled={busy}
-          className="min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
+          className="min-h-11 justify-self-start bg-seal px-4 text-sm font-medium text-seal-ink disabled:bg-rule disabled:text-muted"
         >
           {busy ? copy("calculating") : copy("compare")}
         </button>
@@ -129,7 +134,7 @@ export default function FilerPage({
         </p>
       ) : null}
       {result ? (
-        <div className="mt-6 border border-rule bg-field px-4 py-4">
+        <div className="panel mt-6 px-4 py-4">
           <table className="w-full text-left text-sm">
             <thead>
               <tr>

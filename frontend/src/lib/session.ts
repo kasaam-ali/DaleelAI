@@ -1,3 +1,5 @@
+/** Saves the anonymous session, profile, language, and theme in the browser. */
+
 export type TaxpayerType = "salaried" | "freelancer" | "business" | "company"
 export type FilerStatus = "filer" | "non_filer" | "unknown"
 export type Province = "punjab" | "sindh" | "kpk" | "balochistan" | "islamabad" | "gb" | "ajk"
@@ -25,6 +27,7 @@ export const THEME_KEY = "daleelai.theme"
 export type StorageLike = {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
+  removeItem(key: string): void
 }
 
 const TAXPAYER = new Set<TaxpayerType>(["salaried", "freelancer", "business", "company"])
@@ -58,6 +61,13 @@ export function readSessionId(storage: StorageLike): string {
   if (existing) return existing
   const created = crypto.randomUUID()
   storage.setItem(SESSION_KEY, created)
+  return created
+}
+
+export function clearLocalHistory(storage: StorageLike): string {
+  const created = crypto.randomUUID()
+  storage.setItem(SESSION_KEY, created)
+  storage.removeItem(CHAT_KEY)
   return created
 }
 

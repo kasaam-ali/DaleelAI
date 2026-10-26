@@ -1,3 +1,5 @@
+"""v1 index: MiniLM embeddings into Chroma. Scanned pages were not read here."""
+
 from pathlib import Path
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings

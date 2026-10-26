@@ -1,3 +1,5 @@
+"""Checks PDF text extraction and the OCR fallback, including a timeout."""
+
 import json
 from pathlib import Path
 

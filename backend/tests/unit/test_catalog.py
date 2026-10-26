@@ -1,3 +1,5 @@
+"""Checks catalog statuses, tax years, and hashes."""
+
 from dataclasses import replace
 
 from pipeline.catalog import CatalogEntry, read_catalog, validate

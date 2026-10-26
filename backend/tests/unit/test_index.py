@@ -1,3 +1,5 @@
+"""Checks point ids, the header in front of the text, and resume."""
+
 from pipeline.chunk import CHUNK_VERSION
 from pipeline.index import (
     DENSE_MODEL,

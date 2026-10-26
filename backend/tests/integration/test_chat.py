@@ -1,3 +1,5 @@
+"""Checks stream order, tax year, redaction, and a saved demo answer."""
+
 import json
 from datetime import date
 
@@ -55,13 +57,14 @@ def router_payload(**overrides) -> dict:
     return payload
 
 
-def make_client(llm, *, qa=None, today=None, cache=None) -> TestClient:
+def make_client(llm, *, qa=None, today=None, cache=None, store=None) -> TestClient:
     settings = Settings(adapters=Adapters(llm="fake"))
     container = Container(
         settings=settings,
         llm=llm,
         qa=qa,
         answer_cache=cache if cache is not None else MemoryCache(),
+        feedback=store,
         today=lambda: today or date(2026, 10, 14),
     )
     return TestClient(create_app(container))
@@ -102,19 +105,31 @@ def test_qa_stream_order_and_cache_hit():
     cached = parse_sse(second.text)
     assert [name for name, _data in cached] == ["meta", "final", "done"]
     assert cached[1][1]["cached"] is True
-    assert llm.calls == 1
+    assert llm.calls == 0
     assert qa_calls["n"] == 1
 
 
-def test_bad_router_json_ends_with_done():
+def test_bad_router_json_falls_back_to_keyword_qa():
     llm = ScriptedLLM({})
     llm.complete = _bad_complete  # type: ignore[method-assign]
 
-    response = make_client(llm).post("/api/v1/chat", json={"message": "What is section 149?"})
+    async def qa(body, routed, tax_year, corpus_date, budget):
+        return RagResult(
+            answer="Salary is taxed [1].",
+            answer_source="verified",
+            verified=True,
+            replaced=False,
+            model="fake/model",
+        )
+
+    response = make_client(llm, qa=qa).post(
+        "/api/v1/chat", json={"message": "What is section 149?"}
+    )
 
     events = parse_sse(response.text)
-    assert [name for name, _data in events] == ["error", "done"]
-    assert events[0][1]["code"] == "router_parse"
+    assert events[0][0] == "meta"
+    assert events[0][1]["intent"] == "qa"
+    assert "error" not in [name for name, _data in events]
 
 
 async def _bad_complete(role, messages, **kwargs):
@@ -199,6 +214,25 @@ def test_save_turn_writes_the_final_answer():
     assert "final" not in store.saved
 
 
+def test_long_notice_question_stays_on_qa():
+    from app.core.services.chat import _enrich_search_query, _explanatory_notice
+
+    long_q = (
+        "Mujhe FBR ki taraf se notice mila hai ke meri income aur tax return "
+        "ki details mein difference hai. Ab mujhe kya karna chahiye?"
+    )
+    assert _explanatory_notice(long_q) is True
+    assert _explanatory_notice("Show cause notice aya hai") is False
+    assert "154A" in _enrich_search_query("freelancer upwork", "export income")
+    assert "181" in _enrich_search_query("NTN lena hoga", "online clothes")
+    plot = _enrich_search_query(
+        "plot bech raha hoon filer hoon late jama kiya",
+        "plot sale",
+    )
+    assert "236C" in plot and "236K" in plot
+    assert "231B" not in plot
+
+
 def test_empty_message_is_rejected():
     response = make_client(ScriptedLLM(router_payload())).post("/api/v1/chat", json={"message": ""})
 
@@ -239,35 +273,50 @@ def test_streaming_qa_emits_each_delta():
 
 
 def test_chat_redacts_cnic_before_the_model():
-    llm = ScriptedLLM(router_payload(intent="chitchat", search_query=""))
-    seen: list = []
+    llm = ScriptedLLM(router_payload())
+    seen: list[str] = []
 
-    async def complete(role, messages, **kwargs):
-        seen.append(messages)
-        payload = router_payload(intent="chitchat", search_query="")
-        return LLMResult(
-            text=json.dumps(payload),
-            model="fake/fast",
-            fallback=False,
-            latency_ms=1,
+    async def qa(body, routed, tax_year, corpus_date, budget):
+        seen.append(body.message)
+        return RagResult(
+            answer="Salary is taxed [1].",
+            answer_source="verified",
+            verified=True,
+            replaced=False,
+            model="fake/model",
         )
 
-    llm.complete = complete  # type: ignore[method-assign]
-    response = make_client(llm).post(
+    response = make_client(llm, qa=qa).post(
         "/api/v1/chat",
         json={"message": "My CNIC is 12345-1234567-1"},
     )
 
     assert response.status_code == 200
-    dumped = json.dumps([message.model_dump() for message in seen[0]])
-    assert "[CNIC]" in dumped
-    assert "12345-1234567-1" not in dumped
+    assert seen == ["My CNIC is [CNIC]"]
+    assert "12345-1234567-1" not in seen[0]
+    assert llm.calls == 0
 
 
-def test_streamed_draft_finishes_when_verification_fails():
+def test_streamed_draft_keeps_sources_when_verification_fails():
+    from app.core.retrieval.fusion import RankedHit
+
     llm = ScriptedLLM(router_payload())
 
-    async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None):
+    async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None, on_sources=None):
+        if on_sources is not None:
+            await on_sources(
+                [
+                    RankedHit(
+                        chunk_id="c1",
+                        payload={
+                            "section": "149",
+                            "doc_title": "Income Tax Ordinance, 2001",
+                            "text": "Salary.",
+                        },
+                    )
+                ],
+                "verified",
+            )
         await on_delta("Salary is taxed.")
         raise RuntimeError("every judge is down")
 
@@ -279,11 +328,41 @@ def test_streamed_draft_finishes_when_verification_fails():
     events = parse_sse(response.text)
     names = [name for name, _data in events]
     assert "error" not in names
-    assert names == ["meta", "token", "verification", "final", "done"]
-    assert events[2][1]["verified"] is False
+    assert names == ["meta", "sources", "token", "verification", "final", "done"]
+    assert events[1][1]["sources"][0]["section"] == "149"
     assert events[3][1]["verified"] is False
-    assert events[3][1]["confidence"] == "low"
-    assert events[3][1]["answer"] == "Salary is taxed."
+    assert events[4][1]["verified"] is False
+    assert events[4][1]["confidence"] == "medium"
+    assert events[4][1]["answer"] == "Salary is taxed."
+
+
+def test_partial_answer_is_saved_when_the_request_budget_ends():
+    import asyncio
+
+    llm = ScriptedLLM(router_payload())
+    llm.request_limit_s = 0.3
+    saved: list[dict] = []
+
+    class Store:
+        def save_turn(self, **kwargs):
+            saved.append(kwargs)
+
+    async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None):
+        await on_delta("Salary is taxed.")
+        await asyncio.sleep(5)
+        raise AssertionError("the request budget should have ended the stream")
+
+    response = make_client(llm, qa=qa, store=Store()).post(
+        "/api/v1/chat",
+        json={"message": "What is section 149?", "tax_year": "TY2027"},
+        headers={"X-Session-Id": "8d0e7c4a-1b2f-4e6a-9c3d-5f7a8b9c0d1e"},
+    )
+
+    events = parse_sse(response.text)
+    assert [name for name, _data in events] == ["meta", "token", "verification", "final", "done"]
+    assert events[-2][1]["answer"] == "Salary is taxed."
+    assert saved[0]["user_text"] == "What is section 149?"
+    assert saved[0]["assistant_text"] == "Salary is taxed."
 
 
 def test_demo_question_returns_the_saved_answer_without_a_model():

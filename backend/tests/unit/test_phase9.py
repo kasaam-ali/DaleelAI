@@ -1,3 +1,5 @@
+"""Checks the eval set and that a demo question matches a saved answer."""
+
 import json
 from pathlib import Path
 

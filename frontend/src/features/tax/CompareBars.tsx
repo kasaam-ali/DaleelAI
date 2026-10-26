@@ -1,3 +1,5 @@
+/** Draws the two bars that compare filer and non-filer tax. */
+
 import { formatPkr } from "../../lib/money"
 import { widthPercent } from "./bars"
 

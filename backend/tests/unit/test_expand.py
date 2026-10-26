@@ -1,3 +1,5 @@
+"""Checks that a chunk is replaced by its parent section inside the token budget."""
+
 from app.core.retrieval.expand import expand_parents
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.sufficiency import ABSTAIN_SENTENCE, verified_band, web_is_sufficient
@@ -15,6 +17,21 @@ def test_same_parent_is_included_once():
 
     assert [block.parent_id for block in blocks] == ["s149", "s150"]
     assert blocks[0].text == "section 149 text"
+
+
+def test_section_payload_is_prefixed_on_the_block():
+    ranked = RankedHit(
+        chunk_id="c1",
+        payload={
+            "parent_id": "s154A",
+            "section": "154A",
+            "section_title": "Export of Services",
+            "text": "chargeable at 1 percent",
+        },
+    )
+    blocks = expand_parents([ranked], {})
+    assert blocks[0].text.startswith("Section 154A Export of Services.")
+    assert "chargeable at 1 percent" in blocks[0].text
 
 
 def test_missing_parent_falls_back_to_the_chunk():

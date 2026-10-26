@@ -12,6 +12,7 @@ from app.core.ports import LLMResult
 from app.core.privacy.pii import outbound_pii
 from app.core.services.notice import (
     NoticeError,
+    _pdf_text,
     explain_upload,
     extract_text,
     mask_secrets,
@@ -151,6 +152,52 @@ def test_mask_removes_the_cnic_from_the_page():
     masked = mask_secrets(raw, "pdf", ["11111-1111111-1"])
     text, _ocr = extract_text(masked, "pdf")
     assert "11111-1111111-1" not in text
+
+
+async def test_notice_asks_the_model_once(notices):
+    roles: list[str] = []
+
+    class Once:
+        async def complete(self, role, messages, **kwargs):
+            roles.append(role)
+            return LLMResult(
+                text=json.dumps(
+                    {
+                        "summary": "Explained from the redacted notice.",
+                        "why_received": "The office asked for a reply.",
+                        "next_steps": ["Reply on IRIS."],
+                    }
+                ),
+                model="spy",
+                fallback=False,
+                latency_ms=1,
+            )
+
+    await explain_upload(_pdf(_body(notices[0])), llm=Once(), today=_TODAY)
+    assert roles == ["reasoning"]
+
+
+def test_plain_section_skips_the_layout_pass(monkeypatch):
+    import pymupdf4llm
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("layout pass")
+
+    monkeypatch.setattr(pymupdf4llm, "to_markdown", fail)
+    text = _pdf_text(_pdf("Notice under section 114(4)\n" + "word " * 20))
+    assert "114" in text
+
+
+def test_layout_pass_runs_when_plain_text_has_no_section(monkeypatch):
+    import pymupdf4llm
+
+    monkeypatch.setattr(
+        pymupdf4llm,
+        "to_markdown",
+        lambda _doc: "Notice under section 122(1)\n" + "word " * 20,
+    )
+    text = _pdf_text(_pdf("Office notice with a deadline and an amount but no statute label.\n"))
+    assert "122" in text
 
 
 def test_upload_limits():

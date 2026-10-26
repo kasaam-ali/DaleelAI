@@ -32,6 +32,7 @@ from app.core.retrieval.rewrite import (
     matching_topic_sections,
     maybe_llm_queries,
     retrieval_keep,
+    is_company_date_hit,
     rewrite_queries,
     topics_for_note,
     usable_web_hits,
@@ -458,7 +459,10 @@ def _has_preferred(hits: list[RankedHit], prefer: set[str] | None) -> bool:
 def _sections_covered(hits: list[RankedHit], prefer: set[str] | None) -> bool:
     if not prefer:
         return False
-    return prefer <= {hit_section(hit) for hit in hits}
+    if not prefer <= {hit_section(hit) for hit in hits}:
+        return False
+    # A filing-date ask needs the company clause of s118, not only the individuals one.
+    return "118" not in prefer or any(is_company_date_hit(hit) for hit in hits)
 
 
 def _one_per_section(hits: list[RankedHit], prefer: set[str]) -> list[RankedHit]:
@@ -466,8 +470,12 @@ def _one_per_section(hits: list[RankedHit], prefer: set[str]) -> list[RankedHit]
     seen: set[str] = set()
     for hit in hits:
         section = hit_section(hit)
-        if section not in prefer or section in seen:
+        if section not in prefer:
             continue
+        if section in seen:
+            # s118 keeps a second chunk when it carries the company due date.
+            if not (is_company_date_hit(hit) and not any(map(is_company_date_hit, chosen))):
+                continue
         seen.add(section)
         chosen.append(hit)
     return chosen

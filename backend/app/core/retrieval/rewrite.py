@@ -455,10 +455,28 @@ def cross_reference_note(text: str, *, language: str = "en") -> str:
     return "\n\n".join(parts)
 
 
+COMPANY_FILING_QUERY = (
+    "Section 118 return of income in the case of a company due on or before the "
+    "thirty-first day of December 31st December company filing deadline"
+)
+_COMPANY_DATE = re.compile(r"thirty[- ]first day of december|31(?:st)? december", re.I)
+
+
+def is_company_date_hit(hit: RankedHit) -> bool:
+    return hit_section(hit) == "118" and bool(
+        _COMPANY_DATE.search(str(hit.payload.get("text") or ""))
+    )
+
+
 def rewrite_queries(message: str, search_query: str = "") -> list[str]:
     """One English statutory query per detected topic. Drops raw Roman Urdu."""
     blob = f"{message} {search_query}".strip()
-    queries = [topic.query for topic in detect_topics(blob)]
+    queries: list[str] = []
+    for topic in detect_topics(blob):
+        queries.append(topic.query)
+        if topic.key == "return_filing":
+            # The company clause of s118 loses to the individuals clause on one query.
+            queries.append(COMPANY_FILING_QUERY)
     extra = (search_query or "").strip()
     if extra and extra not in queries and not _is_raw_desi(extra):
         queries.append(extra)

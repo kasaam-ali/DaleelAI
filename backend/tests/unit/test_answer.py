@@ -163,7 +163,7 @@ def test_sanitize_drops_fake_clauses_and_nastaliq():
     mixed = "Section 154A 332-(1A) ke mutabiq 1 percent hai."
     assert "332-(1A)" not in sanitize_answer(mixed, "roman_urdu")
     nastaliq = "فری لانسر پر سیکشن 154A لاگو ہوتا ہے۔"
-    assert not any("\u0600" <= ch <= "\u06FF" for ch in sanitize_answer(nastaliq, "roman_urdu"))
+    assert not any("\u0600" <= ch <= "\u06ff" for ch in sanitize_answer(nastaliq, "roman_urdu"))
 
 
 def plain_blocks() -> list[ContextBlock]:

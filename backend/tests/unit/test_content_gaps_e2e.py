@@ -44,8 +44,12 @@ from app.core.retrieval.expand import ContextBlock  # noqa: E402
 
 def _system(blocks):
     msgs = _generate_messages(
-        question="q", language="english", tax_year="2026", corpus_date="2026-07-01",
-        blocks=blocks, mode="library",
+        question="q",
+        language="english",
+        tax_year="2026",
+        corpus_date="2026-07-01",
+        blocks=blocks,
+        mode="library",
     )
     return msgs[0].content
 

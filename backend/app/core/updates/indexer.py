@@ -1,9 +1,16 @@
 """Upsert official-page chunks into Qdrant collection web_pages only."""
 
+import logging
 import os
+import threading
 from typing import Any
 
 from app.version import INDEXED_CORPUS_VERSION
+
+log = logging.getLogger(__name__)
+_model_lock = threading.Lock()
+_dense = None
+_sparse = None
 
 
 def index_notification(row: dict[str, Any]) -> None:
@@ -42,13 +49,35 @@ class WebIndexer:
             raise RuntimeError("documents count changed")
 
 
+def warm_indexer() -> None:
+    """Load the embedding models once, before the first replay request."""
+    try:
+        _models()
+    except Exception:
+        log.warning("indexer warm failed", exc_info=True)
+
+
+def _models():
+    global _dense, _sparse
+    if _dense is not None and _sparse is not None:
+        return _dense, _sparse
+    with _model_lock:
+        if _dense is None or _sparse is None:
+            from fastembed import SparseTextEmbedding, TextEmbedding
+
+            from pipeline.index import DENSE_MODEL, SPARSE_MODEL
+
+            _dense = TextEmbedding(model_name=DENSE_MODEL)
+            _sparse = SparseTextEmbedding(model_name=SPARSE_MODEL)
+    return _dense, _sparse
+
+
 def _upsert_page(page: dict[str, Any], text: str) -> None:
     from datetime import UTC, datetime
 
-    from fastembed import SparseTextEmbedding, TextEmbedding
     from qdrant_client.http import models
 
-    from pipeline.index import DENSE_MODEL, DENSE_SIZE, SPARSE_MODEL
+    from pipeline.index import DENSE_SIZE
     from pipeline.web_pages import (
         COLLECTION,
         _count,
@@ -66,8 +95,7 @@ def _upsert_page(page: dict[str, Any], text: str) -> None:
     records = records_for(page, text, fetched_at, INDEXED_CORPUS_VERSION)
     if not records:
         return
-    dense_model = TextEmbedding(model_name=DENSE_MODEL)
-    sparse_model = SparseTextEmbedding(model_name=SPARSE_MODEL)
+    dense_model, sparse_model = _models()
     embed_text = [f"{row['header']}\n\n{row['text']}" for row in records]
     points = []
     for row, dense_vec, sparse_vec in zip(
@@ -95,11 +123,35 @@ def _upsert_page(page: dict[str, Any], text: str) -> None:
         raise RuntimeError("documents count changed")
 
 
+CONNECT_TIMEOUT_S = 2.0
+
+
+def _qdrant_url() -> str:
+    return os.environ.get("QDRANT_URL", "http://qdrant:6333")
+
+
+def _reachable(url: str, timeout: float = CONNECT_TIMEOUT_S) -> bool:
+    """Fail fast when Qdrant is down instead of waiting the 30 s client timeout."""
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    port = parsed.port or (443 if parsed.scheme == "https" else 6333)
+    try:
+        with socket.create_connection((parsed.hostname or "localhost", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def _client():
     from qdrant_client import QdrantClient
 
+    url = _qdrant_url()
+    if not _reachable(url):
+        raise ConnectionError("Qdrant is unreachable.")
     return QdrantClient(
-        url=os.environ.get("QDRANT_URL", "http://qdrant:6333"),
+        url=url,
         api_key=os.environ.get("QDRANT_API_KEY") or None,
         timeout=30,
         check_compatibility=False,

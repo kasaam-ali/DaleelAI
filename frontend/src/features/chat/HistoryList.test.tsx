@@ -24,7 +24,7 @@ const copy = (key: string) =>
       renameSave: "Save name",
       renameCancel: "Cancel rename",
       deleteChatTitle: "Delete this chat?",
-      deleteChatBody: "and its answers will be removed from this device. This can't be undone.",
+      deleteChatBody: "and its answers will be deleted from the server. This can't be undone.",
       deleteChatConfirm: "Delete chat",
       deleteChatCancel: "Cancel",
       linkCopied: "Link copied.",

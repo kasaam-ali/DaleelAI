@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { serviceState, useBrowserOnline, useHealth } from "./api/health"
+import { deleteSession } from "./api/session"
 import CalculatorPage from "./features/calculator/CalculatorPage"
 import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
@@ -17,7 +18,7 @@ import { t, type CopyKey } from "./i18n"
 import { parseHash, type AppView } from "./lib/hashRoute"
 import {
   THEME_KEY,
-  clearLocalHistory,
+  clearStoredHistory,
   readChatId,
   readLanguage,
   readProfile,
@@ -49,6 +50,7 @@ export default function App() {
   const [historyKey, setHistoryKey] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sessionId, setSessionId] = useState(() => readSessionId(localStorage))
+  const [clearError, setClearError] = useState<string | null>(null)
   const [chatId, setChatId] = useState<string | null>(() => routed.chatId ?? readChatId(localStorage))
   const [expertQuery, setExpertQuery] = useState("")
   const [expertCategory, setExpertCategory] = useState<string | null>(null)
@@ -138,13 +140,22 @@ export default function App() {
     go("chat")
   }
 
-  function clearHistory() {
-    const next = clearLocalHistory(localStorage)
-    setSessionId(next)
-    setChatId(null)
+  async function clearHistory() {
+    setClearError(null)
+    try {
+      const next = await clearStoredHistory(localStorage, sessionId, deleteSession)
+      setSessionId(next)
+      setChatId(null)
+    } catch {
+      setClearError(copy("clearFailed"))
+    }
   }
 
-  const service = serviceState(online, { error: health.isError, ok: health.isSuccess })
+  const service = serviceState(online, {
+    error: health.isError,
+    ok: health.isSuccess,
+    status: health.data?.status,
+  })
 
   return (
     <AppShell
@@ -161,7 +172,8 @@ export default function App() {
       onView={go}
       onNewChat={() => selectChat(null)}
       onSelectChat={selectChat}
-      onClearHistory={clearHistory}
+      onClearHistory={() => void clearHistory()}
+      clearError={clearError}
       onRename={history.rename}
       onDelete={history.remove}
       onPrefetchSnippets={history.prefetchSnippets}
@@ -230,9 +242,11 @@ export default function App() {
             {view === "experts" ? (
               <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
             ) : null}
-            {view === "updates" ? <UpdatesPage copy={copy} /> : null}
+            {view === "updates" ? <UpdatesPage copy={copy} language={language} /> : null}
             {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
-            {view === "privacy" ? <PrivacyPage copy={copy} onClearHistory={clearHistory} /> : null}
+            {view === "privacy" ? (
+              <PrivacyPage copy={copy} onClearHistory={() => void clearHistory()} clearError={clearError} />
+            ) : null}
           </div>
         </div>
       ) : null}

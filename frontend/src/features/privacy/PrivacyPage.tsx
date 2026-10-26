@@ -7,9 +7,11 @@ type Copy = (key: CopyKey) => string
 export default function PrivacyPage({
   copy,
   onClearHistory,
+  clearError = null,
 }: {
   copy: Copy
   onClearHistory: () => void
+  clearError?: string | null
 }) {
   return (
     <section>
@@ -28,6 +30,7 @@ export default function PrivacyPage({
       >
         {copy("clearHistory")}
       </button>
+      {clearError ? <p className="mt-3 text-sm text-low">{clearError}</p> : null}
     </section>
   )
 }

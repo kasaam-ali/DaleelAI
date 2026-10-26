@@ -111,6 +111,7 @@ export default function AppShell({
   onNewChat,
   onSelectChat,
   onClearHistory,
+  clearError = null,
   onRename,
   onDelete,
   onPrefetchSnippets,
@@ -134,6 +135,7 @@ export default function AppShell({
   onNewChat: () => void
   onSelectChat: (chatId: string) => void
   onClearHistory: () => void
+  clearError?: string | null
   onRename: (chatId: string, title: string) => Promise<void>
   onDelete: (chatId: string) => Promise<void>
   onPrefetchSnippets: () => void
@@ -363,6 +365,7 @@ export default function AppShell({
               <Icon name="clear" />
             </span>
           </button>
+          {clearError ? <p className="px-2 text-xs text-low">{clearError}</p> : null}
           <div className="mt-4 pb-3">
           <details className={collapsed ? "lg:hidden" : ""}>
             <summary className="min-h-11 cursor-pointer list-none px-2 py-2 text-sm">

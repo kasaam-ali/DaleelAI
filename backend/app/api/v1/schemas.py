@@ -458,6 +458,8 @@ class UpdateItem(BaseModel):
     published_at: str | None = None
     effective_from: str | None = None
     summary: str
+    summary_en: str = ""
+    summary_ru: str = ""
     who_is_affected: str | None = None
     key_changes: list[str]
     source_url: str

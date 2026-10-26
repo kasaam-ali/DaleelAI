@@ -211,11 +211,27 @@ def resolve_reply_language(message: str, body_language: str, routed_language: st
     return "en"
 
 
+_SECTION_REF = re.compile(r"(?:\bsection|\bsec\.?|\bs\.|§|\brule|\bclause)\s*\d+", re.IGNORECASE)
+_HOW_IS = re.compile(r"\bhow (?:is|are|does|do)\b", re.IGNORECASE)
+
+
+def _asks_law_not_amount(message: str) -> bool:
+    """'How is salary tax calculated under section 149' is a law question, not a figure."""
+    from app.core.tax_engine import _amount
+
+    if _amount(message, {}) is not None:
+        return False
+    return bool(_SECTION_REF.search(message) or _HOW_IS.search(message))
+
+
 def lexicon_route(message: str) -> RouterOutput:
     """Keyword route in well under 10ms. Long tax questions stay on QA."""
     routed = keyword_route(message)
     topics = detect_topics(message)
-    if topics and routed.intent in {"calculate", "compare_filer"} and len(message.split()) >= 12:
+    long_topic = bool(topics) and len(message.split()) >= 12
+    if routed.intent in {"calculate", "compare_filer"} and (
+        long_topic or _asks_law_not_amount(message)
+    ):
         return routed.model_copy(
             update={
                 "intent": "qa",

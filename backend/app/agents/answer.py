@@ -346,6 +346,10 @@ def _generate_messages(
         "§, clause label or statute code in the answer, and never mention a "
         "cross-reference or the context itself. The sources list shows the sections. "
         "Never invent page numbers, chunk ids, or labels like 332-(1A). Do not invent. "
+        "For a due date, give the date for each taxpayer kind the context covers "
+        "(individuals, associations of persons, companies), not only one. Tax year N ends "
+        "on 30 June N, so a date the context gives as day and month falls in that year "
+        "or the next as the context says. Never write 'the due date prescribed' with no date. "
         f"{gap_rule}"
         f"{web}"
     )

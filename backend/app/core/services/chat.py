@@ -160,7 +160,8 @@ async def iter_chat_events(
                 )
             }
         )
-    if body.tax_year is None and routed.tax_year:
+    # A year typed in the question ("TY2026 ki return") beats the UI picker default.
+    if routed.tax_year and routed.tax_year != tax_year:
         tax_year = routed.tax_year
         key = answer_cache_key(body.message, profile, tax_year, corpus_version, language)
         cached = None if hide_cache else _cached(cache, key)

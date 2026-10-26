@@ -2,6 +2,7 @@
 
 from app.core.retrieval.fusion import RankedHit
 from app.core.retrieval.rewrite import (
+    TOPICS,
     cross_reference_note,
     detect_topics,
     is_generic_web_hit,
@@ -84,6 +85,27 @@ def test_bechta_does_not_pull_property_tax():
 def test_plot_sale_still_matches_property():
     keys = {topic.key for topic in detect_topics("Main plot bech raha hoon 40 lakh ka")}
     assert "property" in keys
+
+
+def test_cash_withdrawal_does_not_take_the_property_note():
+    question = "What is the filer vs non-filer withholding on a cash withdrawal of Rs 50000?"
+    direct = cross_reference_note(f"{question} {rewrite_search_query(question)}")
+    assert "236C" not in direct
+    assert "15 lakh" not in direct
+    capital = next(topic.query for topic in TOPICS if topic.key == "capital_gain")
+    injected = cross_reference_note(f"{question} {capital}")
+    assert "236C" not in injected
+    assert "236K" not in injected
+    assert "15 lakh" not in injected
+    aside = "What is the filer vs non-filer withholding on a cash withdrawal? Any capital gain?"
+    rewritten = rewrite_search_query(aside)
+    assert "236C" not in rewritten
+    assert "236K" not in rewritten
+    assert "plot" not in rewritten.lower()
+    assert "236C" not in cross_reference_note(f"{aside} {rewritten}")
+    bank = "Bank deposit ke profit pe filer withholding kya hota hai?"
+    assert "plot" not in rewrite_search_query(bank).lower()
+    assert "236C" not in cross_reference_note(f"{bank} {rewrite_search_query(bank)}")
 
 
 def test_existing_mappings_still_fire():
@@ -176,3 +198,33 @@ def test_freelancer_note_names_154a_and_114_without_income_sections():
     assert "149" not in note
     assert "155" not in note
     assert "235" not in note
+
+
+def test_b12_original_cash_and_property_question_covers_both():
+    question = (
+        "What is the withholding tax rate difference between a filer and a non-filer "
+        "on cash withdrawal and property purchase?"
+    )
+    note = cross_reference_note(f"{question} {rewrite_search_query(question)}")
+    assert "231AB" in note
+    assert "236K" in note
+    assert "15 lakh" not in note
+    assert "capital gain" not in note.lower()
+
+
+def test_return_deadline_question_searches_section_114_not_salary():
+    from app.agents.router import keyword_route
+
+    message = "What is the deadline to file my income tax return for TY2026?"
+    routed = keyword_route(message)
+    queries = rewrite_queries(message, routed.search_query)
+
+    assert any("Section 114" in query for query in queries)
+    assert not any("Section 149" in query for query in queries)
+
+
+def test_salaried_roman_urdu_reaches_the_salary_template():
+    question = "salaried bande ka tax kitna hai 1 lakh mahana par?"
+    keys = {topic.key for topic in detect_topics(question)}
+
+    assert "salary" in keys

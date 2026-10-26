@@ -62,10 +62,14 @@ export type Checklist = {
   id: string
   template_id: string
   title: string
+  title_en?: string
+  title_ru?: string
   steps: {
     id: string
     title: string
     detail: string
+    title_ru?: string
+    detail_ru?: string
     sources: string[]
     done: boolean
     link?: { label: string; url: string } | null
@@ -90,6 +94,22 @@ export async function startChecklist(
     method: "POST",
     body: JSON.stringify({ template_id: templateId, answers, language }),
   })
+}
+
+export async function listChecklists(): Promise<Checklist[]> {
+  const response = await fetch(`${API_URL}/api/v1/checklists`, {
+    headers: { "X-Session-Id": readSessionId(localStorage) },
+    signal: AbortSignal.timeout(15000),
+  })
+  const payload = (await response.json()) as Checklist[] & { error?: { message?: string } }
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? "checklist failed")
+  }
+  return payload
+}
+
+export async function getChecklist(checklistId: string): Promise<Checklist> {
+  return checklistJson(`/api/v1/checklists/${checklistId}`, { method: "GET" })
 }
 
 export async function markChecklistStep(

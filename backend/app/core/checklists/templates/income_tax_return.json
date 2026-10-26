@@ -21,19 +21,25 @@
     {
       "id": "section",
       "title": "Read who must file",
+      "title_ru": "Kaun file kare, yeh parhein",
       "detail": "Section 114 of the Income Tax Ordinance, 2001 says who files a return of income.",
+      "detail_ru": "Income Tax Ordinance, 2001 ki section 114 batati hai ke return of income kaun file karta hai.",
       "sources": ["Income Tax Ordinance, 2001, section 114"]
     },
     {
       "id": "wealth",
       "title": "Prepare the wealth statement if it applies",
+      "title_ru": "Agar lage to wealth statement tayyar karein",
       "detail": "Section 116 covers the wealth statement that is filed with many returns.",
+      "detail_ru": "Section 116 woh wealth statement hai jo kai returns ke sath file hoti hai.",
       "sources": ["Income Tax Ordinance, 2001, section 116"]
     },
     {
       "id": "iris",
       "title": "File on IRIS",
+      "title_ru": "IRIS par file karein",
       "detail": "Submit the return on IRIS before the date notified for that tax year.",
+      "detail_ru": "Return IRIS par us tax year ki notified date se pehle jama karein.",
       "sources": ["Income Tax Ordinance, 2001, section 114"],
       "link": {"label": "File your return on IRIS", "url": "https://iris.fbr.gov.pk/"}
     }

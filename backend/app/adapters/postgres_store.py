@@ -1,6 +1,7 @@
 """Postgres writes for chat turns, feedback, and schema setup. Reads stay in other adapters."""
 
 import json
+import threading
 import uuid
 from typing import Any
 
@@ -12,21 +13,34 @@ class ChatAccessDenied(Exception):
     """The chat id belongs to a different session."""
 
 
+# One lock so two workers cannot CREATE the same table at the same time.
+_SCHEMA_LOCK = 726_001_307
+
+
 class PostgresStore:
     def __init__(self, database_url: str, connect=None) -> None:
         self.database_url = database_url
         self._connect = connect
         self._ready = False
+        self._lock = threading.Lock()
 
     def ensure(self) -> None:
         if self._ready:
             return
-        with self._open() as conn:
-            with conn.cursor() as cur:
-                for statement in SCHEMA:
-                    cur.execute(statement)
-            conn.commit()
-        self._ready = True
+        with self._lock:
+            if self._ready:
+                return
+            with self._open() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT pg_advisory_lock(%s)", (_SCHEMA_LOCK,))
+                    try:
+                        for statement in SCHEMA:
+                            cur.execute(statement)
+                        conn.commit()
+                    finally:
+                        cur.execute("SELECT pg_advisory_unlock(%s)", (_SCHEMA_LOCK,))
+                        conn.commit()
+            self._ready = True
 
     def save_turn(
         self,
@@ -52,6 +66,11 @@ class PostgresStore:
             with conn.cursor() as cur:
                 self._ensure_session(cur, session_id)
                 self._ensure_chat(cur, chat_id, session_id)
+                # A resent client_request_id maps to the same message id: save it once.
+                cur.execute("SELECT 1 FROM messages WHERE id = %s", (_uuid(message_id),))
+                if cur.fetchone() is not None:
+                    conn.commit()
+                    return
                 cur.execute(
                     """
                     INSERT INTO messages (id, chat_id, role, content, intent, language, tax_year)
@@ -59,7 +78,7 @@ class PostgresStore:
                     ON CONFLICT (id) DO NOTHING
                     """,
                     (
-                        uuid.uuid4(),
+                        uuid.uuid5(uuid.NAMESPACE_URL, f"user:{message_id}"),
                         _uuid(chat_id),
                         user_text,
                         intent,
@@ -151,6 +170,7 @@ class PostgresStore:
         template_id: str,
         answers: dict[str, Any],
         steps: list[dict[str, Any]],
+        language: str = "en",
     ) -> str:
         self.ensure()
         checklist_id = uuid.uuid4()
@@ -159,8 +179,8 @@ class PostgresStore:
                 self._ensure_session(cur, session_id)
                 cur.execute(
                     """
-                    INSERT INTO checklists (id, session_id, template_id, answers, steps)
-                    VALUES (%s, %s, %s, %s::jsonb, %s::jsonb)
+                    INSERT INTO checklists (id, session_id, template_id, answers, steps, language)
+                    VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s)
                     """,
                     (
                         checklist_id,
@@ -168,6 +188,7 @@ class PostgresStore:
                         template_id,
                         json.dumps(answers),
                         json.dumps(steps),
+                        language,
                     ),
                 )
             conn.commit()
@@ -186,7 +207,7 @@ class PostgresStore:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT template_id, answers, steps
+                    SELECT template_id, answers, steps, COALESCE(language, 'en')
                     FROM checklists
                     WHERE id = %s AND session_id = %s
                     """,
@@ -195,12 +216,8 @@ class PostgresStore:
                 row = cur.fetchone()
                 if row is None:
                     return None
-                steps = row[2]
-                if isinstance(steps, str):
-                    steps = json.loads(steps)
-                answers = row[1]
-                if isinstance(answers, str):
-                    answers = json.loads(answers)
+                steps = _json_value(row[2])
+                answers = _json_value(row[1])
                 found = False
                 for step in steps:
                     if step.get("id") == step_id:
@@ -222,7 +239,41 @@ class PostgresStore:
             "template_id": row[0],
             "answers": answers,
             "steps": steps,
+            "language": row[3] or "en",
         }
+
+    def list_checklists(self, *, session_id: str) -> list[dict[str, Any]]:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id::text, template_id, answers, steps, COALESCE(language, 'en')
+                    FROM checklists
+                    WHERE session_id = %s
+                    ORDER BY updated_at DESC
+                    """,
+                    (_uuid(session_id),),
+                )
+                rows = cur.fetchall()
+        return [_checklist_saved(row) for row in rows]
+
+    def get_checklist(self, *, session_id: str, checklist_id: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id::text, template_id, answers, steps, COALESCE(language, 'en')
+                    FROM checklists
+                    WHERE id = %s AND session_id = %s
+                    """,
+                    (_uuid(checklist_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+        if row is None:
+            return None
+        return _checklist_saved(row)
 
     def list_experts(self) -> list[dict[str, Any]]:
         self.ensure()
@@ -452,7 +503,7 @@ class PostgresStore:
                 cur.execute(
                     """
                     SELECT c.id::text,
-                           COALESCE((
+                           COALESCE(c.title, (
                              SELECT left(m.content, 60)
                              FROM messages m
                              WHERE m.chat_id = c.id AND m.role = 'user'
@@ -483,6 +534,28 @@ class PostgresStore:
             for row in rows
         ]
 
+    def find_turn(self, session_id: str, message_id: str) -> dict[str, Any] | None:
+        """The saved assistant turn with this id in this session, or None."""
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT m.chat_id::text
+                    FROM messages m JOIN chats c ON c.id = m.chat_id
+                    WHERE m.id = %s AND c.session_id = %s AND m.role = 'assistant'
+                    """,
+                    (_uuid(message_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+        if row is None:
+            return None
+        chat = self.get_chat(session_id, row[0])
+        if chat is None:
+            return None
+        found = next((m for m in chat["messages"] if m["id"] == str(_uuid(message_id))), None)
+        return None if found is None else {"chat_id": row[0], "message": found}
+
     def get_chat(self, session_id: str, chat_id: str) -> dict[str, Any] | None:
         self.ensure()
         with self._open() as conn:
@@ -490,7 +563,7 @@ class PostgresStore:
                 cur.execute(
                     """
                     SELECT c.id::text,
-                           COALESCE((
+                           COALESCE(c.title, (
                              SELECT left(m.content, 60)
                              FROM messages m
                              WHERE m.chat_id = c.id AND m.role = 'user'
@@ -536,6 +609,80 @@ class PostgresStore:
             "created_at": _iso(chat[2]),
             "updated_at": _iso(chat[3]),
             "messages": messages,
+        }
+
+    def delete_chat(self, session_id: str, chat_id: str) -> bool:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM chats WHERE id = %s AND session_id = %s",
+                    (_uuid(chat_id), _uuid(session_id)),
+                )
+                deleted = cur.rowcount > 0
+            conn.commit()
+        return deleted
+
+    def delete_session(self, session_id: str) -> None:
+        """Hard-delete one session's chats, messages, feedback, and checklists.
+
+        Messages and feedback have no session_id column; they go by join.
+        Checklist step progress is the checklists.steps JSON, so deleting
+        the checklist row removes it. One commit, including a repeat call
+        that matches nothing.
+        """
+        self.ensure()
+        session = _uuid(session_id)
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM feedback
+                    WHERE message_id IN (
+                      SELECT m.id
+                      FROM messages m
+                      JOIN chats c ON c.id = m.chat_id
+                      WHERE c.session_id = %s
+                    )
+                    """,
+                    (session,),
+                )
+                cur.execute(
+                    """
+                    DELETE FROM messages
+                    WHERE chat_id IN (SELECT id FROM chats WHERE session_id = %s)
+                    """,
+                    (session,),
+                )
+                cur.execute("DELETE FROM chats WHERE session_id = %s", (session,))
+                cur.execute("DELETE FROM checklists WHERE session_id = %s", (session,))
+            conn.commit()
+
+    def rename_chat(self, session_id: str, chat_id: str, title: str) -> dict[str, Any] | None:
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE chats
+                    SET title = %s
+                    WHERE id = %s AND session_id = %s
+                    RETURNING id::text, title, created_at,
+                      COALESCE((
+                        SELECT max(m.created_at) FROM messages m WHERE m.chat_id = chats.id
+                      ), created_at)
+                    """,
+                    (title, _uuid(chat_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+            conn.commit()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "title": row[1],
+            "created_at": _iso(row[2]),
+            "updated_at": _iso(row[3]),
         }
 
     def _ensure_message(self, cur, session_id: str, message_id: str) -> None:
@@ -587,6 +734,22 @@ class PostgresStore:
 
 def _uuid(value: str) -> uuid.UUID:
     return uuid.UUID(value)
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
+def _checklist_saved(row: tuple) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "template_id": row[1],
+        "answers": _json_value(row[2]),
+        "steps": _json_value(row[3]),
+        "language": row[4] or "en",
+    }
 
 
 def _iso(value: Any) -> str:

@@ -30,8 +30,10 @@ from app.core.retrieval.rewrite import (
     is_generic_web_hit,
     is_statutory_hit,
     matching_topic_sections,
+    maybe_llm_queries,
     retrieval_keep,
     rewrite_queries,
+    topics_for_note,
     usable_web_hits,
 )
 from app.core.retrieval.sufficiency import ABSTAIN_SENTENCE, verified_band, web_is_sufficient
@@ -365,12 +367,16 @@ async def _ranked_many(
 
 
 def statute_note(request: RagRequest) -> str:
-    """Property and freelancer law is already written. A model restatement waits out the timeout."""
-    blob = f"{request.question} {request.search_query}"
-    keys = {topic.key for topic in detect_topics(blob)}
+    """Property and freelancer law is already written. A model restatement waits out the timeout.
+
+    The search query is not part of this choice. A cash-withdrawal rewrite names
+    Section 37 and "plot", and that text must not select the property note.
+    """
+    question = request.question
+    keys = {topic.key for topic in topics_for_note(question)}
     if "property" not in keys and "freelancer" not in keys:
         return ""
-    return cross_reference_note(blob, language=request.language)
+    return cross_reference_note(question, language=request.language)
 
 
 async def local_fast_answer(
@@ -426,8 +432,21 @@ async def local_fast_answer(
         if web:
             mode = "web"
             ranked = web
-    await _emit_sources(on_sources, ranked, mode)
-    return _result(request, rules, mode, note, False, False, "none", ranked, confidence="medium")
+    answer_source, verified, confidence = _citation_trust(ranked, mode)
+    if answer_source == "none":
+        ranked = []
+    await _emit_sources(on_sources, ranked, answer_source)
+    return _result(
+        request,
+        rules,
+        answer_source,
+        note,
+        verified,
+        False,
+        "none",
+        ranked,
+        confidence=confidence,
+    )
 
 
 def _has_preferred(hits: list[RankedHit], prefer: set[str] | None) -> bool:
@@ -500,19 +519,22 @@ async def _answer(
 ) -> RagResult:
     spoken = statute_note(request)
     if spoken:
-        await _emit_sources(on_sources, ranked, mode)
+        answer_source, verified, confidence = _citation_trust(ranked, mode)
+        if answer_source == "none":
+            ranked = []
+        await _emit_sources(on_sources, ranked, answer_source)
         if on_delta is not None:
             await on_delta(spoken)
         return _result(
             request,
             rules,
-            mode,
+            answer_source,
             spoken,
-            False,
+            verified,
             False,
             "none",
             ranked,
-            confidence="medium",
+            confidence=confidence,
         )
     if budget.remaining() < 2:
         return _abstain(request, rules, ranked if mode == "web" else [])
@@ -610,13 +632,19 @@ def _abstain(request, rules, web_ranked: list[tuple[RankedHit, float]]) -> RagRe
 
 
 async def _search_queries(llm, request: RagRequest, budget: CallBudget) -> list[str]:
-    """Lexicon queries only. An extra model rewrite would block the first token."""
-    del llm, budget
-    return rewrite_queries(request.question, request.search_query)
+    """Lexicon queries first. Roman Urdu the lexicon cannot read gets one English rewrite.
+
+    The corpus is English, so a raw Roman Urdu query retrieves nothing.
+    """
+    queries = rewrite_queries(request.question, request.search_query)
+    if request.language != "roman_urdu" or detect_topics(request.question):
+        return queries
+    english = await maybe_llm_queries(llm, request.question, budget)
+    return [*english[:3], *queries][:4]
 
 
 def attach_cross_reference(blocks: list[ContextBlock], request: RagRequest) -> list[ContextBlock]:
-    note = cross_reference_note(f"{request.question} {request.search_query}")
+    note = cross_reference_note(request.question)
     if not note:
         return blocks
     return [ContextBlock(parent_id="cross-reference", text=note), *blocks]
@@ -671,6 +699,28 @@ def _topic_statutes(ranked: list[tuple[RankedHit, float]], request: RagRequest) 
 def _band_of(ranked, sufficient_at: float, borderline_at: float) -> str:
     top = ranked[0][1] if ranked else None
     return verified_band(top, sufficient_at=sufficient_at, borderline_at=borderline_at)
+
+
+def _citation_trust(
+    ranked: list[tuple[RankedHit, float]], mode: str
+) -> tuple[Literal["verified", "web", "none"], bool, Literal["high", "medium", "low"]]:
+    """Verified and high confidence require a retrieved ordinance section."""
+    statutes: list[RankedHit] = []
+    pages: list[RankedHit] = []
+    for hit, _score in ranked:
+        if not str(hit.payload.get("text") or "").strip():
+            continue
+        if hit_section(hit):
+            statutes.append(hit)
+        elif str(hit.payload.get("source_url") or hit.payload.get("url") or "").strip():
+            pages.append(hit)
+    if mode == "web" and (statutes or pages):
+        return "web", False, "medium"
+    if statutes:
+        return "verified", True, "high"
+    if pages:
+        return "web", False, "medium"
+    return "none", False, "low"
 
 
 def _links(request: RagRequest, rules: list[ActionLinkRule]) -> list[ActionLink]:

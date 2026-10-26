@@ -1,7 +1,7 @@
 # Crawler allowlist. Every domain and seed URL must be checked by hand before crawl.
 # Only URLs confirmed as official in this session are listed. Empty seeds mean "do not crawl yet".
 defaults: {max_depth: 3, max_pages: 500, delay_s: 2, max_pdf_mb: 15, respect_robots: true}
-user_agent: "DaleelAI-crawler/1.0 (+https://github.com/kasaam-ali/DaleelAI)"
+user_agent: "DaleelAI-crawler/1.0 (student research project)"
 sites:
   - site: fbr.gov.pk
     authority: FBR

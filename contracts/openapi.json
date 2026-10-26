@@ -77,6 +77,95 @@
         }
       }
     },
+    "/api/v1/session": {
+      "delete": {
+        "summary": "Delete Session",
+        "operationId": "delete_session_api_v1_session_delete",
+        "parameters": [
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/feedback": {
       "post": {
         "summary": "Feedback",
@@ -346,6 +435,54 @@
       }
     },
     "/api/v1/checklists": {
+      "get": {
+        "summary": "List Checklists",
+        "operationId": "list_checklists_api_v1_checklists_get",
+        "parameters": [
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChecklistResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Checklists Api V1 Checklists Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "summary": "Create Checklist",
         "operationId": "create_checklist_api_v1_checklists_post",
@@ -379,6 +516,61 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecklistResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/checklists/{checklist_id}": {
+      "get": {
+        "summary": "Get Checklist",
+        "operationId": "get_checklist_api_v1_checklists__checklist_id__get",
+        "parameters": [
+          {
+            "name": "checklist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Checklist Id"
+            }
+          },
+          {
+            "name": "x-session-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Session-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -600,8 +792,72 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "x-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ]
       }
     },
     "/api/v1/updates/{item_id}": {
@@ -667,6 +923,52 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evaluation/answers": {
+      "get": {
+        "summary": "Answers Report",
+        "operationId": "answers_report_api_v1_evaluation_answers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
               }
             }
           }
@@ -1255,6 +1557,14 @@
             "type": "string",
             "title": "Detail"
           },
+          "title_ru": {
+            "type": "string",
+            "title": "Title Ru"
+          },
+          "detail_ru": {
+            "type": "string",
+            "title": "Detail Ru"
+          },
           "sources": {
             "items": {
               "type": "string"
@@ -1282,6 +1592,8 @@
           "id",
           "title",
           "detail",
+          "title_ru",
+          "detail_ru",
           "sources",
           "done"
         ],
@@ -1310,6 +1622,22 @@
           "done": {
             "type": "boolean",
             "title": "Done"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "roman_urdu",
+                  "urdu"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           }
         },
         "type": "object",
@@ -1452,6 +1780,20 @@
             "type": "string",
             "title": "Advice"
           },
+          "advice_ru": {
+            "type": "string",
+            "title": "Advice Ru"
+          },
+          "advice_code": {
+            "type": "string",
+            "enum": [
+              "uncertain_category",
+              "simple_question",
+              "no_listing",
+              "ok"
+            ],
+            "title": "Advice Code"
+          },
           "disclaimer": {
             "type": "string",
             "title": "Disclaimer"
@@ -1466,6 +1808,8 @@
           "classification",
           "experts",
           "advice",
+          "advice_ru",
+          "advice_code",
           "disclaimer",
           "removal_contact"
         ],
@@ -1867,11 +2211,66 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "DependencyCheck": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "slow",
+              "down",
+              "off"
+            ],
+            "title": "Status"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "required": [
+          "status",
+          "latency_ms"
+        ],
+        "title": "DependencyCheck"
+      },
+      "DependencyChecks": {
+        "type": "object",
+        "properties": {
+          "api": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "qdrant": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "postgres": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          },
+          "embeddings": {
+            "$ref": "#/components/schemas/DependencyCheck"
+          }
+        },
+        "required": [
+          "api",
+          "qdrant",
+          "postgres",
+          "llm",
+          "embeddings"
+        ],
+        "title": "DependencyChecks"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
             "type": "string",
-            "const": "ok",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
             "title": "Status"
           },
           "version": {
@@ -1886,6 +2285,11 @@
             "type": "string",
             "title": "Corpus Version"
           },
+          "corpus_date": {
+            "type": "string",
+            "title": "Corpus Date",
+            "default": ""
+          },
           "supported_tax_years": {
             "items": {
               "type": "string"
@@ -1899,6 +2303,9 @@
             },
             "type": "object",
             "title": "Models"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/DependencyChecks"
           }
         },
         "type": "object",
@@ -1908,7 +2315,8 @@
           "env",
           "corpus_version",
           "supported_tax_years",
-          "models"
+          "models",
+          "checks"
         ],
         "title": "HealthResponse"
       },
@@ -2492,6 +2900,16 @@
           "summary": {
             "type": "string",
             "title": "Summary"
+          },
+          "summary_en": {
+            "type": "string",
+            "title": "Summary En",
+            "default": ""
+          },
+          "summary_ru": {
+            "type": "string",
+            "title": "Summary Ru",
+            "default": ""
           },
           "who_is_affected": {
             "anyOf": [

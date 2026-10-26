@@ -66,12 +66,17 @@ class ChatDetail(ChatSummary):
     messages: list[StoredChatMessage]
 
 
+class ChatTitleRequest(BaseModel):
+    title: str | None = None
+
+
 class ChatRequest(BaseModel):
     chat_id: str | None = None
     message: str = Field(min_length=1, max_length=2000)
     language: Literal["auto", "en", "roman_urdu", "urdu"] = "auto"
     tax_year: str | None = None
     profile: Profile | None = None
+    client_request_id: str | None = Field(default=None, max_length=64)
 
     @field_validator("tax_year")
     @classmethod
@@ -369,6 +374,8 @@ class ChecklistStep(BaseModel):
     id: str
     title: str
     detail: str
+    title_ru: str
+    detail_ru: str
     sources: list[str]
     done: bool
     link: ChecklistStepLink | None = None
@@ -382,12 +389,15 @@ class ChecklistRequest(BaseModel):
 
 class ChecklistStepPatch(BaseModel):
     done: bool
+    language: Literal["en", "roman_urdu", "urdu"] | None = None
 
 
 class ChecklistResponse(BaseModel):
     id: str
     template_id: str
     title: str
+    title_en: str = ""
+    title_ru: str = ""
     steps: list[ChecklistStep]
     progress: float
 
@@ -431,8 +441,12 @@ class ExpertFindResponse(BaseModel):
     classification: ExpertClassification
     experts: list[ExpertListing]
     advice: str
+    advice_ru: str
+    advice_code: Literal["uncertain_category", "simple_question", "no_listing", "ok"]
     disclaimer: str
     removal_contact: str
+    disclaimer_ru: str = ""
+    removal_contact_ru: str = ""
 
 
 class ExpertUpsert(BaseModel):
@@ -454,6 +468,8 @@ class UpdateItem(BaseModel):
     published_at: str | None = None
     effective_from: str | None = None
     summary: str
+    summary_en: str = ""
+    summary_ru: str = ""
     who_is_affected: str | None = None
     key_changes: list[str]
     source_url: str

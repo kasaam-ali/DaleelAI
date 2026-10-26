@@ -9,11 +9,11 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from app.agents.answer import sanitize_answer
 from app.agents.rag import RagResult
-from app.agents.router import lexicon_route, resolve_reply_language
+from app.agents.router import is_prompt_injection, lexicon_route, resolve_reply_language
 from app.api.v1.schemas import (
     AgentTrace,
     ChatRequest,
@@ -23,7 +23,8 @@ from app.api.v1.schemas import (
 )
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
-from app.core.demo import match_demo
+from app.core.demo import demo_in_language, match_demo
+from app.core.plain_answer import PlainStream, plain_answer
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
@@ -38,9 +39,27 @@ _REFUSAL = (
     "I can't help with hiding income, evading tax, or fake documents. "
     "For legal filing, use IRIS or call FBR at 051-111-772-772."
 )
+_INJECTION_REFUSAL = (
+    "I can't ignore the rules or reveal a hidden prompt. "
+    "Ask a tax question and I will answer from the ordinance."
+)
+_INJECTION_REFUSAL_RU = (
+    "Main qawaid nahi chhod sakta aur chhupa hua prompt nahi dikha sakta. "
+    "Tax ka sawal poochain, main ordinance se jawab doonga."
+)
+_REFUSAL_RU = (
+    "Main income chhupane, tax se bachne, ya fake documents mein madad nahi kar sakta. "
+    "Qanooni filing ke liye IRIS istemal karein ya FBR ko 051-111-772-772 par call karein."
+)
 _NOT_READY = "That tool is not available yet."
+_NOT_READY_RU = "Yeh tool abhi dastiyab nahi."
 _CHITCHAT = "Salam. Ask a tax question and I will answer from official FBR and SECP sources."
+_CHITCHAT_RU = "Salam. Tax ka sawal poochain. Main FBR aur SECP ke sarkari sources se jawab doonga."
 _OUT_OF_SCOPE = "That is outside tax and compliance. Ask about FBR or SECP and I can help."
+_OUT_OF_SCOPE_RU = (
+    "Yeh tax aur compliance se bahar hai. "
+    "FBR ya SECP ke bare mein poochain, main madad kar sakta hoon."
+)
 _STATUTE = re.compile(r"^\d{1,3}[A-Z]{0,4}$")
 _HEADER_STATUTE = re.compile(r"\b(?:Section|Rule|Regulation)\s+(\d{1,3}[A-Z]{0,4})\b", re.I)
 log = logging.getLogger(__name__)
@@ -79,18 +98,27 @@ async def iter_chat_events(
     rules = link_rules if link_rules is not None else load_action_links(rules_path)
     tax_year = body.tax_year or current_tax_year(today)
     profile = body.profile.model_dump() if body.profile else None
-    chat_id = _uuid_or_new(body.chat_id)
-    message_id = str(uuid4())
     session = _uuid_or_none(session_id)
+    message_id = _message_id(session, body.client_request_id)
+    chat_id = _uuid_or_none(body.chat_id) or (
+        str(uuid5(NAMESPACE_URL, f"chat:{message_id}")) if body.client_request_id else str(uuid4())
+    )
+    saved = await _saved_turn(store, session, message_id, body.client_request_id)
+    if saved is not None:
+        for event in _saved_events(saved, tax_year, corpus_date):
+            yield event
+        return
     demo = match_demo(body.message)
     if demo is not None:
+        if body.language in {"en", "roman_urdu", "urdu"}:
+            asked = "roman_urdu" if body.language == "urdu" else body.language
+            demo = demo_in_language(demo, asked)
         async for event in _yield_demo(
             store, session, chat_id, message_id, body.message, demo, tax_year, corpus_date
         ):
             yield event
         return
-    hinted = "en" if body.language == "auto" else body.language
-    language_key = resolve_reply_language(body.message, hinted, "en")
+    language_key = resolve_reply_language(body.message, body.language, "en")
     key = answer_cache_key(body.message, profile, tax_year, corpus_version, language_key)
     hide_cache = outbound_pii(body.message) is not None
     cached = None if hide_cache else _cached(cache, key)
@@ -151,6 +179,7 @@ async def iter_chat_events(
         failure: Exception | None = None
         emitted = 0
         streamed: list[str] = []
+        plain_stream = PlainStream(language)
         collected_sources: list[dict[str, Any]] = []
         sources_sent = False
 
@@ -213,7 +242,12 @@ async def iter_chat_events(
                     continue
                 emitted += 1
                 streamed.append(data)
-                yield {"event": "token", "data": {"text": data}}
+                clean = plain_stream.push(data)
+                if clean:
+                    yield {"event": "token", "data": {"text": clean}}
+            rest = plain_stream.flush()
+            if rest:
+                yield {"event": "token", "data": {"text": rest}}
             if not task.done():
                 task.cancel()
             try:
@@ -244,7 +278,11 @@ async def iter_chat_events(
                     failure = exc
         if failure is not None or result is None:
             if streamed:
-                draft = sanitize_answer("".join(streamed), language)
+                draft = plain_answer(
+                    sanitize_answer("".join(streamed), language),
+                    language,
+                    n_sources=len(collected_sources),
+                )
                 stored_sources = collected_sources
                 final = _final(
                     draft,
@@ -290,7 +328,7 @@ async def iter_chat_events(
             yield {"event": "done", "data": {}}
             return
         if emitted == 0:
-            yield {"event": "token", "data": {"text": result.answer}}
+            yield {"event": "token", "data": {"text": plain_answer(result.answer, language)}}
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
             library = "web"
@@ -308,7 +346,7 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            result.answer,
+            plain_answer(result.answer, language, n_sources=len(result.sources)),
             result.answer_source,
             result.verified,
             result.model,
@@ -355,7 +393,7 @@ async def iter_chat_events(
             category=routed.params.get("category"),
             classifier=classifier,
         )
-        answer = card["advice"]
+        answer = card["advice_ru"] if language == "roman_urdu" else card["advice"]
         yield {"event": "tool_result", "data": {"card": {"type": "experts", "data": card}}}
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
@@ -382,7 +420,7 @@ async def iter_chat_events(
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, [])
     else:
-        answer = _short_reply(routed.intent, routed.authority)
+        answer = _short_reply(routed.intent, routed.authority, language, body.message)
         links = match_action_links(body.message, rules, domains=set())
         yield {"event": "token", "data": {"text": answer}}
         final = _final(answer, "none", False, "none", tax_year, corpus_date, links)
@@ -493,9 +531,50 @@ def _accepts_param(fn, name: str) -> bool:
         return False
 
 
-def _uuid_or_new(value: str | None) -> str:
-    parsed = _uuid_or_none(value)
-    return parsed or str(uuid4())
+def _message_id(session: str | None, client_request_id: str | None) -> str:
+    """Same client request id in the same session -> same message id, so a resend is a no-op."""
+    if session and client_request_id:
+        return str(uuid5(NAMESPACE_URL, f"daleelai:{session}:{client_request_id}"))
+    return str(uuid4())
+
+
+async def _saved_turn(store, session, message_id, client_request_id):
+    finder = getattr(store, "find_turn", None)
+    if not (session and client_request_id and finder):
+        return None
+    try:
+        return await asyncio.to_thread(finder, session, message_id)
+    except Exception:
+        log.warning("saved turn lookup failed", exc_info=True)
+        return None
+
+
+def _saved_events(saved: dict[str, Any], tax_year: str, corpus_date: str) -> list[dict[str, Any]]:
+    message = saved["message"]
+    final = FinalData(
+        answer=message["content"],
+        answer_source=message.get("answer_source") or "none",
+        confidence=message.get("confidence") or "low",
+        verified=bool(message.get("verified")),
+        model=message.get("model") or "saved",
+        tax_year=message.get("tax_year") or tax_year,
+        corpus_date=message.get("corpus_date") or corpus_date,
+        cached=True,
+    )
+    events = [
+        _meta(
+            message.get("intent") or "qa",
+            message.get("language") or "en",
+            final.tax_year,
+            saved["chat_id"],
+            message["id"],
+        )
+    ]
+    if message.get("sources"):
+        events.append({"event": "sources", "data": {"sources": message["sources"]}})
+    events.append({"event": "final", "data": final.model_dump()})
+    events.append({"event": "done", "data": {}})
+    return events
 
 
 def _uuid_or_none(value: str | None) -> str | None:
@@ -623,14 +702,14 @@ async def _yield_demo(store, session, chat_id, message_id, question, demo, tax_y
         search_query=question,
         retrieved=0,
         rerank_top=None,
-        verified=True,
+        verified=False,
         latency_ms=0,
     )
     final = FinalData(
         answer=answer,
         answer_source="none",
-        confidence="high",
-        verified=True,
+        confidence="low",
+        verified=False,
         model="demo-cache",
         tax_year=tax_year,
         corpus_date=corpus_date,
@@ -690,20 +769,38 @@ def _statutory_section(payload: dict[str, Any]) -> str | None:
     return found.group(1) if found else None
 
 
-def _short_reply(intent: str, authority: str | None) -> str:
+def _short_reply(
+    intent: str,
+    authority: str | None,
+    language: str = "en",
+    message: str = "",
+) -> str:
+    roman = language == "roman_urdu"
     if intent == "refuse":
-        return _REFUSAL
+        if is_prompt_injection(message):
+            return _INJECTION_REFUSAL_RU if roman else _INJECTION_REFUSAL
+        return _REFUSAL_RU if roman else _REFUSAL
     if intent == "chitchat":
-        return _CHITCHAT
+        return _CHITCHAT_RU if roman else _CHITCHAT
     if intent == "out_of_scope":
-        return _OUT_OF_SCOPE
+        return _OUT_OF_SCOPE_RU if roman else _OUT_OF_SCOPE
     if intent == "provincial":
-        name = authority or "the provincial revenue authority"
+        name = authority or (
+            "subai revenue authority" if roman else "the provincial revenue authority"
+        )
+        if roman:
+            return (
+                f"Yeh {name} ka subai mamla lagta hai. "
+                "DaleelAI wifaqi tax FBR aur SECP se batata hai. "
+                "Qaaida us idare ki site par tasdeeq karein."
+            )
         return (
             f"This looks like a provincial matter for {name}. "
             "DaleelAI answers federal tax from FBR and SECP. "
             "Confirm the rule on that authority's site."
         )
     if intent == "notice":
+        if roman:
+            return "Jab explainer dastiyab ho, notice upload karein. Abhi dastiyab nahi."
         return "Upload the notice when the explainer is available. It is not available yet."
-    return _NOT_READY
+    return _NOT_READY_RU if roman else _NOT_READY

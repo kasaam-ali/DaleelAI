@@ -12,9 +12,11 @@ from app.core.ports import LLMResult
 from app.core.privacy.pii import outbound_pii
 from app.core.services.notice import (
     NoticeError,
+    _pdf_text,
     explain_upload,
     extract_text,
     mask_secrets,
+    parse_fields,
     validate_upload,
 )
 
@@ -153,6 +155,52 @@ def test_mask_removes_the_cnic_from_the_page():
     assert "11111-1111111-1" not in text
 
 
+async def test_notice_asks_the_model_once(notices):
+    roles: list[str] = []
+
+    class Once:
+        async def complete(self, role, messages, **kwargs):
+            roles.append(role)
+            return LLMResult(
+                text=json.dumps(
+                    {
+                        "summary": "Explained from the redacted notice.",
+                        "why_received": "The office asked for a reply.",
+                        "next_steps": ["Reply on IRIS."],
+                    }
+                ),
+                model="spy",
+                fallback=False,
+                latency_ms=1,
+            )
+
+    await explain_upload(_pdf(_body(notices[0])), llm=Once(), today=_TODAY)
+    assert roles == ["reasoning"]
+
+
+def test_plain_section_skips_the_layout_pass(monkeypatch):
+    import pymupdf4llm
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("layout pass")
+
+    monkeypatch.setattr(pymupdf4llm, "to_markdown", fail)
+    text = _pdf_text(_pdf("Notice under section 114(4)\n" + "word " * 20))
+    assert "114" in text
+
+
+def test_layout_pass_runs_when_plain_text_has_no_section(monkeypatch):
+    import pymupdf4llm
+
+    monkeypatch.setattr(
+        pymupdf4llm,
+        "to_markdown",
+        lambda _doc: "Notice under section 122(1)\n" + "word " * 20,
+    )
+    text = _pdf_text(_pdf("Office notice with a deadline and an amount but no statute label.\n"))
+    assert "122" in text
+
+
 def test_upload_limits():
     with pytest.raises(NoticeError) as bad_type:
         validate_upload(b"not a notice")
@@ -163,3 +211,62 @@ def test_upload_limits():
     with pytest.raises(NoticeError) as too_many:
         validate_upload(_pdf("A short notice that still has enough words to be a page.", pages=11))
     assert too_many.value.code == "too_many_pages"
+
+
+def test_dated_amount_and_office_are_read_from_plain_wording():
+    filing = parse_fields(
+        "\n".join(
+            [
+                "REGIONAL TAX OFFICE, LAHORE",
+                "Notice u/s 114(4) of the Income Tax Ordinance, 2001",
+                "This is a non-filing notice. Penalty under section 182 may apply.",
+                "Tax Year 2025",
+                "Reply by 31-10-2026.",
+                "Tax demanded Rs. 1,250,000.",
+            ]
+        )
+    )
+    assert filing["section"] == "114(4)"
+    assert filing["notice_type"] == "return_filing"
+    assert filing["deadline"] == "2026-10-31"
+    assert filing["amount"] == 1_250_000
+    assert filing["issuing_office"] == "REGIONAL TAX OFFICE LAHORE"
+    assert "114(4)" in filing["section"]
+
+    info = parse_fields(
+        "\n".join(
+            [
+                "Large Taxpayers' Office, Islamabad",
+                "Call for information u/s 176.",
+                "Please respond before 25/10/2026.",
+                "Rs. 75,000",
+            ]
+        )
+    )
+    assert info["section"] == "176"
+    assert info["notice_type"] == "information"
+    assert info["deadline"] == "2026-10-25"
+    assert info["amount"] == 75_000
+    assert info["issuing_office"] == "Large Taxpayers' Office Islamabad"
+
+
+async def test_upload_keeps_a_dmy_deadline_and_a_rupee_amount():
+    text = "\n".join(
+        [
+            "Office: RTO Lahore",
+            "Notice u/s 176",
+            "Tax Year 2025",
+            "This is an information notice with enough words to be read.",
+            "Reply by 31-10-2026.",
+            "Amount demanded: Rs. 1,250,000",
+        ]
+    )
+    result = await explain_upload(_pdf(text), today=_TODAY)
+    assert result["section"] == "176"
+    assert result["deadline"] == "2026-10-31"
+    assert result["amount"] == 1_250_000
+    assert result["issuing_office"] == "RTO Lahore"
+    assert result["explanation"]["days_left"] == 17
+    assert result["explanation"]["next_steps"][0] == "Reply on IRIS by 2026-10-31."
+    assert result["sources"][0]["section"] == "176"
+    assert "176" in result["sources"][0]["snippet"]

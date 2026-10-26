@@ -80,8 +80,6 @@ TOPICS: tuple[TaxTopic, ...] = (
             "registry",
             "236c",
             "236k",
-            "capital gain",
-            "capital gains",
         ),
     ),
     TaxTopic(
@@ -106,6 +104,27 @@ TOPICS: tuple[TaxTopic, ...] = (
             "tenth schedule",
             "100ba",
             "filer",
+        ),
+    ),
+    TaxTopic(
+        "return_filing",
+        (
+            "Section 114 return of income who must file Section 118 due date "
+            "for furnishing return of income filing deadline"
+        ),
+        ("114", "118"),
+        (
+            "file return",
+            "file my return",
+            "file my income tax return",
+            "file the return",
+            "filing return",
+            "return filing",
+            "income tax return",
+            "return file",
+            "return jama",
+            "section 114",
+            "section 118",
         ),
     ),
     TaxTopic(
@@ -136,7 +155,6 @@ TOPICS: tuple[TaxTopic, ...] = (
             "capital gains",
             "munafa",
             "munafe",
-            "profit",
             "bache hain",
             "section 37",
         ),
@@ -200,6 +218,7 @@ TOPICS: tuple[TaxTopic, ...] = (
             "tankhwa",
             "tanakhwa",
             "salary",
+            "salaried",
             "wages",
             "naukri",
             "office wale",
@@ -273,7 +292,7 @@ TOPICS: tuple[TaxTopic, ...] = (
 
 _LLM_REWRITE = (
     "Turn this Pakistani tax question into short English statutory search queries. "
-    "Name Income Tax Ordinance sections when they apply. "
+    "Name Income Tax Ordinance sections when they apply. At most 3 queries, under 15 words each. "
     'Reply with JSON only: {"queries": ["..."]}.'
 )
 
@@ -287,18 +306,50 @@ def detect_topics(text: str) -> list[TaxTopic]:
     ]
     keys = {topic.key for topic in found}
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.
+    # The freelancer and notice templates already search Section 114.
+    if keys & {"freelancer", "notice"}:
+        found = [topic for topic in found if topic.key != "return_filing"]
     if "senior_profit" in keys:
         found = [topic for topic in found if topic.key != "capital_gain"]
+    # Cash withdrawal is Section 231AB. A capital-gain aside is not a plot sale,
+    # and the plot template must not be written into the search text.
+    if "cash" in keys and not _immovable_cue(text):
+        found = [topic for topic in found if topic.key not in {"property", "capital_gain"}]
+    return found
+
+
+def topics_for_note(text: str) -> list[TaxTopic]:
+    """Topics for a curated note. Drop our own search templates first.
+
+    A cash-withdrawal rewrite names Section 37 and "plot" inside the capital-gain
+    template. That text must not select the property note.
+    """
+    cleaned = text
+    for topic in sorted(TOPICS, key=lambda item: len(item.query), reverse=True):
+        cleaned = cleaned.replace(topic.query, " ")
+    found = detect_topics(cleaned)
+    keys = {topic.key for topic in found}
+    # Judge the user's words, not a search template that names "plot" or "immovable".
+    if "cash" in keys and not _immovable_cue(cleaned):
+        found = [topic for topic in found if topic.key != "property"]
     return found
 
 
 _PROPERTY_NOTE = (
     "Authoritative cross-reference: Seller advance tax is Section 236C and buyer advance tax "
-    "is Section 236K. The Rs 15 lakh profit is capital gain on immovable property under "
+    "is Section 236K. Late or non-ATL filers face higher withholding under Section 100BA "
+    "and the Tenth Schedule."
+)
+_GAIN_NOTE = (
+    "Profit on selling the property is capital gain on immovable property under "
     "Section 37(1A), First Schedule Division VIII holding-period rates. A plot acquired before "
     "1 July 2024 still uses holding-period rates; a 2-year holding period is not automatically "
-    "zero. Late or non-ATL filers face higher withholding under Section 100BA "
-    "and the Tenth Schedule."
+    "zero."
+)
+_CASH_NOTE = (
+    "Authoritative cross-reference: Advance tax on cash withdrawal is Section 231AB. It applies "
+    "to persons not on the Active Taxpayers List (ATL); a filer on the ATL does not pay it. "
+    "Rates are in the First Schedule and the Tenth Schedule."
 )
 _REMITTANCE_NOTE = (
     "Authoritative cross-reference: Section 111(4) — foreign exchange through normal banking "
@@ -321,11 +372,18 @@ _INCOME_NOTE = (
 )
 _PROPERTY_NOTE_RU = (
     "Seller ka advance tax Section 236C hai aur buyer ka advance tax Section 236K hai. "
-    "Rs 15 lakh ka munafa immovable property par capital gain hai, Section 37(1A), "
-    "First Schedule Division VIII ke holding-period rates. 1 July 2024 se pehle liya hua plot "
-    "ab bhi holding-period rates par hai; 2 saal ka holding automatic zero nahi. "
     "Late filer ya jo ATL par nahi, un par Section 100BA aur Tenth Schedule ke mutabiq "
     "zyada withholding hoti hai."
+)
+_GAIN_NOTE_RU = (
+    "Property bechne ka munafa immovable property par capital gain hai, Section 37(1A), "
+    "First Schedule Division VIII ke holding-period rates. 1 July 2024 se pehle liya hua plot "
+    "ab bhi holding-period rates par hai; 2 saal ka holding automatic zero nahi."
+)
+_CASH_NOTE_RU = (
+    "Cash nikalne par advance tax Section 231AB hai. Yeh un logon par lagta hai jo Active "
+    "Taxpayers List (ATL) par nahi; ATL wala filer yeh nahi deta. "
+    "Rates First Schedule aur Tenth Schedule mein hain."
 )
 _REMITTANCE_NOTE_RU = (
     "Section 111(4): normal banking channel se aayi foreign exchange saal mein Rs 5 million "
@@ -356,13 +414,30 @@ _FREELANCER_NOTE_RU = (
 )
 
 
+def _immovable_cue(text: str) -> bool:
+    """Plot, land, or a property sale. 'Capital gain' alone is not one."""
+    blob = _normalize(text)
+    cues = next(topic.triggers for topic in TOPICS if topic.key == "property")
+    return any(
+        _has_trigger(blob, trigger)
+        for trigger in cues
+        if trigger not in {"capital gain", "capital gains"}
+    )
+
+
 def cross_reference_note(text: str, *, language: str = "en") -> str:
     """Short statutory bridge for the topics this question already triggered."""
-    keys = {topic.key for topic in detect_topics(text)}
+    keys = {topic.key for topic in topics_for_note(text)}
+    if "cash" in keys and not _immovable_cue(text):
+        keys.discard("property")
     roman = language == "roman_urdu"
     parts: list[str] = []
+    if "cash" in keys:
+        parts.append(_CASH_NOTE_RU if roman else _CASH_NOTE)
     if "property" in keys:
         parts.append(_PROPERTY_NOTE_RU if roman else _PROPERTY_NOTE)
+        if "capital_gain" in keys:
+            parts.append(_GAIN_NOTE_RU if roman else _GAIN_NOTE)
     if "remittance" in keys:
         parts.append(_REMITTANCE_NOTE_RU if roman else _REMITTANCE_NOTE)
     if "freelancer" in keys:
@@ -449,13 +524,16 @@ async def maybe_llm_queries(llm, text: str, budget) -> list[str]:
 def _parse_llm_queries(text: str) -> list[str]:
     start = text.find("{")
     end = text.rfind("}")
+    if start != -1 and end <= start:
+        # max_tokens cut the JSON off. Keep the queries that closed.
+        return _closed_queries(text[start:])
     if start == -1 or end <= start:
         line = text.strip().strip('"').splitlines()[0].strip() if text.strip() else ""
         return [line[:300]] if line and not _is_raw_desi(line) else []
     try:
         payload = json.loads(text[start : end + 1])
     except json.JSONDecodeError:
-        return []
+        return _closed_queries(text[start:])
     raw = payload.get("queries") if isinstance(payload, dict) else None
     if not isinstance(raw, list):
         return []
@@ -466,6 +544,11 @@ def _parse_llm_queries(text: str) -> list[str]:
         if len(queries) == 4:
             break
     return queries
+
+
+def _closed_queries(text: str) -> list[str]:
+    found = re.findall(r'"((?:[^"\\]|\\.){3,300})"\s*[,\]]', text)
+    return [q.strip() for q in found if q.strip() and not _is_raw_desi(q)][:4]
 
 
 def _normalize(text: str) -> str:

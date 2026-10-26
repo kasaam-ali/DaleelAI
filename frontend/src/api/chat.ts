@@ -1,7 +1,7 @@
 /** Streams one chat answer and loads saved chats for this session. */
 
 import { API_URL } from "./client"
-import type { Profile, UiLanguage } from "../lib/session"
+import type { AnswerLanguage, Profile } from "../lib/session"
 
 export type Source = {
   library: "verified" | "web"
@@ -71,9 +71,10 @@ export type SseEvent =
 export type ChatBody = {
   chat_id: string | null
   message: string
-  language: UiLanguage
-  tax_year: null
+  language: AnswerLanguage
+  tax_year: string | null
   profile: Profile
+  client_request_id?: string
 }
 
 const KNOWN = new Set([
@@ -129,7 +130,11 @@ export async function streamChat(
     signal,
   })
   if (!response.ok || !response.body) {
-    throw new Error(await errorMessage(response))
+    const parsed = await readErrorBody(response)
+    const failure = new Error(parsed.message) as Error & { status?: number; code?: string }
+    failure.status = response.status
+    failure.code = parsed.code
+    throw failure
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -152,6 +157,7 @@ export async function sendFeedback(
   messageId: string,
   rating: "up" | "down",
   reason: FeedbackReason | null,
+  comment: string | null = null,
 ): Promise<void> {
   const response = await fetch(`${API_URL}/api/v1/feedback`, {
     method: "POST",
@@ -163,21 +169,27 @@ export async function sendFeedback(
       message_id: messageId,
       rating,
       reason,
-      comment: null,
+      comment,
       share_conversation: false,
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))
 }
 
-async function errorMessage(response: Response): Promise<string> {
+async function readErrorBody(response: Response): Promise<{ code: string; message: string }> {
   try {
-    const body = (await response.json()) as { error?: { message?: string }; detail?: unknown }
-    if (body.error?.message) return body.error.message
+    const body = (await response.json()) as { error?: { code?: string; message?: string } }
+    if (body.error?.message) {
+      return { code: body.error.code || "request_failed", message: body.error.message }
+    }
   } catch {
     /* response was not JSON */
   }
-  return `Request failed (${response.status})`
+  return { code: "request_failed", message: `Request failed (${response.status})` }
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  return (await readErrorBody(response)).message
 }
 
 export type ChatSummary = {
@@ -199,6 +211,7 @@ export type StoredMessage = {
   confidence: "high" | "medium" | "low" | null
   verified: boolean | null
   model: string | null
+  corpus_date?: string | null
   created_at: string
   feedback: "up" | "down" | null
   feedback_reason: FeedbackReason | null
@@ -223,4 +236,26 @@ export async function getChat(sessionId: string, chatId: string): Promise<ChatDe
   })
   if (!response.ok) throw new Error(await errorMessage(response))
   return (await response.json()) as ChatDetail
+}
+
+export async function renameChat(sessionId: string, chatId: string, title: string): Promise<ChatSummary> {
+  const response = await fetch(`${API_URL}/api/v1/chats/${chatId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Session-Id": sessionId,
+    },
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return (await response.json()) as ChatSummary
+}
+
+export async function deleteChat(sessionId: string, chatId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/chats/${chatId}`, {
+    method: "DELETE",
+    headers: { "X-Session-Id": sessionId },
+  })
+  if (response.status === 204 || response.status === 404) return
+  throw new Error(await errorMessage(response))
 }

@@ -1,0 +1,82 @@
+/* PR 4 chat states (SPEC §5.2A items 3, 4, 9–11; §5.3; §6). Ported from the prototype chat.css / shared.css. */
+
+/* steps */
+.working { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; margin: 4px 0 10px; }
+.working .orb { width: 10px; height: 10px; border-radius: 50%; background: var(--seal); animation: st-orb 1.4s var(--ease-out, ease-out) infinite; }
+.psteps { list-style: none; margin: 4px 0 16px; padding: 14px 16px; display: grid; max-width: 540px; position: relative; background: var(--field); border: 1px solid var(--rule); border-radius: 16px; box-shadow: var(--shadow); }
+.psteps li { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: start; padding: 7px 0; position: relative; animation: st-rise 240ms var(--ease-out, ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.psteps li:not(:last-child)::after { content: ""; position: absolute; left: 12px; top: 32px; bottom: -6px; width: 2px; background: var(--rule); transform-origin: top; }
+.psteps li.done:not(:last-child)::after { background: var(--seal); animation: st-grow 360ms var(--ease-out, ease-out) both; }
+.psteps .s { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--rule); background: var(--field); color: var(--seal-ink); z-index: 1; }
+.psteps .done .s { background: var(--seal); border-color: var(--seal); animation: st-pop 360ms var(--ease-spring, ease-out); }
+.psteps .act .s { border-color: color-mix(in srgb, var(--seal) 25%, var(--rule)); border-top-color: var(--seal); animation: st-spin 0.9s linear infinite; }
+.psteps b { display: block; font-size: 14px; font-weight: 600; }
+.psteps .todo b { color: var(--placeholder); font-weight: 500; }
+.psteps small { display: block; font-size: 12.5px; color: var(--muted); }
+.psteps .t { font: 500 12px/26px Inter, sans-serif; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sk { position: relative; overflow: hidden; height: 14px; border-radius: 6px; background: var(--elevated); margin: 8px 0; }
+.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--field) 70%, transparent), transparent); animation: st-shimmer 1.4s ease-in-out infinite; transform: translateX(-100%); }
+.sk-strip { display: flex; gap: 10px; margin: 12px 0; max-width: 540px; }
+.sk-strip .sk { height: 62px; flex: 1; margin: 0; border-radius: 12px; }
+
+/* streaming strip: see answer/answer.css (PR 5) */
+
+/* refusal + error cards */
+.rcard, .ecard { background: var(--field); border: 1px solid var(--rule); box-shadow: var(--shadow); border-radius: 18px; overflow: hidden; margin-top: 6px; }
+.rcard { max-width: 680px; }
+.ecard { max-width: 640px; --k: var(--error); --k-soft: var(--error-soft); }
+.rhead { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 18px 18px 16px; background: linear-gradient(180deg, var(--k-soft), var(--field) 140%); }
+.rhead .ri { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--field); color: var(--k); box-shadow: var(--shadow); }
+.rhead .kind { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--field); color: var(--k); }
+.rhead h3 { font-family: var(--font-statute); font-size: 22px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; margin: 8px 0 6px; }
+.rhead p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--ink); max-width: 60ch; }
+.rsec { padding: 14px 18px; border-top: 1px solid var(--rule); }
+.rsec h4 { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.rchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rchips button { min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--field); font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; text-align: start; }
+.rchips button:hover { border-color: var(--k); }
+.rlinks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rlink { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--rule); background: var(--elevated); font-size: 13.5px; text-decoration: none; color: var(--ink); min-height: 44px; }
+.rlink b { display: block; font-weight: 600; }
+.rlink small { display: block; color: var(--muted); font-size: 12px; }
+.rlink > svg:last-child { margin-inline-start: auto; color: var(--muted); }
+.searched summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); min-height: 32px; }
+.searched summary::-webkit-details-marker { display: none; }
+.searched summary .chev { margin-inline-start: auto; transform: rotate(90deg); transition: transform 240ms; }
+.searched:not([open]) summary .chev { transform: none; }
+.sq { display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 6px; padding: 6px 10px; border-radius: 8px; background: var(--elevated); font: 500 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.scount { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+.miss { display: grid; grid-template-columns: 170px 1fr 90px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--rule); font-size: 13px; }
+.miss b { font-weight: 600; }
+.miss span { color: var(--muted); }
+.miss i { display: block; height: 6px; border-radius: 3px; background: var(--elevated); overflow: hidden; }
+.miss i em { display: block; height: 100%; background: var(--k); }
+.notsearched { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0; }
+.code2 { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 7px; background: var(--error-soft); color: var(--error); font: 600 12px/1 ui-monospace, Menlo, monospace; }
+.realmsg { margin: 10px 0 0 !important; padding: 10px 12px; border-radius: 10px; background: var(--elevated); font: 500 12.5px/1.5 ui-monospace, Menlo, monospace !important; }
+.retryrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ecard .btnp, .ecard .btng { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+.ecard .btnp { background: var(--seal); color: var(--seal-ink); }
+.ecard .btng { border: 1px solid var(--rule); background: var(--field); color: var(--ink); font-weight: 500; }
+.ecard .btng.sm { padding: 0 10px; font-size: 13px; }
+.cd { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.cd svg { width: 22px; height: 22px; transform: rotate(-90deg); }
+.cd circle.p { stroke: var(--seal); transition: stroke-dashoffset 1s linear; }
+.emeta { margin: 10px 0 0; display: flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 1360px) { .rlinks { grid-template-columns: 1fr; } }
+
+/* offline */
+.offline-bar { display: flex; gap: 10px; align-items: center; margin: 12px auto 0; width: calc(100% - 32px); max-width: 1180px; padding: 10px 14px; border-radius: 10px; background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); color: var(--warn); font-size: 13.5px; }
+.qbubble { padding: 10px 14px; border-radius: 14px 14px 4px 14px; background: var(--elevated); border: 1px dashed var(--rule-strong); font-size: 15px; }
+.qstate { display: flex; justify-content: flex-end; gap: 6px; align-items: center; margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--warn); }
+
+@keyframes st-orb { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--seal) 50%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@keyframes st-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes st-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes st-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes st-spin { to { transform: rotate(360deg); } }
+@keyframes st-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .working .orb, .psteps li, .psteps li::after, .psteps .s, .sk::after, .badge.checking svg, .strip .src { animation: none !important; }
+  .cd circle.p { transition: none; }
+}

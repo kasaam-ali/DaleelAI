@@ -197,14 +197,18 @@ async def route(
 
 
 def resolve_reply_language(message: str, body_language: str, routed_language: str) -> Language:
-    """UI and the typed message win. Nastaliq input still replies in Roman Urdu."""
-    if contains_urdu_script(message) or _keyword_language(message) == "roman_urdu":
-        return "roman_urdu"
-    if body_language == "roman_urdu" or routed_language in {"urdu", "roman_urdu"}:
-        return "roman_urdu"
+    """An explicit en or roman_urdu choice wins. auto detects this question only."""
     if body_language == "en":
         return "en"
-    return "en" if routed_language == "urdu" else routed_language  # type: ignore[return-value]
+    if body_language in {"roman_urdu", "urdu"}:
+        return "roman_urdu"
+    if (
+        contains_urdu_script(message)
+        or _keyword_language(message) == "roman_urdu"
+        or routed_language in {"urdu", "roman_urdu"}
+    ):
+        return "roman_urdu"
+    return "en"
 
 
 def lexicon_route(message: str) -> RouterOutput:
@@ -281,7 +285,30 @@ def _json_object(text: str) -> str:
     return stripped[start : end + 1]
 
 
+_EVASION = re.compile(
+    r"\b(?:evade tax|tax evasion|hide income|fake invoice|fake expense|income chupao|"
+    r"tax chupao|pay no tax|hide (?:my |the )?(?:cash|income|sales)|"
+    r"chh?upa\w*|chhupan\w*|chupan\w*|forge|doosri books|auditor na dekhe)\b"
+)
+_INJECTION = re.compile(
+    r"\b(?:ignore (?:all |the |previous |your )*instructions|"
+    r"disregard (?:the |your )?(?:instructions|ordinance|rules|prompt)|"
+    r"system prompt|hidden prompt|jailbreak)\b"
+)
+_OFF_TOPIC = re.compile(r"\b(?:poems?|recipe|weather)\b")
+
+
+def is_prompt_injection(message: str) -> bool:
+    """Injection that is not also a request to hide income."""
+    lowered = message.lower()
+    return _INJECTION.search(lowered) is not None and _EVASION.search(lowered) is None
+
+
 def _match_intent(lowered: str) -> Intent:
+    if _EVASION.search(lowered) or _INJECTION.search(lowered):
+        return "refuse"
+    if _OFF_TOPIC.search(lowered):
+        return "out_of_scope"
     for intent, phrases in _INTENT_PHRASES:
         if _has_phrase(lowered, phrases):
             return intent
@@ -300,7 +327,8 @@ def _is_chitchat(lowered: str) -> bool:
 def _keyword_language(text: str) -> Language:
     if contains_urdu_script(text):
         return "roman_urdu"
-    if _has_phrase(text.lower(), _ROMAN_URDU):
+    lowered = text.lower()
+    if _has_phrase(lowered, _ROMAN_URDU) or re.search(r"\bchh?upa\w*", lowered):
         return "roman_urdu"
     return "en"
 

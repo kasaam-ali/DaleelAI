@@ -3,14 +3,27 @@
 import { describe, expect, it } from "vitest"
 import {
   CHAT_KEY,
+  CORPUS_DATES_KEY,
   EMPTY_PROFILE,
   PROFILE_KEY,
   SESSION_KEY,
   clearLocalHistory,
+  clearStoredHistory,
+  currentTaxYear,
+  readAnswerLanguage,
+  readCorpusDates,
+  readLanguage,
+  readOfflineQueue,
   readProfile,
   readSessionId,
+  readTaxYear,
+  rememberCorpusDate,
   sanitizeProfile,
+  writeAnswerLanguage,
+  writeLanguage,
+  writeOfflineQueue,
   writeProfile,
+  writeTaxYear,
   type StorageLike,
 } from "./session"
 
@@ -65,6 +78,68 @@ describe("session", () => {
     expect(next).not.toBe(first)
     expect(store.data.get(SESSION_KEY)).toBe(next)
     expect(store.data.has(CHAT_KEY)).toBe(false)
+    expect(store.data.has(CORPUS_DATES_KEY)).toBe(false)
+  })
+
+  it("deletes the server session before rotating the local id", async () => {
+    const store = memory()
+    const first = readSessionId(store)
+    store.setItem(CHAT_KEY, "chat-1")
+    const seen: string[] = []
+    const next = await clearStoredHistory(store, first, async (sessionId) => {
+      seen.push(sessionId)
+    })
+    expect(seen).toEqual([first])
+    expect(next).not.toBe(first)
+    expect(store.data.get(SESSION_KEY)).toBe(next)
+    expect(store.data.has(CHAT_KEY)).toBe(false)
+  })
+
+  it("keeps the local session when the server delete fails", async () => {
+    const store = memory()
+    const first = readSessionId(store)
+    await expect(
+      clearStoredHistory(store, first, async () => {
+        throw new Error("down")
+      }),
+    ).rejects.toThrow("down")
+    expect(store.data.get(SESSION_KEY)).toBe(first)
+  })
+
+  it("remembers a law-as-of date for a saved answer", () => {
+    const store = memory()
+    rememberCorpusDate(store, "message-1", "2026-10-14")
+    expect(readCorpusDates(store)).toEqual({ "message-1": "2026-10-14" })
+    store.setItem(CORPUS_DATES_KEY, "2026-10-14")
+    clearLocalHistory(store)
+    expect(readCorpusDates(store)).toEqual({})
+  })
+
+  it("keeps the shell language and the per-chat answer language apart", () => {
+    const store = memory()
+    expect(readLanguage(store)).toBe("en")
+    writeLanguage(store, "roman_urdu")
+    expect(readLanguage(store)).toBe("roman_urdu")
+    expect(readAnswerLanguage(store, null)).toBe("auto")
+    writeAnswerLanguage(store, "chat-1", "en")
+    writeAnswerLanguage(store, "chat-2", "roman_urdu")
+    expect(readAnswerLanguage(store, "chat-1")).toBe("en")
+    expect(readAnswerLanguage(store, "chat-2")).toBe("roman_urdu")
+    expect(readLanguage(store)).toBe("roman_urdu")
+  })
+
+  it("keeps an offline question until it is sent", () => {
+    const store = memory()
+    expect(readOfflineQueue(store)).toEqual([])
+    writeOfflineQueue(store, [
+      { id: "q-1", text: "Section 149?" },
+      { id: "q-2", text: "  " },
+    ])
+    expect(readOfflineQueue(store)).toEqual([{ id: "q-1", text: "Section 149?" }])
+    writeOfflineQueue(store, [])
+    expect(store.data.has("daleelai.offline_queue")).toBe(false)
+    store.data.set("daleelai.offline_queue", "{")
+    expect(readOfflineQueue(store)).toEqual([])
   })
 
   it("round-trips a profile and ignores broken JSON", () => {
@@ -73,5 +148,15 @@ describe("session", () => {
     expect(readProfile(store).taxpayer_type).toBe("salaried")
     store.data.set(PROFILE_KEY, "{")
     expect(readProfile(store)).toEqual(EMPTY_PROFILE)
+  })
+
+  it("uses the Karachi tax year and keeps a saved choice", () => {
+    expect(currentTaxYear(new Date("2026-06-30T18:00:00Z"))).toBe("TY2026")
+    expect(currentTaxYear(new Date("2026-06-30T19:30:00Z"))).toBe("TY2027")
+    expect(currentTaxYear(new Date("2026-10-19T08:00:00Z"))).toBe("TY2027")
+    const store = memory()
+    expect(readTaxYear(store, new Date("2026-10-19T08:00:00Z"))).toBe("TY2027")
+    writeTaxYear(store, "TY2026")
+    expect(readTaxYear(store, new Date("2026-10-19T08:00:00Z"))).toBe("TY2026")
   })
 })

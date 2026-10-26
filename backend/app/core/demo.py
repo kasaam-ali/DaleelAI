@@ -25,3 +25,16 @@ def match_demo(message: str) -> dict | None:
         if key in {_norm(item) for item in row["match"]}:
             return row
     return None
+
+
+def demo_in_language(row: dict, language: str) -> dict:
+    """Use the saved answer in the language the user asked for, when one exists."""
+    if language not in {"en", "roman_urdu"}:
+        return row
+    group = row.get("group")
+    if not group or row.get("language") == language:
+        return row
+    for other in _rows():
+        if other.get("group") == group and other.get("language") == language:
+            return other
+    return row

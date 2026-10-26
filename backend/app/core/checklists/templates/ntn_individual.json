@@ -21,13 +21,17 @@
     {
       "id": "section",
       "title": "Read the registration provision",
+      "title_ru": "Registration wali dafa parhein",
       "detail": "Section 181 of the Income Tax Ordinance, 2001 is the registration provision for a National Tax Number.",
+      "detail_ru": "Income Tax Ordinance, 2001 ki section 181 National Tax Number ki registration wali dafa hai.",
       "sources": ["Income Tax Ordinance, 2001, section 181"]
     },
     {
       "id": "iris",
       "title": "Start the application on IRIS",
+      "title_ru": "IRIS par darkhwast shuru karein",
       "detail": "Use the FBR IRIS portal. This build only links the confirmed IRIS address.",
+      "detail_ru": "FBR IRIS portal istemal karein. Yeh build sirf confirmed IRIS address ka link dikhati hai.",
       "sources": ["Income Tax Ordinance, 2001, section 181"],
       "link": {"label": "Register for NTN on IRIS", "url": "https://iris.fbr.gov.pk/"}
     }

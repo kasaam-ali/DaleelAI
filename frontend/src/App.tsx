@@ -1,11 +1,12 @@
 /** Holds language, theme, profile, and which page is open. */
 
-import { useEffect, useState } from "react"
-import { listChats, type ChatSummary } from "./api/chat"
-import { useHealth } from "./api/health"
+import { useEffect, useRef, useState } from "react"
+import { serviceState, useBrowserOnline, useHealth } from "./api/health"
+import { deleteSession } from "./api/session"
 import CalculatorPage from "./features/calculator/CalculatorPage"
 import ChecklistsPage from "./features/checklists/ChecklistsPage"
 import ChatPage from "./features/chat/ChatPage"
+import { useChatHistory } from "./features/chat/useChatHistory"
 import HomePage from "./features/home/HomePage"
 import EvaluationPage from "./features/evaluation/EvaluationPage"
 import ExpertsPage from "./features/experts/ExpertsPage"
@@ -14,41 +15,32 @@ import NoticePage from "./features/notice/NoticePage"
 import PrivacyPage from "./features/privacy/PrivacyPage"
 import UpdatesPage from "./features/updates/UpdatesPage"
 import { t, type CopyKey } from "./i18n"
+import { hashFor, parseHash, type AppView } from "./lib/hashRoute"
 import {
   THEME_KEY,
-  clearLocalHistory,
+  clearStoredHistory,
   readChatId,
   readLanguage,
   readProfile,
+  readOfflineQueue,
   readSessionId,
+  readTaxYear,
+  hasStoredTaxYear,
+  readFilingSaved,
+  writeFilingSaved,
+  clearTaxYear,
   sanitizeProfile,
   writeChatId,
   writeLanguage,
   writeProfile,
+  writeTaxYear,
   CHAT_KEY,
+  type ClientTaxYear,
   type Profile,
   type Theme,
   type UiLanguage,
 } from "./lib/session"
-import AppShell, { type AppView } from "./shell/AppShell"
-
-const VIEWS: AppView[] = [
-  "home",
-  "chat",
-  "calculator",
-  "filer",
-  "notice",
-  "checklist",
-  "experts",
-  "updates",
-  "evaluation",
-  "privacy",
-]
-
-function viewFromHash(): AppView {
-  const name = window.location.hash.replace(/^#\/?/, "")
-  return VIEWS.includes(name as AppView) ? (name as AppView) : "home"
-}
+import AppShell from "./shell/AppShell"
 
 export default function App() {
   const [language, setLanguage] = useState<UiLanguage>(() => readLanguage(localStorage))
@@ -56,19 +48,33 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
-  const [view, setView] = useState<AppView>(() => viewFromHash())
+  const routed = parseHash(window.location.hash)
+  // Queued offline questions flush on load; show them in the chat instead of leaving the user on Home.
+  const [view, setView] = useState<AppView>(() =>
+    routed.view === "home" && readOfflineQueue(localStorage).length > 0 ? "chat" : routed.view,
+  )
+  const [taxYear, setTaxYear] = useState<ClientTaxYear>(() => readTaxYear(localStorage))
+  const [taxYearSet, setTaxYearSet] = useState(() => hasStoredTaxYear(localStorage))
+  const [filingSaved, setFilingSaved] = useState(() => readFilingSaved(localStorage))
   const [launch, setLaunch] = useState<{ id: string; text: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sessionId, setSessionId] = useState(() => readSessionId(localStorage))
-  const [chatId, setChatId] = useState<string | null>(() => readChatId(localStorage))
-  const [chats, setChats] = useState<ChatSummary[]>([])
-  const [revision, setRevision] = useState(0)
+  const [clearError, setClearError] = useState<string | null>(null)
+  const [chatId, setChatId] = useState<string | null>(() => routed.chatId ?? readChatId(localStorage))
   const [expertQuery, setExpertQuery] = useState("")
   const [expertCategory, setExpertCategory] = useState<string | null>(null)
   const [checklistTemplate, setChecklistTemplate] = useState("")
   const copy = (key: CopyKey) => t(language, key)
+  const online = useBrowserOnline()
   const health = useHealth()
+  const history = useChatHistory(sessionId)
+  const wasOnline = useRef(online)
+  const refetchHealth = health.refetch
+  useEffect(() => {
+    if (online && !wasOnline.current) void refetchHealth()
+    wasOnline.current = online
+  }, [online, refetchHealth])
 
   function changeLanguage(next: UiLanguage) {
     setLanguage(next)
@@ -84,18 +90,28 @@ export default function App() {
   }, [profile])
 
   useEffect(() => {
-    let cancelled = false
-    listChats(sessionId)
-      .then((rows) => {
-        if (!cancelled) setChats(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setChats([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId, revision])
+    document.documentElement.lang = language === "roman_urdu" ? "ur-Latn" : "en"
+    document.documentElement.dir = "ltr"
+  }, [language])
+
+  function changeTaxYear(next: ClientTaxYear) {
+    setTaxYear(next)
+    setTaxYearSet(true)
+    writeTaxYear(localStorage, next)
+  }
+
+  function changeFilingSaved(saved: boolean) {
+    setFilingSaved(saved)
+    writeFilingSaved(localStorage, saved)
+  }
+
+  function clearFiling() {
+    setProfile(sanitizeProfile({}))
+    clearTaxYear(localStorage)
+    setTaxYear(readTaxYear(localStorage))
+    setTaxYearSet(false)
+    changeFilingSaved(false)
+  }
 
   function changeTheme() {
     const next = theme === "dark" ? "light" : "dark"
@@ -106,7 +122,12 @@ export default function App() {
 
   useEffect(() => {
     function onPop() {
-      setView(viewFromHash())
+      const next = parseHash(window.location.hash)
+      setView(next.view)
+      if (next.chatId) {
+        setChatId(next.chatId)
+        writeChatId(localStorage, next.chatId)
+      }
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
@@ -114,7 +135,7 @@ export default function App() {
 
   function go(next: AppView) {
     setView(next)
-    const nextHash = next === "home" ? "" : `#/${next}`
+    const nextHash = hashFor(next)
     const current = window.location.hash
     if (next === "home") {
       if (current === "" || current === "#" || current === "#/" || current === "#/home") return
@@ -143,15 +164,23 @@ export default function App() {
     go("chat")
   }
 
-  function clearHistory() {
-    const next = clearLocalHistory(localStorage)
-    setSessionId(next)
-    setChatId(null)
-    setChats([])
-    setRevision((current) => current + 1)
+  async function clearHistory() {
+    setClearError(null)
+    try {
+      const next = await clearStoredHistory(localStorage, sessionId, deleteSession)
+      history.startEmpty(next)
+      setSessionId(next)
+      setChatId(null)
+    } catch {
+      setClearError(copy("clearFailed"))
+    }
   }
 
-  const service = health.isPending ? "checking" : health.isError ? "degraded" : "online"
+  const service = serviceState(online, {
+    error: health.isError,
+    ok: health.isSuccess,
+    status: health.data?.status,
+  })
 
   return (
     <AppShell
@@ -159,7 +188,11 @@ export default function App() {
       language={language}
       theme={theme}
       profile={profile}
-      chats={chats}
+      taxYear={taxYear}
+      taxYearSet={taxYearSet}
+      filingSaved={filingSaved}
+      chats={history.chats}
+      snippets={history.snippets}
       activeChatId={chatId}
       service={service}
       menuOpen={menuOpen}
@@ -167,13 +200,30 @@ export default function App() {
       onView={go}
       onNewChat={() => selectChat(null)}
       onSelectChat={selectChat}
-      onClearHistory={clearHistory}
+      onRename={history.rename}
+      onDelete={history.remove}
+      onPrefetchSnippets={history.prefetchSnippets}
       onLanguage={changeLanguage}
       onTheme={changeTheme}
       onProfile={changeProfile}
+      onTaxYear={changeTaxYear}
+      onClearFiling={clearFiling}
       onMenu={setMenuOpen}
     >
-      {view === "home" ? <HomePage copy={copy} onOpen={go} onAsk={askFromHome} /> : null}
+      {view === "home" ? (
+        <HomePage
+          copy={copy}
+          profile={profile}
+          taxYear={taxYear}
+          taxYearSet={taxYearSet}
+          filingSaved={filingSaved}
+          onProfile={changeProfile}
+          onTaxYear={changeTaxYear}
+          onFilingSaved={changeFilingSaved}
+          onOpen={go}
+          onAsk={askFromHome}
+        />
+      ) : null}
       <div className={view === "chat" ? "contents" : "hidden"} aria-hidden={view !== "chat"}>
         <ChatPage
           language={language}
@@ -183,12 +233,16 @@ export default function App() {
           sessionId={sessionId}
           launch={launch}
           historyKey={historyKey}
+          taxYear={taxYear}
           onLaunchConsumed={() => setLaunch(null)}
           onChatId={(id) => {
             setChatId(id)
             writeChatId(localStorage, id)
           }}
-          onActivity={() => setRevision((current) => current + 1)}
+          onActivity={() => history.refresh()}
+          onProfile={changeProfile}
+          onTaxYear={changeTaxYear}
+          onSnippet={history.rememberSnippet}
         />
       </div>
       {view !== "home" && view !== "chat" ? (
@@ -227,11 +281,18 @@ export default function App() {
               <ChecklistsPage copy={copy} language={language} preferredTemplate={checklistTemplate} />
             ) : null}
             {view === "experts" ? (
-              <ExpertsPage copy={copy} initialQuery={expertQuery} initialCategory={expertCategory} />
+              <ExpertsPage
+                copy={copy}
+                language={language}
+                initialQuery={expertQuery}
+                initialCategory={expertCategory}
+              />
             ) : null}
-            {view === "updates" ? <UpdatesPage copy={copy} /> : null}
+            {view === "updates" ? <UpdatesPage copy={copy} language={language} /> : null}
             {view === "evaluation" ? <EvaluationPage copy={copy} /> : null}
-            {view === "privacy" ? <PrivacyPage copy={copy} onClearHistory={clearHistory} /> : null}
+            {view === "privacy" ? (
+              <PrivacyPage copy={copy} onClearHistory={() => void clearHistory()} clearError={clearError} />
+            ) : null}
           </div>
         </div>
       ) : null}

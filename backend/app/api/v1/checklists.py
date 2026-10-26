@@ -13,6 +13,8 @@ from app.api.v1.schemas import (
 )
 from app.core.services.checklists import (
     ChecklistError,
+    get_for_session,
+    list_for_session,
     list_templates,
     mark_step,
     memory_checklists,
@@ -70,6 +72,40 @@ def create_checklist(
     return ChecklistResponse.model_validate(saved)
 
 
+@router.get("/checklists", response_model=list[ChecklistResponse])
+def list_checklists(
+    request: Request,
+    x_session_id: str | None = Header(default=None),
+) -> list[ChecklistResponse] | JSONResponse:
+    session = _session(x_session_id)
+    if isinstance(session, JSONResponse):
+        return session
+    try:
+        rows = list_for_session(_repo(request), session)
+    except ChecklistError as exc:
+        return _checklist_error(exc)
+    return [ChecklistResponse.model_validate(row) for row in rows]
+
+
+@router.get("/checklists/{checklist_id}", response_model=ChecklistResponse)
+def get_checklist(
+    checklist_id: str,
+    request: Request,
+    x_session_id: str | None = Header(default=None),
+) -> ChecklistResponse | JSONResponse:
+    session = _session(x_session_id)
+    if isinstance(session, JSONResponse):
+        return session
+    denied = _checklist_id(checklist_id)
+    if denied is not None:
+        return denied
+    try:
+        saved = get_for_session(checklist_id, _repo(request), session)
+    except ChecklistError as exc:
+        return _checklist_error(exc)
+    return ChecklistResponse.model_validate(saved)
+
+
 @router.patch(
     "/checklists/{checklist_id}/steps/{step_id}",
     response_model=ChecklistResponse,
@@ -84,22 +120,35 @@ def patch_step(
     session = _session(x_session_id)
     if isinstance(session, JSONResponse):
         return session
-    try:
-        uuid.UUID(checklist_id)
-    except (ValueError, TypeError):
-        return _error(400, "invalid_request", "checklist id must be a UUID.")
+    denied = _checklist_id(checklist_id)
+    if denied is not None:
+        return denied
     try:
         saved = mark_step(
             checklist_id,
             step_id,
             body.done,
-            "en",
+            body.language,
             _repo(request),
             session,
         )
     except ChecklistError as exc:
-        status = 404 if exc.code == "not_found" else 400
-        if exc.code == "repository_unavailable":
-            status = 503
-        return _error(status, exc.code, exc.message)
+        return _checklist_error(exc)
     return ChecklistResponse.model_validate(saved)
+
+
+def _checklist_id(checklist_id: str) -> JSONResponse | None:
+    try:
+        uuid.UUID(checklist_id)
+    except (ValueError, TypeError):
+        return _error(422, "invalid_request", "checklist id must be a UUID.")
+    return None
+
+
+def _checklist_error(exc: ChecklistError) -> JSONResponse:
+    status = 400
+    if exc.code == "not_found":
+        status = 404
+    elif exc.code == "repository_unavailable":
+        status = 503
+    return _error(status, exc.code, exc.message)

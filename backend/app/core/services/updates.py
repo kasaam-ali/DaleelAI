@@ -174,10 +174,11 @@ def _row(item: dict[str, Any], classifier: Any) -> dict[str, Any]:
     published = item.get("published_at")
     when = published or "an unknown date"
     kind = item["doc_type"].replace("_", " ")
-    summary = (
+    summary_en = (
         f"This {kind} ({title}) was listed on {when}. "
         "Read the official file before you rely on it. This summary does not add a tax rate."
-        "\n\n"
+    )
+    summary_ru = (
         f"Yeh {kind} ({title}) {when} ko listing mein aya. "
         "Official file parh lain. Is khulasa mein koi tax rate nahi hai."
     )
@@ -190,14 +191,30 @@ def _row(item: dict[str, Any], classifier: Any) -> dict[str, Any]:
         "source_url": item["source_url"],
         "published_at": published,
         "effective_from": None,
-        "summary": summary,
+        "summary": f"{summary_en}\n\n{summary_ru}",
+        "summary_en": summary_en,
+        "summary_ru": summary_ru,
         "who_is_affected": "Readers named in the official file. This summary does not decide that.",
         "key_changes": ["Open the official file. This line does not state a tax change."],
         "indexed": False,
     }
 
 
+def split_summary(summary: str) -> tuple[str, str]:
+    """English, then Roman Urdu, separated by the first blank line."""
+    english, _break, roman = (summary or "").partition("\n\n")
+    return english, roman
+
+
 def _public(row: dict[str, Any]) -> dict[str, Any]:
+    english = row.get("summary_en")
+    roman = row.get("summary_ru")
+    if not english and not roman:
+        english, roman = split_summary(str(row.get("summary") or ""))
+    elif english is None or roman is None:
+        fallback_en, fallback_ru = split_summary(str(row.get("summary") or ""))
+        english = fallback_en if english is None else english
+        roman = fallback_ru if roman is None else roman
     return {
         "id": row["id"],
         "title": row["title"],
@@ -206,6 +223,8 @@ def _public(row: dict[str, Any]) -> dict[str, Any]:
         "published_at": row.get("published_at"),
         "effective_from": row.get("effective_from"),
         "summary": row["summary"],
+        "summary_en": english,
+        "summary_ru": roman,
         "who_is_affected": row.get("who_is_affected"),
         "key_changes": list(row.get("key_changes") or []),
         "source_url": row["source_url"],

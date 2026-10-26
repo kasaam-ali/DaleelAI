@@ -4,6 +4,8 @@ export type TaxpayerType = "salaried" | "freelancer" | "business" | "company"
 export type FilerStatus = "filer" | "non_filer" | "unknown"
 export type Province = "punjab" | "sindh" | "kpk" | "balochistan" | "islamabad" | "gb" | "ajk"
 export type UiLanguage = "en" | "roman_urdu"
+export type AnswerLanguage = "auto" | "en" | "roman_urdu"
+export type ReplyLanguage = Exclude<AnswerLanguage, "auto">
 export type Theme = "light" | "dark"
 
 export type Profile = {
@@ -21,8 +23,17 @@ export const EMPTY_PROFILE: Profile = {
 export const SESSION_KEY = "daleelai.session_id"
 export const PROFILE_KEY = "daleelai.profile"
 export const LANGUAGE_KEY = "daleelai.language"
+export const ANSWER_LANGUAGE_KEY = "daleelai.answer_language"
+export const OFFLINE_QUEUE_KEY = "daleelai.offline_queue"
 export const CHAT_KEY = "daleelai.chat_id"
 export const THEME_KEY = "daleelai.theme"
+export const CORPUS_DATES_KEY = "daleelai.corpus_dates"
+export const TAX_YEAR_KEY = "daleelai.tax_year"
+export const FILING_SAVED_KEY = "daleelai.filing_saved"
+export const RAIL_KEY = "daleelai.rail"
+
+export type QueuedQuestion = { id: string; text: string }
+export type ClientTaxYear = "TY2026" | "TY2027"
 
 export type StorageLike = {
   getItem(key: string): string | null
@@ -68,7 +79,43 @@ export function clearLocalHistory(storage: StorageLike): string {
   const created = crypto.randomUUID()
   storage.setItem(SESSION_KEY, created)
   storage.removeItem(CHAT_KEY)
+  storage.removeItem(CORPUS_DATES_KEY)
   return created
+}
+
+/** Deletes the session on the server, then rotates the local id. A failed delete keeps the id. */
+export async function clearStoredHistory(
+  storage: StorageLike,
+  sessionId: string,
+  remove: (sessionId: string) => Promise<void>,
+): Promise<string> {
+  await remove(sessionId)
+  return clearLocalHistory(storage)
+}
+
+export function readCorpusDates(storage: StorageLike): Record<string, string> {
+  const raw = storage.getItem(CORPUS_DATES_KEY)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== "object") return {}
+    const dates: Record<string, string> = {}
+    for (const [id, value] of Object.entries(parsed)) {
+      if (typeof value === "string" && value.trim()) dates[id] = value
+    }
+    return dates
+  } catch {
+    return {}
+  }
+}
+
+export function rememberCorpusDate(storage: StorageLike, messageId: string, date: string) {
+  const when = date.trim()
+  if (!messageId || !when) return
+  const dates = readCorpusDates(storage)
+  if (dates[messageId] === when) return
+  dates[messageId] = when
+  storage.setItem(CORPUS_DATES_KEY, JSON.stringify(dates))
 }
 
 export function readProfile(storage: StorageLike): Profile {
@@ -103,4 +150,129 @@ export function writeChatId(storage: StorageLike, chatId: string): void {
 
 export function profilePayload(profile: Profile): Profile {
   return sanitizeProfile(profile)
+}
+
+const ANSWER_LANGUAGES = new Set<AnswerLanguage>(["auto", "en", "roman_urdu"])
+
+export function asReplyLanguage(value: string | null | undefined): ReplyLanguage | null {
+  return value === "en" || value === "roman_urdu" ? value : null
+}
+
+export function readAnswerLanguage(storage: StorageLike, chatId: string | null): AnswerLanguage {
+  if (!chatId) return "auto"
+  const raw = storage.getItem(ANSWER_LANGUAGE_KEY)
+  if (!raw) return "auto"
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const value = parsed[chatId]
+    return typeof value === "string" && ANSWER_LANGUAGES.has(value as AnswerLanguage)
+      ? (value as AnswerLanguage)
+      : "auto"
+  } catch {
+    return "auto"
+  }
+}
+
+export function writeAnswerLanguage(storage: StorageLike, chatId: string, language: AnswerLanguage): void {
+  let parsed: Record<string, string> = {}
+  const raw = storage.getItem(ANSWER_LANGUAGE_KEY)
+  if (raw) {
+    try {
+      const value = JSON.parse(raw) as unknown
+      if (value && typeof value === "object") parsed = value as Record<string, string>
+    } catch {
+      parsed = {}
+    }
+  }
+  parsed[chatId] = language
+  storage.setItem(ANSWER_LANGUAGE_KEY, JSON.stringify(parsed))
+}
+
+export function readOfflineQueue(storage: StorageLike): QueuedQuestion[] {
+  const raw = storage.getItem(OFFLINE_QUEUE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return []
+      const row = item as Record<string, unknown>
+      if (typeof row.id !== "string" || typeof row.text !== "string" || !row.text.trim()) return []
+      return [{ id: row.id, text: row.text }]
+    })
+  } catch {
+    return []
+  }
+}
+
+export function writeOfflineQueue(storage: StorageLike, items: QueuedQuestion[]): void {
+  if (items.length === 0) {
+    storage.removeItem(OFFLINE_QUEUE_KEY)
+    return
+  }
+  storage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items))
+}
+
+function karachiYearMonth(now: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(now)
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "0")
+  return { year: read("year"), month: read("month") }
+}
+
+/** Pakistan's tax year ends on 30 June. TY2027 is 1 Jul 2026 through 30 Jun 2027. */
+export function currentTaxYear(now = new Date()): ClientTaxYear {
+  const { year, month } = karachiYearMonth(now)
+  const ending = month >= 7 ? year + 1 : year
+  return ending <= 2026 ? "TY2026" : "TY2027"
+}
+
+export function readTaxYear(storage: StorageLike, now = new Date()): ClientTaxYear {
+  const stored = storage.getItem(TAX_YEAR_KEY)
+  if (stored === "TY2026" || stored === "TY2027") return stored
+  return currentTaxYear(now)
+}
+
+export function writeTaxYear(storage: StorageLike, taxYear: ClientTaxYear): void {
+  storage.setItem(TAX_YEAR_KEY, taxYear)
+}
+
+/** True once the user has picked a tax year; before that the default is used but not counted as set. */
+export function hasStoredTaxYear(storage: StorageLike): boolean {
+  const stored = storage.getItem(TAX_YEAR_KEY)
+  return stored === "TY2026" || stored === "TY2027"
+}
+
+export function clearTaxYear(storage: StorageLike): void {
+  storage.removeItem(TAX_YEAR_KEY)
+}
+
+export function readFilingSaved(storage: StorageLike): boolean {
+  return storage.getItem(FILING_SAVED_KEY) === "1"
+}
+
+export function writeFilingSaved(storage: StorageLike, saved: boolean): void {
+  if (saved) storage.setItem(FILING_SAVED_KEY, "1")
+  else storage.removeItem(FILING_SAVED_KEY)
+}
+
+export function readRail(storage: StorageLike): boolean {
+  return storage.getItem(RAIL_KEY) === "1"
+}
+
+export function writeRail(storage: StorageLike, rail: boolean): void {
+  storage.setItem(RAIL_KEY, rail ? "1" : "0")
+}
+
+/** How many of the 4 filing fields are set: filer status, taxpayer type, province, tax year. */
+export function filingCount(profile: Profile, taxYearSet: boolean): number {
+  return [profile.filer_status, profile.taxpayer_type, profile.province].filter(Boolean).length + (taxYearSet ? 1 : 0)
+}
+
+/** Save needs taxpayer type and filer status. */
+export function filingReady(profile: Profile): boolean {
+  return Boolean(profile.taxpayer_type && profile.filer_status)
 }

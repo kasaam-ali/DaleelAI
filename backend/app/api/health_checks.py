@@ -8,6 +8,7 @@ Embedder weights are not downloaded here.
 import asyncio
 import os
 import socket
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -57,7 +58,7 @@ async def collect_checks(
             elapsed = int((time.perf_counter() - started) * 1000)
             return name, {"status": "down", "latency_ms": elapsed}
         elapsed = int((time.perf_counter() - started) * 1000)
-        if status not in {"ok", "slow", "down"}:
+        if status not in {"ok", "slow", "down", "off"}:
             status = "down"
         if status == "ok" and elapsed >= slow_ms:
             status = "slow"
@@ -85,8 +86,9 @@ def check_qdrant(settings: Settings) -> str:
 
 
 def check_postgres(settings: Settings) -> str:
+    # No DATABASE_URL means the in-memory store is in use on purpose (local real mode).
     if not settings.database_url.strip():
-        return "down"
+        return "off"
     import psycopg
 
     with psycopg.connect(settings.database_url, connect_timeout=1) as conn:
@@ -118,7 +120,10 @@ def check_embeddings(settings: Settings) -> str:
         return "ok"
     if not settings.models.dense.strip() or not settings.models.sparse.strip():
         return "down"
-    cache = Path(os.environ.get("FASTEMBED_CACHE_PATH", Path.home() / ".cache" / "fastembed"))
+    # Same default as fastembed.common.utils.define_cache_dir. The old ~/.cache/fastembed
+    # path never existed, so a working embedder was reported as down.
+    default = Path(tempfile.gettempdir()) / "fastembed_cache"
+    cache = Path(os.environ.get("FASTEMBED_CACHE_PATH") or default)
     if cache.is_dir() and any(cache.iterdir()):
         return "ok"
     return "down"

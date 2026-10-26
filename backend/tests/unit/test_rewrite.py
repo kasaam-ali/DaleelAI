@@ -210,3 +210,21 @@ def test_b12_original_cash_and_property_question_covers_both():
     assert "236K" in note
     assert "15 lakh" not in note
     assert "capital gain" not in note.lower()
+
+
+def test_return_deadline_question_searches_section_114_not_salary():
+    from app.agents.router import keyword_route
+
+    message = "What is the deadline to file my income tax return for TY2026?"
+    routed = keyword_route(message)
+    queries = rewrite_queries(message, routed.search_query)
+
+    assert any("Section 114" in query for query in queries)
+    assert not any("Section 149" in query for query in queries)
+
+
+def test_salaried_roman_urdu_reaches_the_salary_template():
+    question = "salaried bande ka tax kitna hai 1 lakh mahana par?"
+    keys = {topic.key for topic in detect_topics(question)}
+
+    assert "salary" in keys

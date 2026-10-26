@@ -634,8 +634,15 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = DATA_DIR / "chunks"
     out_dir.mkdir(parents=True, exist_ok=True)
     total = 0
+    failed: list[str] = []
     for entry in entries:
-        payload, r = process(entry)
+        # One missing or stale extraction used to abort every later document.
+        try:
+            payload, r = process(entry)
+        except (FileNotFoundError, ValueError) as exc:
+            failed.append(entry.doc_id)
+            print(f"failed {entry.doc_id}: {exc}", flush=True)
+            continue
         (out_dir / f"{entry.doc_id}.json").write_text(
             json.dumps(payload, ensure_ascii=False), encoding="utf-8"
         )
@@ -648,8 +655,8 @@ def main(argv: list[str] | None = None) -> int:
             + (f" {'; '.join(r.notes)}" if r.notes else ""),
             flush=True,
         )
-    print(f"total chunks {total}")
-    return 0
+    print(f"total chunks {total}, failed {len(failed)}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

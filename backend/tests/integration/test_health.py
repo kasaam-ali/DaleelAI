@@ -18,8 +18,8 @@ def test_health_reports_ok_and_version():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "degraded"
-    assert body["checks"]["postgres"]["status"] == "down"
+    assert body["status"] == "ok"
+    assert body["checks"]["postgres"]["status"] == "off"
     assert body["version"] == APP_VERSION
     assert body["env"] == "development"
     assert body["corpus_version"] == INDEXED_CORPUS_VERSION

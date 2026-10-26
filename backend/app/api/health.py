@@ -15,7 +15,7 @@ _cached: dict[str, tuple[float, dict]] = {}
 
 
 class DependencyCheck(BaseModel):
-    status: Literal["ok", "slow", "down"]
+    status: Literal["ok", "slow", "down", "off"]
     latency_ms: int
 
 
@@ -53,7 +53,10 @@ def _cache_key(settings) -> str:
 
 
 def overall_status(checks: dict) -> Literal["ok", "degraded"]:
-    """Postgres stores the chats. If it is down, the service is degraded."""
+    """Postgres stores the chats. If it is configured and down, the service is degraded.
+
+    "off" (no DATABASE_URL) runs on the in-memory store and is not degraded.
+    """
     postgres = checks.get("postgres") or {}
     if postgres.get("status") == "down":
         return "degraded"

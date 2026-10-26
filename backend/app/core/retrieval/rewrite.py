@@ -107,6 +107,27 @@ TOPICS: tuple[TaxTopic, ...] = (
         ),
     ),
     TaxTopic(
+        "return_filing",
+        (
+            "Section 114 return of income who must file Section 118 due date "
+            "for furnishing return of income filing deadline"
+        ),
+        ("114", "118"),
+        (
+            "file return",
+            "file my return",
+            "file my income tax return",
+            "file the return",
+            "filing return",
+            "return filing",
+            "income tax return",
+            "return file",
+            "return jama",
+            "section 114",
+            "section 118",
+        ),
+    ),
+    TaxTopic(
         "senior_profit",
         (
             "profit on debt senior citizen Behbood Savings Certificates pensioner "
@@ -197,6 +218,7 @@ TOPICS: tuple[TaxTopic, ...] = (
             "tankhwa",
             "tanakhwa",
             "salary",
+            "salaried",
             "wages",
             "naukri",
             "office wale",
@@ -270,7 +292,7 @@ TOPICS: tuple[TaxTopic, ...] = (
 
 _LLM_REWRITE = (
     "Turn this Pakistani tax question into short English statutory search queries. "
-    "Name Income Tax Ordinance sections when they apply. "
+    "Name Income Tax Ordinance sections when they apply. At most 3 queries, under 15 words each. "
     'Reply with JSON only: {"queries": ["..."]}.'
 )
 
@@ -284,6 +306,9 @@ def detect_topics(text: str) -> list[TaxTopic]:
     ]
     keys = {topic.key for topic in found}
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.
+    # The freelancer and notice templates already search Section 114.
+    if keys & {"freelancer", "notice"}:
+        found = [topic for topic in found if topic.key != "return_filing"]
     if "senior_profit" in keys:
         found = [topic for topic in found if topic.key != "capital_gain"]
     # Cash withdrawal is Section 231AB. A capital-gain aside is not a plot sale,
@@ -499,13 +524,16 @@ async def maybe_llm_queries(llm, text: str, budget) -> list[str]:
 def _parse_llm_queries(text: str) -> list[str]:
     start = text.find("{")
     end = text.rfind("}")
+    if start != -1 and end <= start:
+        # max_tokens cut the JSON off. Keep the queries that closed.
+        return _closed_queries(text[start:])
     if start == -1 or end <= start:
         line = text.strip().strip('"').splitlines()[0].strip() if text.strip() else ""
         return [line[:300]] if line and not _is_raw_desi(line) else []
     try:
         payload = json.loads(text[start : end + 1])
     except json.JSONDecodeError:
-        return []
+        return _closed_queries(text[start:])
     raw = payload.get("queries") if isinstance(payload, dict) else None
     if not isinstance(raw, list):
         return []
@@ -516,6 +544,11 @@ def _parse_llm_queries(text: str) -> list[str]:
         if len(queries) == 4:
             break
     return queries
+
+
+def _closed_queries(text: str) -> list[str]:
+    found = re.findall(r'"((?:[^"\\]|\\.){3,300})"\s*[,\]]', text)
+    return [q.strip() for q in found if q.strip() and not _is_raw_desi(q)][:4]
 
 
 def _normalize(text: str) -> str:

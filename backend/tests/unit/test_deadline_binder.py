@@ -1,8 +1,8 @@
 from app.core.deadline_binder import bind_filing_dates
 from app.core.plain_answer import plain_answer
 
-DEC = "118(2) (a) in the case of a company, on or before the thirty-first day of December next following the end of the tax year"
-SEP = "118 (b) in the case of a person other than a company, the thirtieth day of September next following the end of the tax year"
+DEC = "118(2) (a) in the case of a company, on or before the thirty-first day of December next following the end of the tax year"  # noqa: E501
+SEP = "118 (b) in the case of a person other than a company, the thirtieth day of September next following the end of the tax year"  # noqa: E501
 
 
 def test_company_ask_gets_dec31():

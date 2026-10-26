@@ -26,9 +26,25 @@ _ALL_ASK = re.compile(r"\b(all|every|each|har|sab|kinds?|types?|categories)\b", 
 _DEC31 = re.compile(r"thirty-first day of december|31(st)?\s+december|december\s+31", re.I)
 _SEP30 = re.compile(r"thirtieth day of september|30(th)?\s+september|september\s+30", re.I)
 _FALLBACK = re.compile(
-    r"[^\n.]*(not clear from the sources|sources se clear nahi)[^\n]*?(FBR website[^\n.]*\.?)?",
+    r"not clear|clear nahi|FBR (?:website|portal|calendar)|check (?:with )?(?:the )?FBR|"
+    r"\bI found\b|\bno (?:specific|separate|particular)\b[^.\n]*\b(?:deadline|date)\b|"
+    r"\b(?:deadline|date)\b[^.\n]*\bnot (?:specified|mentioned|available)\b|"
+    r"does not (?:specify|mention|provide)|do not (?:specify|mention)|"
+    r"(?:mention|specify) nahi|nahi (?:diya|batay)|available information|provided (?:rules|information)",
     re.I,
 )
+_SENT = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def _drop_fallback(text: str) -> str:
+    """Drop every sentence in the not-clear / no-deadline / check-FBR family."""
+    keep = []
+    for sent in _SENT.split(text or ""):
+        s = sent.strip().lstrip(".,;: ").strip()
+        if not s or not re.search(r"\w", s) or _FALLBACK.search(s):
+            continue
+        keep.append(s)
+    return " ".join(keep)
 _DAYMONTH_YEAR = re.compile(
     r"\b((?:30(?:th)?|thirtieth day of)\s+september|(?:31(?:st)?|thirty-first day of)\s+december)"
     r"(,?\s+)(\d{4})\b",
@@ -76,9 +92,12 @@ def bind_filing_dates(
             if roman
             else f"For companies, the return is due on or before 31 December{yr}."
         )
-    if not add:
+    bound = (_SEP30.search(joined) and _SEP30.search(out)) or (
+        _DEC31.search(joined) and _DEC31.search(out)
+    )
+    if not add and not bound:
         return answer
-    out = _FALLBACK.sub("", out).strip()
+    out = _drop_fallback(out)
     return (out + ("\n\n" if out else "") + " ".join(add)).strip()
 
 

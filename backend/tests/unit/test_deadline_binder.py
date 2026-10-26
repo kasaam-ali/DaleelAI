@@ -103,3 +103,39 @@ def test_binder_keeps_fallback_when_no_clause():
 
     fb = "Yeh baat sources se clear nahi. FBR website check karein."
     assert b(fb, "company return deadline", ["salary income"], "TY2026", "roman_urdu") == fb
+
+
+def test_binder_drops_whole_fallback_family_en():
+    out = bind_filing_dates(
+        "This is not clear from the sources I found. Please check the FBR website.",
+        "company return deadline", [DEC], "TY2026", "en",
+    )
+    assert "31 December 2026" in out
+    for bad in ("I found", "check the FBR website", "not clear"):
+        assert bad not in out
+    assert not out.startswith(".")
+
+
+def test_binder_drops_whole_fallback_family_ru():
+    out = bind_filing_dates(
+        "Yeh baat sources se clear nahi. FBR website check karein.",
+        "company ki return ki last date", [DEC], "TY2026", "roman_urdu",
+    )
+    assert "31 December 2026" in out
+    assert "FBR website" not in out and "clear nahi" not in out and not out.startswith(".")
+
+
+def test_binder_drops_no_specific_company_deadline():
+    out = bind_filing_dates(
+        "Individuals file by 30 September 2026. No specific filing deadline for companies is given.",
+        "deadline for individuals and companies?", [SEP, DEC], "TY2026",
+    )
+    assert "No specific" not in out and "31 December 2026" in out and "30 September 2026" in out
+
+
+def test_binder_cleans_when_date_already_present():
+    out = bind_filing_dates(
+        "Companies file by 31 December 2027. Please check the FBR website.",
+        "company return deadline", [DEC], "TY2026",
+    )
+    assert out == "Companies file by 31 December 2026."

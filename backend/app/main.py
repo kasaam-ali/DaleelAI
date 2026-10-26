@@ -6,8 +6,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
 from app.api.v1.experts import internal_router
@@ -55,6 +56,14 @@ def create_app(container: Container | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    @app.exception_handler(Exception)
+    async def unhandled_error(_request: Request, _exc: Exception) -> JSONResponse:
+        log.exception("request failed")
+        return JSONResponse(
+            {"error": {"code": "server_error", "message": "Server error."}},
+            status_code=500,
+        )
+
     app.include_router(health_router)
     app.include_router(v1_router, prefix="/api/v1")
     app.include_router(internal_router, prefix="/internal")

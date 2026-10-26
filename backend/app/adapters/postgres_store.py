@@ -66,6 +66,11 @@ class PostgresStore:
             with conn.cursor() as cur:
                 self._ensure_session(cur, session_id)
                 self._ensure_chat(cur, chat_id, session_id)
+                # A resent client_request_id maps to the same message id: save it once.
+                cur.execute("SELECT 1 FROM messages WHERE id = %s", (_uuid(message_id),))
+                if cur.fetchone() is not None:
+                    conn.commit()
+                    return
                 cur.execute(
                     """
                     INSERT INTO messages (id, chat_id, role, content, intent, language, tax_year)
@@ -73,7 +78,7 @@ class PostgresStore:
                     ON CONFLICT (id) DO NOTHING
                     """,
                     (
-                        uuid.uuid4(),
+                        uuid.uuid5(uuid.NAMESPACE_URL, f"user:{message_id}"),
                         _uuid(chat_id),
                         user_text,
                         intent,
@@ -496,6 +501,28 @@ class PostgresStore:
             }
             for row in rows
         ]
+
+    def find_turn(self, session_id: str, message_id: str) -> dict[str, Any] | None:
+        """The saved assistant turn with this id in this session, or None."""
+        self.ensure()
+        with self._open() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT m.chat_id::text
+                    FROM messages m JOIN chats c ON c.id = m.chat_id
+                    WHERE m.id = %s AND c.session_id = %s AND m.role = 'assistant'
+                    """,
+                    (_uuid(message_id), _uuid(session_id)),
+                )
+                row = cur.fetchone()
+        if row is None:
+            return None
+        chat = self.get_chat(session_id, row[0])
+        if chat is None:
+            return None
+        found = next((m for m in chat["messages"] if m["id"] == str(_uuid(message_id))), None)
+        return None if found is None else {"chat_id": row[0], "message": found}
 
     def get_chat(self, session_id: str, chat_id: str) -> dict[str, Any] | None:
         self.ensure()

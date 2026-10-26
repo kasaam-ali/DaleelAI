@@ -22,6 +22,7 @@ import {
   readChatId,
   readLanguage,
   readProfile,
+  readOfflineQueue,
   readSessionId,
   readTaxYear,
   sanitizeProfile,
@@ -44,7 +45,10 @@ export default function App() {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   )
   const routed = parseHash(window.location.hash)
-  const [view, setView] = useState<AppView>(routed.view)
+  // Queued offline questions flush on load; show them in the chat instead of leaving the user on Home.
+  const [view, setView] = useState<AppView>(() =>
+    routed.view === "home" && readOfflineQueue(localStorage).length > 0 ? "chat" : routed.view,
+  )
   const [taxYear, setTaxYear] = useState<ClientTaxYear>(() => readTaxYear(localStorage))
   const [launch, setLaunch] = useState<{ id: string; text: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)

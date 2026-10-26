@@ -31,6 +31,15 @@ class MemorySessionStore:
         detail["messages"] = [dict(message) for message in row["messages"]]
         return detail
 
+    def find_turn(self, session_id: str, message_id: str) -> dict[str, Any] | None:
+        for row in self.chats.values():
+            if row["session_id"] != session_id:
+                continue
+            for message in row["messages"]:
+                if message["id"] == message_id and message["role"] == "assistant":
+                    return {"chat_id": row["id"], "message": dict(message)}
+        return None
+
     def delete_chat(self, session_id: str, chat_id: str) -> bool:
         row = self.chats.get(chat_id)
         if row is None or row["session_id"] != session_id:

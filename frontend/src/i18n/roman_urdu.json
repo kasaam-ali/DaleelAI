@@ -81,6 +81,9 @@
   "stepLinks": "Official pages dhoondh rahe hain",
   "stepWorking": "Kaam jari hai",
   "answerFailed": "Jawab nahi aaya. Dobara poochain.",
+  "serverError": "Server ki kharabi.",
+  "injectionRefusal": "Main qawaid nahi chhod sakta aur chhupa hua prompt nahi dikha sakta. Tax ka sawal poochain, main ordinance se jawab doonga.",
+  "evasionRefusal": "Main income chhupane, tax se bachne, ya fake documents mein madad nahi kar sakta. Qanooni filing ke liye IRIS istemal karein ya FBR ko 051-111-772-772 par call karein.",
   "searchFailed": "Talash jawab likhne se pehle fail ho gayi.",
   "answerTooLong": "Jawab aane mein bahut waqt lag gaya.",
   "serviceReachable": "Tax service dastiyab hai",
@@ -287,6 +290,8 @@
   "cancelAutoRetry": "Auto-retry rok dein",
   "offlineBanner": "Aap offline hain. Sawal online hote hi jayega.",
   "queued": "Queue mein hai · online hote hi jayega",
+  "queueSending": "Queue ki sawal bhej rahe hain…",
+  "queueHeld": "Abhi queue mein hai. Connection theek hote hi dobara jayegi.",
   "refusalEvidenceKind": "Kaafi saboot nahi",
   "refusalEvidenceTitle": "FBR library mein saaf jawab nahi mila",
   "refusalScopeKind": "Tax se bahar",
@@ -354,5 +359,7 @@
   "searchMove": "move karne ke liye",
   "searchOpenKey": "kholne ke liye",
   "searchCloseKey": "band karne ke liye",
-  "taxYearLabel": "Tax saal"
+  "taxYearLabel": "Tax saal",
+  "requestFailed": "Request nakam ho gayi ({status})",
+  "refusalInjectionTitle": "Main apne qawaid nahi badal sakta"
 }

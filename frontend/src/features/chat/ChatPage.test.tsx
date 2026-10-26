@@ -441,6 +441,7 @@ describe("ChatPage live answer", () => {
     await act(async () => {
       window.dispatchEvent(new Event("online"))
       await Promise.resolve()
+      await Promise.resolve()
     })
     expect(vi.mocked(streamChat)).toHaveBeenCalled()
     const sent = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
@@ -449,6 +450,32 @@ describe("ChatPage live answer", () => {
       events.release?.()
       await Promise.resolve()
     })
+  })
+
+  it("N10: a reload flush under StrictMode sends each queued question once, with its id", async () => {
+    localStorage.setItem(
+      "daleelai.offline_queue",
+      JSON.stringify([{ id: "queued-1", text: "What does section 149 cover?" }]),
+    )
+    vi.mocked(streamChat).mockClear()
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const calls = vi.mocked(streamChat).mock.calls
+    expect(calls).toHaveLength(1)
+    const [body, , , signal] = calls[0] as unknown as [{ client_request_id?: string }, string, unknown, AbortSignal]
+    expect(body.client_request_id).toBe("queued-1")
+    expect(signal.aborted).toBe(false)
+    await act(async () => {
+      events.release?.()
+      await Promise.resolve()
+    })
+    localStorage.removeItem("daleelai.offline_queue")
   })
 
   it("keeps a saved demo answer instead of an evidence refusal", async () => {
@@ -588,6 +615,7 @@ describe("ChatPage live answer", () => {
       Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
       window.dispatchEvent(new Event("online"))
       await Promise.resolve()
+      await Promise.resolve()
     })
     expect(vi.mocked(streamChat)).toHaveBeenCalled()
     const sent = vi.mocked(streamChat).mock.calls.at(-1)?.[0] as { message: string }
@@ -596,5 +624,28 @@ describe("ChatPage live answer", () => {
       events.release?.()
       await Promise.resolve()
     })
+    expect(localStorage.getItem("daleelai.offline_queue")).toBeNull()
+  })
+
+  it("keeps a queued question when the send is cut off", async () => {
+    host = document.createElement("div")
+    document.body.append(host)
+    root = createRoot(host)
+    await act(async () => {
+      root.render(<Harness />)
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event("offline"))
+    })
+    await send("What does section 149 cover?")
+    script.fail = { status: 500, code: "server_error", message: "Server error." }
+    await act(async () => {
+      window.dispatchEvent(new Event("online"))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(localStorage.getItem("daleelai.offline_queue") ?? "").toContain("What does section 149 cover?")
+    expect(host.textContent).toContain("queueHeld")
+    expect(host.textContent).toContain("queued")
   })
 })

@@ -25,6 +25,15 @@ _INDIVIDUAL_ASK = re.compile(
 _ALL_ASK = re.compile(r"\b(all|every|each|har|sab|kinds?|types?|categories)\b", re.I)
 _DEC31 = re.compile(r"thirty-first day of december|31(st)?\s+december|december\s+31", re.I)
 _SEP30 = re.compile(r"thirtieth day of september|30(th)?\s+september|september\s+30", re.I)
+_FALLBACK = re.compile(
+    r"[^\n.]*(not clear from the sources|sources se clear nahi)[^\n]*?(FBR website[^\n.]*\.?)?",
+    re.I,
+)
+_DAYMONTH_YEAR = re.compile(
+    r"\b((?:30(?:th)?|thirtieth day of)\s+september|(?:31(?:st)?|thirty-first day of)\s+december)"
+    r"(,?\s+)(\d{4})\b",
+    re.I,
+)
 _SECTION = re.compile(r"\b(114|118)\b|return of income", re.I)
 
 
@@ -40,6 +49,7 @@ def bind_filing_dates(
     tax_year: str | None,
     language: str = "en",
 ) -> str:
+    answer = _fix_years(answer, tax_year)
     q = question or ""
     if not _FILING_ASK.search(q):
         return answer
@@ -68,4 +78,13 @@ def bind_filing_dates(
         )
     if not add:
         return answer
+    out = _FALLBACK.sub("", out).strip()
     return (out + ("\n\n" if out else "") + " ".join(add)).strip()
+
+
+def _fix_years(answer: str, tax_year: str | None) -> str:
+    """Force deadline day-month years to the asked tax year (TY2026 -> 2026)."""
+    m = re.search(r"(\d{4})", tax_year or "")
+    if not answer or not m:
+        return answer
+    return _DAYMONTH_YEAR.sub(lambda x: f"{x.group(1)}{x.group(2)}{m.group(1)}", answer)

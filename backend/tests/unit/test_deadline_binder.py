@@ -60,3 +60,46 @@ def test_meta_does_not_specify_stripped():
         "Tax is 5%. The provided information does not specify the date.", "en", fallback=True
     )
     assert "does not specify" not in out
+
+
+def test_binder_drops_not_clear_fallback_en_and_ru():
+    from app.core.deadline_binder import bind_filing_dates as b
+
+    src = ["Section 118 ... a company, on or before the thirty-first day of December"]
+    en = b(
+        "This is not clear from the sources I found. Please check the FBR website.",
+        "company return deadline",
+        src,
+        "TY2026",
+        "en",
+    )
+    assert "31 December 2026" in en and "not clear" not in en
+    ru = b(
+        "Yeh baat sources se clear nahi. FBR website check karein.",
+        "company ki return ki last date",
+        src,
+        "TY2026",
+        "roman_urdu",
+    )
+    assert "31 December 2026" in ru and "clear nahi" not in ru
+
+
+def test_binder_corrects_year_to_tax_year():
+    from app.core.deadline_binder import bind_filing_dates as b
+
+    src = ["118 thirtieth day of September ... thirty-first day of December"]
+    out = b(
+        "Individuals: 30 September 2027. Companies: 31 December 2027.",
+        "TY2026 ki return ki last date",
+        src,
+        "TY2026",
+        "roman_urdu",
+    )
+    assert "2027" not in out and "30 September 2026" in out and "31 December 2026" in out
+
+
+def test_binder_keeps_fallback_when_no_clause():
+    from app.core.deadline_binder import bind_filing_dates as b
+
+    fb = "Yeh baat sources se clear nahi. FBR website check karein."
+    assert b(fb, "company return deadline", ["salary income"], "TY2026", "roman_urdu") == fb

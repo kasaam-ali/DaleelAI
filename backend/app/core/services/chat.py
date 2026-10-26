@@ -24,6 +24,7 @@ from app.api.v1.schemas import (
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
 from app.core.demo import demo_in_language, match_demo
+from app.core.deadline_binder import bind_filing_dates
 from app.core.plain_answer import PlainStream, plain_answer
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii
@@ -332,7 +333,15 @@ async def iter_chat_events(
         if emitted == 0:
             yield {
                 "event": "token",
-                "data": {"text": plain_answer(result.answer, language, fallback=True)},
+                "data": {
+                    "text": _bound(
+                        plain_answer(result.answer, language, fallback=True),
+                        body.message,
+                        result.sources,
+                        tax_year,
+                        language,
+                    )
+                },
             }
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
@@ -351,7 +360,13 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            plain_answer(result.answer, language, n_sources=len(result.sources), fallback=True),
+            _bound(
+                plain_answer(result.answer, language, n_sources=len(result.sources), fallback=True),
+                body.message,
+                result.sources,
+                tax_year,
+                language,
+            ),
             result.answer_source,
             result.verified,
             result.model,
@@ -736,6 +751,11 @@ async def _yield_demo(store, session, chat_id, message_id, question, demo, tax_y
     )
     yield {"event": "final", "data": final}
     yield {"event": "done", "data": {}}
+
+
+def _bound(answer, question, hits, tax_year, language):
+    texts = [str((getattr(h, "payload", None) or {}).get("text", "")) for h in hits or []]
+    return bind_filing_dates(answer, question, texts, tax_year, language)
 
 
 def _source(hit: RankedHit, library: str) -> dict[str, Any]:

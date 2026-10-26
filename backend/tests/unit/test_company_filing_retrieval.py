@@ -31,7 +31,7 @@ def test_company_ask_gets_company_query():
 
 def test_company_118_chunk_survives_selection():
     async def search(*, collection, query, tax_year, k):
-        # The broad query only ever surfaces the individuals clause; the company query finds the company one.
+        # Broad query surfaces only the individuals clause; the company query finds the other.
         return [COMPANY] if "thirty-first" in query else [INDIV, S114]
 
     ranked = asyncio.run(

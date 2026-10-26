@@ -119,7 +119,7 @@ async def test_web_mode_adds_the_website_note_and_empty_context_skips_the_call()
     assert budget.used == 1
 
 
-def test_freelancer_answer_also_names_section_114():
+def test_freelancer_answer_also_mentions_the_return():
     draft = "Upwork par IT services ke export par Section 154A ki withholding lagti hai."
     text = finalize_supported_answer(
         draft,
@@ -132,11 +132,12 @@ def test_freelancer_answer_also_names_section_114():
         language="roman_urdu",
     )
 
-    assert "154A" in text
-    assert "114" in text
+    assert "withholding" in text
+    assert "return" in text.lower()
+    assert "Section 114" not in text
 
 
-def test_online_clothes_names_181_and_drops_plot_sections():
+def test_online_clothes_needs_registration_and_drops_plot_sections():
     draft = (
         "diye gaye documents mein online clothes bechne walon ke liye EasyPaisa par NTN ki "
         "zaroorat ke mutaliq koi khaas maloomat ya sections mojood nahi hain. "
@@ -150,7 +151,8 @@ def test_online_clothes_names_181_and_drops_plot_sections():
         language="roman_urdu",
     )
 
-    assert "181" in text
+    assert "register" in text
+    assert "Section 181" not in text
     assert "236C" not in text
     assert "236K" not in text
     assert "37(1A)" not in text

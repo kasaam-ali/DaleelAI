@@ -24,6 +24,7 @@ from app.api.v1.schemas import (
 from app.core.budget import CallBudget
 from app.core.cache import MemoryCache, answer_cache_key
 from app.core.demo import demo_in_language, match_demo
+from app.core.plain_answer import PlainStream, plain_answer
 from app.core.ports import LLMPort
 from app.core.privacy.pii import outbound_pii, redact_pii
 from app.core.retrieval.action_links import ActionLinkRule, load_action_links, match_action_links
@@ -178,6 +179,7 @@ async def iter_chat_events(
         failure: Exception | None = None
         emitted = 0
         streamed: list[str] = []
+        plain_stream = PlainStream(language)
         collected_sources: list[dict[str, Any]] = []
         sources_sent = False
 
@@ -240,7 +242,12 @@ async def iter_chat_events(
                     continue
                 emitted += 1
                 streamed.append(data)
-                yield {"event": "token", "data": {"text": data}}
+                clean = plain_stream.push(data)
+                if clean:
+                    yield {"event": "token", "data": {"text": clean}}
+            rest = plain_stream.flush()
+            if rest:
+                yield {"event": "token", "data": {"text": rest}}
             if not task.done():
                 task.cancel()
             try:
@@ -271,7 +278,11 @@ async def iter_chat_events(
                     failure = exc
         if failure is not None or result is None:
             if streamed:
-                draft = sanitize_answer("".join(streamed), language)
+                draft = plain_answer(
+                    sanitize_answer("".join(streamed), language),
+                    language,
+                    n_sources=len(collected_sources),
+                )
                 stored_sources = collected_sources
                 final = _final(
                     draft,
@@ -317,7 +328,7 @@ async def iter_chat_events(
             yield {"event": "done", "data": {}}
             return
         if emitted == 0:
-            yield {"event": "token", "data": {"text": result.answer}}
+            yield {"event": "token", "data": {"text": plain_answer(result.answer, language)}}
         library = "web" if result.answer_source == "web" else "verified"
         if result.answer_source == "none":
             library = "web"
@@ -335,7 +346,7 @@ async def iter_chat_events(
             },
         }
         final = _final(
-            result.answer,
+            plain_answer(result.answer, language, n_sources=len(result.sources)),
             result.answer_source,
             result.verified,
             result.model,

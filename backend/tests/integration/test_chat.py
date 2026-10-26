@@ -243,10 +243,10 @@ def test_streaming_qa_emits_each_delta():
     llm = ScriptedLLM(router_payload())
 
     async def qa(body, routed, tax_year, corpus_date, budget, on_delta=None):
-        await on_delta("Salary ")
-        await on_delta("is taxed.")
+        await on_delta("Salary is taxed every month by your ")
+        await on_delta("employer.")
         return RagResult(
-            answer="Salary is taxed.",
+            answer="Salary is taxed every month by your employer.",
             answer_source="verified",
             verified=True,
             replaced=False,
@@ -268,8 +268,9 @@ def test_streaming_qa_emits_each_delta():
         "final",
         "done",
     ]
-    assert events[1][1]["text"] == "Salary "
-    assert events[2][1]["text"] == "is taxed."
+    # Deltas stream word by word; the last few words wait in case a ref follows.
+    assert events[1][1]["text"] == "Salary is taxed "
+    assert events[2][1]["text"] == "every month by your employer."
 
 
 def test_chat_redacts_cnic_before_the_model():
@@ -467,7 +468,8 @@ def test_cash_withdrawal_endpoint_does_not_speak_the_property_note():
             },
         ).text
     )
-    assert "236C" in plot[-2][1]["answer"]
+    assert "advance tax" in plot[-2][1]["answer"].lower()
+    assert "236C" not in plot[-2][1]["answer"]
 
 
 def test_keyless_router_refuses_roman_urdu_evasion_spellings():

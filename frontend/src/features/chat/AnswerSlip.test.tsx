@@ -71,6 +71,9 @@ describe("AnswerSlip refusal language", () => {
           copy={(key) => key}
           onFeedback={() => undefined}
           onAsk={() => undefined}
+          activeCite={null}
+          onOpen={() => undefined}
+          onToast={() => undefined}
         />,
       )
     })

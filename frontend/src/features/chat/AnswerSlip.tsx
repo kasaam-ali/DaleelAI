@@ -1,7 +1,7 @@
-/** One answer card: text, sources, agent steps, copy, and feedback. */
+/** One answer: sources strip, Markdown body with citation chips, how it was answered, follow-ups, actions. */
 
-import { useState, type CSSProperties } from "react"
-import type { FeedbackReason, Source } from "../../api/chat"
+import { type ReactNode } from "react"
+import type { FeedbackReason } from "../../api/chat"
 import { annotatePkr, formatPkr } from "../../lib/money"
 import { safeHref } from "../../lib/safeUrl"
 import type { UiLanguage } from "../../lib/session"
@@ -11,347 +11,182 @@ import Icon from "../../shell/icons"
 import RefusalCard from "./RefusalCard"
 import { refusalKind } from "./refusal"
 import type { Turn } from "./types"
+import AnswerActions from "./answer/AnswerActions"
+import AnswerBody from "./answer/AnswerBody"
+import HowAnswered from "./answer/HowAnswered"
+import SourcesStrip from "./answer/SourcesStrip"
+import { citable, citedNumbers, fill, formatDate, fullRef } from "./answer/refs"
+import type { OpenSource } from "./answer/types"
 
 type Copy = (key: CopyKey) => string
-
-const CONFIDENCE = { high: "high", medium: "medium", low: "low" } as const
-
-function hasCitation(sources: Source[]): boolean {
-  return sources.some((source) => Boolean(source.section || source.url || source.snippet))
-}
 
 export default function AnswerSlip({
   turn,
   copy,
   language,
+  lead,
+  activeCite,
+  onOpen,
   onFeedback,
   onAsk,
+  onToast,
 }: {
   turn: Turn
   copy: Copy
   language: UiLanguage
-  onFeedback: (rating: "up" | "down", reason: FeedbackReason | null) => void
+  /** Status steps, errors and the like, shown at the top of the answer row. */
+  lead?: ReactNode
+  activeCite: number | null
+  onOpen: OpenSource
+  onFeedback: (rating: "up" | "down", reason: FeedbackReason | null, comment: string | null) => void
   onAsk: (question: string) => void
+  onToast: (message: string) => void
 }) {
-  const [reasonsOpen, setReasonsOpen] = useState(false)
   const final = turn.final
-  const cited = hasCitation(turn.sources)
-  const library = final && cited ? final.answer_source : "none"
-  const verified = Boolean(final?.verified) && cited
-  const confidence = final && cited ? final.confidence : "low"
+  const cited = citable(turn.sources).length > 0
   const kind = final ? refusalKind(turn.intent, final.answer_source, final.model) : null
   const text = final ? annotatePkr(localizedError(final.answer, language)) : turn.draft
   const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
+  const markers = citedNumbers(text, turn.sources.length)
+  const year = (final?.tax_year ?? turn.taxYear ?? "").replace(/^TY/, "")
+  const showStrip = !kind && (turn.sources.length > 0 || Boolean(final && !turn.toolCard))
+  const copyText = [
+    text,
+    turn.sources.length
+      ? `${copy("sources")}:\n${turn.sources.map((source, index) => `[${index + 1}] ${fullRef(source)}`).join("\n")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 
   return (
-    <article>
-      <div className="min-w-0 max-w-[70ch]">
-      {waiting ? (
-        <div className="mt-2 grid gap-2" aria-hidden="true">
-          <div className="waiting h-4 w-4/5" />
-          <div className="waiting h-4 w-full" />
-          <div className="waiting h-4 w-2/3" />
-        </div>
-      ) : null}
-
-      {!final && turn.sources.length > 0 ? (
-        <section data-motion-slot="sources-strip" aria-label={copy("sources")} className="strip-wrap">
-          <div className="strip-head">
-            <span className="badge checking">
-              <Icon name="refresh" size="sm" />
-              {copy("checkingSources")}
-            </span>
-          </div>
-          <div className="strip">
-            {turn.sources.slice(0, 4).map((source, index) => (
-              <div key={`${source.doc_id}-${index}`} className="src" style={{ "--i": index } as CSSProperties}>
-                <span className="src-top">
-                  <span className="n">{index + 1}</span>
-                  <b>{source.section ? `${copy("section")} ${source.section}` : source.title}</b>
-                </span>
-                <small>{source.title}</small>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {text && !kind ? (
-        <p className="max-w-[68ch] whitespace-pre-wrap leading-relaxed">
-          {text}
-          {!final ? <span className="caret" aria-hidden="true" /> : null}
-        </p>
-      ) : null}
-
-      {kind && final ? (
-        <RefusalCard
-          kind={kind}
-          reason={localizedError(final.answer, language)}
-          authority={final.action_links.find((link) => link.authority)?.authority ?? null}
-          query={final.trace?.search_query ?? null}
-          retrieved={final.trace?.retrieved ?? null}
-          rerankTop={final.trace?.rerank_top ?? null}
-          suggestions={final.follow_ups}
-          links={final.action_links}
+    <article className="min-w-0">
+      {showStrip ? (
+        <SourcesStrip
+          sources={turn.sources}
+          final={final}
+          cited={cited}
+          turnId={turn.id}
+          activeCite={activeCite}
           copy={copy}
-          onAsk={onAsk}
+          onOpen={onOpen}
         />
       ) : null}
-
-          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} language={language} /> : null}
-          {turn.toolNote && !turn.toolCard ? (
-            <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p>
-          ) : null}
-
-          {final && !kind ? (
-            <div className="mt-5">
-              <p
-                className={
-                  library === "verified"
-                    ? "text-sm font-medium text-seal"
-                    : library === "web"
-                      ? "text-sm font-medium text-web"
-                      : "text-sm text-muted"
-                }
-              >
-                {copy(
-                  library === "verified"
-                    ? "libraryVerified"
-                    : library === "web"
-                      ? "libraryWeb"
-                      : "libraryNone",
-                )}
-              </p>
-              <dl className="mt-4 grid gap-3 border-t border-rule pt-3 sm:grid-cols-3">
-                <div>
-                  <dt className="text-xs text-muted">{copy("confidence")}</dt>
-                  <dd className="text-sm">{copy(CONFIDENCE[confidence])}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted">{copy("verified")}</dt>
-                  <dd className={`text-sm ${verified ? "text-seal" : "text-low"}`}>
-                    {verified ? copy("verifiedYes") : copy("notVerified")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted">{copy("taxYear")}</dt>
-                  <dd className="text-sm">
-                    {final.tax_year}. {final.answer_source === "web" ? copy("pageChecked") : copy("lawAsOf")}{" "}
-                    {formatWhen(final.corpus_date)}
-                  </dd>
-                </div>
-              </dl>
-              {final.cached ? <p className="text-sm text-muted">{copy("cachedAnswer")}</p> : null}
-              {final.model && final.model !== "none" ? (
-                <p className="text-sm text-muted">
-                  {copy("answeredBy")} {final.model}
-                </p>
-              ) : null}
+      <div className="mt-4 flex min-w-0 gap-3">
+        <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-seal text-seal-ink" aria-hidden="true">
+          <Icon name="doc" size="sm" />
+        </span>
+        <div className="min-w-0 max-w-[70ch] flex-1">
+          {lead}
+          {waiting ? (
+            <div className="mt-2 grid gap-2" aria-hidden="true">
+              <div className="waiting h-4 w-4/5" />
+              <div className="waiting h-4 w-full" />
+              <div className="waiting h-4 w-2/3" />
             </div>
           ) : null}
 
-      {final ? (
-        <div className="mt-5 border-t border-rule pt-4">
-          {!kind && final.follow_ups.length > 0 ? (
-            <div className="mt-5">
-              <h3 className="text-base font-medium">{copy("related")}</h3>
-              <div className="mt-2 flex flex-wrap gap-2">
+          {final && !kind && year ? (
+            <p className="ameta">
+              {final.answer_source === "web"
+                ? `${copy("taxYear")} ${year} · ${fill(copy("checkedOn"), { date: formatDate(turn.sources.find((source) => source.library === "web")?.fetched_at ?? final.corpus_date) })}`
+                : fill(copy("metaLine"), { year, date: formatDate(final.corpus_date) })}
+              {final.cached ? ` · ${copy("cachedAnswer")}` : ""}
+            </p>
+          ) : null}
+
+          {text && !kind ? (
+            <AnswerBody
+              text={text}
+              sources={turn.sources}
+              turnId={turn.id}
+              activeCite={activeCite}
+              streaming={!final}
+              lang={language === "roman_urdu" ? "ur-Latn" : "en"}
+              copy={copy}
+              onOpen={onOpen}
+            />
+          ) : null}
+
+          {kind && final ? (
+            <RefusalCard
+              kind={kind}
+              reason={localizedError(final.answer, language)}
+              authority={final.action_links.find((link) => link.authority)?.authority ?? null}
+              query={final.trace?.search_query ?? null}
+              retrieved={final.trace?.retrieved ?? null}
+              rerankTop={final.trace?.rerank_top ?? null}
+              suggestions={final.follow_ups}
+              links={final.action_links}
+              copy={copy}
+              onAsk={onAsk}
+            />
+          ) : null}
+
+          {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} language={language} /> : null}
+          {turn.toolNote && !turn.toolCard ? <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p> : null}
+
+          {final && !kind ? (
+            <HowAnswered
+              final={final}
+              kept={turn.sources.filter((source) => source.library !== "web").length}
+              cited={markers.length}
+              copy={copy}
+            />
+          ) : null}
+
+          {final && !kind && final.follow_ups.length > 0 ? (
+            <>
+              <h3 className="fu-h">{copy("followUps")}</h3>
+              <div className="fus">
                 {final.follow_ups.map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    onClick={() => onAsk(question)}
-                    className="min-h-11 border border-rule bg-paper px-3 text-left text-sm transition-opacity duration-150 hover:opacity-80"
-                  >
+                  <button key={question} type="button" className="fu" onClick={() => onAsk(question)}>
                     {question}
+                    <Icon name="arrow" size="sm" />
                   </button>
                 ))}
               </div>
+            </>
+          ) : null}
+
+          {final && !kind && final.action_links.some((link) => safeHref(link.url)) ? (
+            <div className="mt-5">
+              <h3 className="fu-h">{copy("officialPages")}</h3>
+              <ul className="mt-2 grid gap-2">
+                {final.action_links
+                  .filter((link) => safeHref(link.url))
+                  .map((link) => (
+                    <li key={link.url}>
+                      <a
+                        href={safeHref(link.url) ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-seal underline decoration-rule underline-offset-4 hover:decoration-seal"
+                      >
+                        {language === "roman_urdu" && link.label_ru ? link.label_ru : link.label}
+                        <span className="text-muted"> · {link.authority}</span>
+                        <span className="sr-only"> {copy("opensOfficial")}</span>
+                      </a>
+                    </li>
+                  ))}
+              </ul>
             </div>
           ) : null}
 
-          <AgentSteps turn={turn} copy={copy} language={language} />
-
-          {turn.messageId ? (
-            <div className="mt-4">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  aria-pressed={turn.feedback === "up"}
-                  disabled={turn.feedback !== null}
-                  onClick={() => onFeedback("up", null)}
-                  className="min-h-11 border border-rule px-3 text-sm transition-opacity duration-150 hover:opacity-80 disabled:text-muted"
-                >
-                  {copy("helpful")}
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={turn.feedback === "down"}
-                  disabled={turn.feedback !== null}
-                  onClick={() => {
-                    setReasonsOpen(true)
-                    onFeedback("down", null)
-                  }}
-                  className="min-h-11 border border-rule px-3 text-sm transition-opacity duration-150 hover:opacity-80 disabled:text-muted"
-                >
-                  {copy("notHelpful")}
-                </button>
-              </div>
-              {reasonsOpen ? (
-                <div className="mt-3">
-                  <p className="text-sm">{copy("whatWasWrong")}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(["wrong", "incomplete", "outdated", "other"] as const).map((reason) => (
-                      <button
-                        key={reason}
-                        type="button"
-                        onClick={() => onFeedback("down", reason)}
-                        className="min-h-11 border border-rule px-3 text-sm"
-                      >
-                        {copy(reason)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {turn.feedbackNote ? <p className="mt-2 text-sm text-muted">{turn.feedbackNote}</p> : null}
-            </div>
+          {final ? (
+            <AnswerActions
+              copyText={copyText}
+              canRate={Boolean(turn.messageId)}
+              feedback={turn.feedback}
+              feedbackNote={turn.feedbackNote}
+              copy={copy}
+              onToast={onToast}
+              onFeedback={onFeedback}
+            />
           ) : null}
         </div>
-      ) : null}
       </div>
     </article>
-  )
-}
-
-export function SourcesRail({
-  turn,
-  language,
-  copy,
-  className = "",
-}: {
-  turn: Turn
-  language: UiLanguage
-  copy: Copy
-  className?: string
-}) {
-  const final = turn.final
-  if (!final) return null
-  return (
-    <aside className={`mt-6 border-t border-rule pt-4 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-6 ${className}`}>
-      <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("sources")}</h3>
-      {turn.sources.length === 0 ? (
-        <p className="mt-3 text-sm leading-relaxed text-muted">{copy("noSection")}</p>
-      ) : (
-        <ol className="mt-3 grid gap-4">
-          {turn.sources.map((source, index) => (
-            <li key={`${source.doc_id}-${index}`} className="border-t border-rule pt-3">
-              <SourceLine source={source} taxYear={final.tax_year} corpusDate={final.corpus_date} copy={copy} />
-            </li>
-          ))}
-        </ol>
-      )}
-      {final.action_links.some((link) => link.url) ? (
-        <div className="mt-5">
-          <h3 className="text-xs font-medium tracking-[0.14em] text-muted">{copy("officialPages")}</h3>
-          <ul className="mt-3 grid gap-2">
-            {final.action_links
-              .filter((link) => safeHref(link.url))
-              .map((link) => (
-                <li key={link.url}>
-                  <a
-                    href={safeHref(link.url) ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-seal underline decoration-rule underline-offset-4 hover:decoration-seal"
-                  >
-                    {language === "roman_urdu" && link.label_ru ? link.label_ru : link.label}
-                    <span className="text-muted"> · {link.authority}</span>
-                    <span className="sr-only"> {copy("opensOfficial")}</span>
-                  </a>
-                </li>
-              ))}
-          </ul>
-        </div>
-      ) : null}
-    </aside>
-  )
-}
-
-function AgentSteps({ turn, copy, language }: { turn: Turn; copy: Copy; language: UiLanguage }) {
-  const [note, setNote] = useState<string | null>(null)
-  const trace = turn.final?.trace
-  const answer = localizedError(turn.final?.answer || turn.draft, language)
-
-  async function copyAnswer() {
-    try {
-      await navigator.clipboard.writeText(answer)
-      setNote(copy("copied"))
-    } catch {
-      setNote(copy("shareFailed"))
-    }
-  }
-
-  async function shareAnswer() {
-    const payload = { title: "DaleelAI", text: answer }
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share(payload)
-        return
-      } catch {
-        return
-      }
-    }
-    await copyAnswer()
-  }
-
-  return (
-    <div className="mt-5">
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void copyAnswer()} className="min-h-11 border border-rule px-3 text-sm">
-          {copy("copyAnswer")}
-        </button>
-        <button type="button" onClick={() => void shareAnswer()} className="min-h-11 border border-rule px-3 text-sm">
-          {copy("shareAnswer")}
-        </button>
-      </div>
-      {note ? <p className="mt-2 text-sm text-muted">{note}</p> : null}
-      <details className="mt-3 border border-rule bg-paper px-3 py-2 text-sm">
-        <summary className="min-h-11 cursor-pointer">{copy("agentSteps")}</summary>
-        {trace ? (
-          <dl className="mt-2 grid gap-1">
-            <div>
-              <dt className="inline text-muted">{copy("stepIntent")} </dt>
-              <dd className="inline">{trace.intent}</dd>
-            </div>
-            <div>
-              <dt className="inline text-muted">{copy("stepQuery")} </dt>
-              <dd className="inline">{trace.search_query}</dd>
-            </div>
-            <div>
-              <dt className="inline text-muted">{copy("stepRetrieved")} </dt>
-              <dd className="inline">{trace.retrieved ?? 0}</dd>
-            </div>
-            <div>
-              <dt className="inline text-muted">{copy("stepRerank")} </dt>
-              <dd className="inline">{trace.rerank_top ?? copy("stepNone")}</dd>
-            </div>
-            <div>
-              <dt className="inline text-muted">{copy("stepVerified")} </dt>
-              <dd className="inline">
-                {hasCitation(turn.sources) && trace.verified ? copy("stepYes") : copy("stepNo")}
-              </dd>
-            </div>
-            <div>
-              <dt className="inline text-muted">{copy("stepLatency")} </dt>
-              <dd className="inline">{trace.latency_ms ?? 0} ms</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="mt-2 text-muted">{turn.intent ?? copy("stepNone")}</p>
-        )}
-      </details>
-    </div>
   )
 }
 
@@ -443,53 +278,4 @@ function ToolCard({
       ) : null}
     </div>
   )
-}
-
-function SourceLine({
-  source,
-  taxYear,
-  corpusDate,
-  copy,
-}: {
-  source: Source
-  taxYear: string
-  corpusDate: string
-  copy: Copy
-}) {
-  const href = safeHref(source.url) || safeHref(source.mirror_url)
-  const when = source.library === "web" ? (source.fetched_at ?? corpusDate) : corpusDate
-  const label = source.section ? `${copy("section")} ${source.section}` : source.title
-  const bits = [
-    source.page != null ? `${copy("page")} ${source.page}` : "",
-    `${copy("taxYear")} ${taxYear}`,
-    `${source.library === "web" ? copy("pageChecked") : copy("lawAsOf")} ${formatWhen(when)}`,
-  ].filter(Boolean)
-  const chip = "text-sm font-medium text-seal underline decoration-seal/30 underline-offset-4"
-  const title = href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={chip}>
-      {label}
-      <span className="sr-only"> {copy("opensOfficial")}</span>
-    </a>
-  ) : (
-    <span className="text-sm font-medium">{label}</span>
-  )
-  return (
-    <div className="rounded-2xl border border-rule bg-field px-4 py-3">
-      {title}
-      <p className="mt-1 text-sm text-muted">{source.title}</p>
-      <p className="text-sm text-muted">{bits.join(", ")}</p>
-      {source.snippet ? <p className="mt-1 max-w-[68ch] text-sm">{source.snippet}</p> : null}
-    </div>
-  )
-}
-
-function formatWhen(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Karachi",
-  }).format(date)
 }

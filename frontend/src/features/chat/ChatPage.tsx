@@ -27,7 +27,14 @@ import {
   type UiLanguage,
 } from "../../lib/session"
 import AnswerHeader from "./AnswerHeader"
-import AnswerSlip, { SourcesRail } from "./AnswerSlip"
+import AnswerSlip from "./AnswerSlip"
+import AnswerTitle from "./answer/AnswerTitle"
+import JumpToLatest from "./answer/JumpToLatest"
+import SourcePanel from "./answer/SourcePanel"
+import Toast from "./answer/Toast"
+import type { PanelState } from "./answer/types"
+import "./answer/answer.css"
+import { filingSummary } from "./filingSummary"
 import { assistantSnippet } from "./chatText"
 import { reduceBucket } from "./bucket"
 import Composer from "./Composer"
@@ -95,6 +102,10 @@ export default function ChatPage({
   }))
   const [busy, setBusy] = useState(false)
   const [away, setAway] = useState(false)
+  const [panel, setPanel] = useState<PanelState>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  const toastTimer = useRef<number | null>(null)
   const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguage>("auto")
   const [queuedCount, setQueuedCount] = useState(queuedItems.length)
   const online = useOnline()
@@ -463,11 +474,17 @@ export default function ChatPage({
     setTurns((prev) => prev.map((turn) => (turn.id === id ? update(turn) : turn)))
   }
 
-  async function onFeedback(id: string, messageId: string, rating: "up" | "down", reason: FeedbackReason | null) {
+  async function onFeedback(
+    id: string,
+    messageId: string,
+    rating: "up" | "down",
+    reason: FeedbackReason | null,
+    comment: string | null = null,
+  ) {
     patch(id, (current) => ({ ...current, feedback: rating, feedbackNote: null }))
     try {
-      await sendFeedback(readSessionId(localStorage), messageId, rating, reason)
-      patch(id, (current) => ({ ...current, feedback: rating, feedbackNote: copy("feedbackSaved") }))
+      await sendFeedback(readSessionId(localStorage), messageId, rating, reason, comment)
+      patch(id, (current) => ({ ...current, feedback: rating, feedbackNote: copy("fbThanks") }))
     } catch {
       patch(id, (current) => ({
         ...current,
@@ -476,6 +493,40 @@ export default function ChatPage({
       }))
     }
   }
+
+  function showToast(message: string) {
+    if (toastTimer.current != null) window.clearTimeout(toastTimer.current)
+    setToast(message)
+    toastTimer.current = window.setTimeout(() => setToast(null), 1800)
+  }
+
+  function openSource(turnId: string, n: number, element: HTMLElement | null, law = false) {
+    if (element) opener.current = element
+    setPanel({ turnId, n, law })
+  }
+
+  function closePanel() {
+    const back = opener.current
+    setPanel(null)
+    if (back?.isConnected) window.setTimeout(() => back.focus(), 0)
+  }
+
+  useEffect(() => {
+    if (!panel) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return
+      if (document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]')) return
+      event.preventDefault()
+      if (panel?.law) setPanel({ ...panel, law: false })
+      else closePanel()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  })
+
+  useEffect(() => () => {
+    if (toastTimer.current != null) window.clearTimeout(toastTimer.current)
+  }, [])
 
   function onScroll() {
     const element = scroller.current
@@ -520,7 +571,7 @@ export default function ChatPage({
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="achat relative flex min-h-0 flex-1 flex-col">
       {online ? null : <OfflineBanner queuedCount={queuedCount} copy={copy} />}
       <p className="sr-only" aria-live="polite" data-retry-announce>
         {announce}
@@ -551,116 +602,131 @@ export default function ChatPage({
           ) : (
             turns.map((turn) => {
               const streaming = Boolean(turn.draft) || turn.sources.length > 0
+              const open = panel && panel.turnId === turn.id ? panel : null
+              const lead = (
+                <>
+                  {turn.status === "sending" ? <p className="text-sm text-muted">{copy("queueSending")}</p> : null}
+                  {showSteps(turn) ? (
+                    <StatusSteps phases={turn.phases} times={turn.phaseTimes} copy={copy} skeleton={!streaming} />
+                  ) : null}
+                  {turn.stopped && !turn.final && !turn.error ? (
+                    <div data-motion-slot="stopped" role="status" className="border border-rule bg-field px-4 py-4">
+                      <h3 className="font-statute text-lg font-medium">{copy("stoppedTitle")}</h3>
+                      <p className="mt-2 text-sm text-muted">{copy("stoppedDetail")}</p>
+                      <button
+                        type="button"
+                        onClick={() => retryNow(turn)}
+                        className="mt-4 min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink"
+                      >
+                        {copy("retry")}
+                      </button>
+                    </div>
+                  ) : null}
+                  {turn.error ? (
+                    <ErrorCard
+                      error={turn.error}
+                      secondsLeft={turn.autoRetryIn}
+                      totalSeconds={retryTotal}
+                      cancelled={turn.autoRetryCancelled}
+                      requestId={turn.id}
+                      copy={copy}
+                      onRetry={() => retryNow(turn)}
+                      onCopy={() => void copyQuestion(turn.question)}
+                      onCancel={() => cancelAutoRetry(turn.id)}
+                    />
+                  ) : null}
+                </>
+              )
+              const showAnswer = !turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn))
               return (
               <div
                 key={turn.id}
-                className="rise-in mt-6 w-full xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-10"
+                className={`rise-in a-grid mt-6 w-full${open ? " sheet-open" : ""}${open?.law ? " law-split" : ""}`}
               >
-                <div className="min-w-0 xl:col-start-1 xl:row-start-1">
-                  <div className="flex justify-end">
-                    <p
-                      className={
-                        turn.queued
-                          ? "qbubble max-w-[min(85%,40rem)] whitespace-pre-wrap text-ink"
-                          : "max-w-[min(85%,40rem)] border-l-2 border-seal py-1 pl-3 whitespace-pre-wrap text-ink"
-                      }
-                    >
-                      {turn.question}
-                    </p>
-                  </div>
-                  {turn.redacted ? <p className="mt-1 text-right text-sm text-muted">{copy("redactionSent")}</p> : null}
-                    {turn.queued ? (
+                <div className="min-w-0">
+                  {turn.queued ? (
+                    <>
+                      <h2 className="q-title">{turn.question}</h2>
+                      <div className="flex justify-end">
+                        <p className="qbubble max-w-[min(85%,40rem)] whitespace-pre-wrap text-ink">{turn.question}</p>
+                      </div>
                       <p className="qstate" data-queued>
                         <Icon name="wifiOff" size="sm" />
                         {copy("queued")}
                       </p>
-                    ) : null}
-                    {turn.queued && turn.error ? (
-                      <p className="mt-1 text-right text-sm text-muted">{turn.error.message}</p>
-                    ) : null}
-                </div>
-                {turn.queued ? null : (
-                <div className="mt-4 flex min-w-0 gap-3 xl:col-start-1 xl:row-start-2">
-                  <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center bg-seal text-seal-ink" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <path d="M6 5.5h7.2L17 9.2V18.5H6v-13z" strokeLinejoin="round" />
-                      <path d="M13 5.5V9h4" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <AnswerHeader
-                      detected={turn.detectedLanguage}
-                      selected={shownAnswerLanguage(turn, turn.id === turns[turns.length - 1]?.id)}
+                      {turn.error ? <p className="mt-1 text-right text-sm text-muted">{turn.error.message}</p> : null}
+                    </>
+                  ) : (
+                    <AnswerTitle
+                      question={turn.question}
+                      context={turn.id === turns[turns.length - 1]?.id ? filingSummary(profile, taxYear, copy) : null}
+                      when={turn.sentAt != null ? whenAsked(turn.sentAt, copy) : null}
+                      sourceCount={turn.final ? turn.sources.length : 0}
+                      sourcesOpen={Boolean(open)}
                       copy={copy}
-                      onSelect={(next) => chooseAnswerLanguage(next, turn)}
+                      onAnswer={() => (open ? closePanel() : undefined)}
+                      onSources={(event) => openSource(turn.id, open?.n ?? 1, event)}
+                      language={
+                        <AnswerHeader
+                          detected={turn.detectedLanguage}
+                          selected={shownAnswerLanguage(turn, turn.id === turns[turns.length - 1]?.id)}
+                          copy={copy}
+                          onSelect={(next) => chooseAnswerLanguage(next, turn)}
+                        />
+                      }
                     />
-                    {turn.status === "sending" ? <p className="text-sm text-muted">{copy("queueSending")}</p> : null}
-                    {showSteps(turn) ? (
-                      <StatusSteps phases={turn.phases} times={turn.phaseTimes} copy={copy} skeleton={!streaming} />
-                    ) : null}
-                    {turn.stopped && !turn.final && !turn.error ? (
-                      <div data-motion-slot="stopped" role="status" className="border border-rule bg-field px-4 py-4">
-                        <h3 className="font-statute text-lg font-medium">{copy("stoppedTitle")}</h3>
-                        <p className="mt-2 text-sm text-muted">{copy("stoppedDetail")}</p>
-                        <button
-                          type="button"
-                          onClick={() => retryNow(turn)}
-                          className="mt-4 min-h-11 bg-seal px-4 text-sm font-medium text-seal-ink"
-                        >
-                          {copy("retry")}
-                        </button>
-                      </div>
-                    ) : null}
-                    {turn.error ? (
-                      <ErrorCard
-                        error={turn.error}
-                        secondsLeft={turn.autoRetryIn}
-                        totalSeconds={retryTotal}
-                        cancelled={turn.autoRetryCancelled}
-                        requestId={turn.id}
-                        copy={copy}
-                        onRetry={() => retryNow(turn)}
-                        onCopy={() => void copyQuestion(turn.question)}
-                        onCancel={() => cancelAutoRetry(turn.id)}
-                      />
-                    ) : null}
-                    {!turn.queued && !turn.error && !turn.stopped && (streaming || !showSteps(turn)) ? (
-                      <AnswerSlip
-                        turn={turn}
-                        language={language}
-                        copy={copy}
-                        onAsk={(question) => void ask(question)}
-                        onFeedback={(rating, reason) => {
-                          if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason)
-                        }}
-                      />
-                    ) : null}
-                  </div>
+                  )}
+                  {turn.redacted ? <p className="mt-1 text-sm text-muted">{copy("redactionSent")}</p> : null}
+                  {turn.queued ? null : showAnswer ? (
+                    <AnswerSlip
+                      turn={turn}
+                      language={language}
+                      copy={copy}
+                      lead={lead}
+                      activeCite={open?.n ?? null}
+                      onOpen={(n, element, law) => openSource(turn.id, n, element, law)}
+                      onAsk={(question) => void ask(question)}
+                      onToast={showToast}
+                      onFeedback={(rating, reason, comment) => {
+                        if (turn.messageId) void onFeedback(turn.id, turn.messageId, rating, reason, comment)
+                      }}
+                    />
+                  ) : (
+                    <div className="mt-4 flex min-w-0 gap-3">
+                      <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-seal text-seal-ink" aria-hidden="true">
+                        <Icon name="doc" size="sm" />
+                      </span>
+                      <div className="min-w-0 flex-1">{lead}</div>
+                    </div>
+                  )}
                 </div>
-                )}
-                <SourcesRail
-                  turn={turn}
-                  language={language}
-                  copy={copy}
-                  className="xl:col-start-2 xl:row-start-2 xl:mt-4"
-                />
+                {open ? (
+                  <>
+                    <SourcePanel
+                      turnId={turn.id}
+                      sources={turn.sources}
+                      n={open.n}
+                      law={open.law}
+                      taxYear={turn.final?.tax_year ?? turn.taxYear}
+                      lawDate={turn.final?.corpus_date ?? null}
+                      copy={copy}
+                      onSelect={(n) => setPanel({ turnId: turn.id, n, law: false })}
+                      onLaw={(n) => setPanel({ turnId: turn.id, n, law: true })}
+                      onBack={() => setPanel({ ...open, law: false })}
+                      onClose={closePanel}
+                      onCopied={showToast}
+                    />
+                    <div className="sheet-scrim" aria-hidden="true" onClick={closePanel} />
+                  </>
+                ) : null}
               </div>
               )
             })
           )}
         </div>
       </div>
-      {turns.length > 0 && away ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-28 flex justify-center">
-          <button
-            type="button"
-            onClick={resume}
-            className="pointer-events-auto min-h-11 rounded-full border border-rule bg-field px-4 text-sm shadow-sm"
-          >
-            {copy("resumeScroll")}
-          </button>
-        </div>
-      ) : null}
+      {turns.length > 0 && away ? <JumpToLatest copy={copy} onClick={resume} /> : null}
+      <Toast message={toast} />
       {turns.length > 0 ? (
         <Composer
           value={draft}
@@ -675,6 +741,7 @@ export default function ChatPage({
           onSubmit={() => void ask(draft)}
           onStop={stop}
           muted={!online}
+          placeholder={copy("followUpPlaceholder")}
         />
       ) : null}
     </div>
@@ -688,6 +755,12 @@ function phaseUpdate(turn: Turn, node: string, status: "start" | "end"): Pick<Tu
     phase === "done" && turn.phases[index] !== "done" ? elapsed : (turn.phaseTimes[index] ?? null),
   )
   return { phases, phaseTimes }
+}
+
+/** "Just now" within a minute, then the time asked (Asia/Karachi). */
+function whenAsked(sentAt: number, copy: Copy): string {
+  if (Date.now() - sentAt < 60_000) return copy("justNow")
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" }).format(sentAt)
 }
 
 function showSteps(turn: Turn): boolean {

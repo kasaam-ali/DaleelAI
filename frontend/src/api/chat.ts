@@ -157,6 +157,7 @@ export async function sendFeedback(
   messageId: string,
   rating: "up" | "down",
   reason: FeedbackReason | null,
+  comment: string | null = null,
 ): Promise<void> {
   const response = await fetch(`${API_URL}/api/v1/feedback`, {
     method: "POST",
@@ -168,7 +169,7 @@ export async function sendFeedback(
       message_id: messageId,
       rating,
       reason,
-      comment: null,
+      comment,
       share_conversation: false,
     }),
   })

@@ -33,11 +33,13 @@ export default function ProfilePanel({
   copy,
   onChange,
   compact = false,
+  idPrefix = "",
 }: {
   profile: Profile
   copy: Copy
   onChange: (patch: Partial<Profile>) => void
   compact?: boolean
+  idPrefix?: string
 }) {
   return (
     <section className={compact ? "mt-2" : "mt-8"} aria-labelledby={compact ? undefined : "filing-details"}>
@@ -51,7 +53,7 @@ export default function ProfilePanel({
       )}
       <div className={compact ? "grid gap-3" : "mt-4 grid gap-4 sm:grid-cols-3"}>
         <Field
-          id="taxpayer-type"
+          id={`${idPrefix}taxpayer-type`}
           label={copy("taxpayerType")}
           value={profile.taxpayer_type ?? ""}
           choose={copy("choose")}
@@ -59,7 +61,7 @@ export default function ProfilePanel({
           onChange={(value) => onChange({ taxpayer_type: (value || null) as TaxpayerType | null })}
         />
         <Field
-          id="filer-status"
+          id={`${idPrefix}filer-status`}
           label={copy("filerStatus")}
           value={profile.filer_status ?? ""}
           choose={copy("choose")}
@@ -67,7 +69,7 @@ export default function ProfilePanel({
           onChange={(value) => onChange({ filer_status: (value || null) as FilerStatus | null })}
         />
         <Field
-          id="province"
+          id={`${idPrefix}province`}
           label={copy("province")}
           value={profile.province ?? ""}
           choose={copy("choose")}

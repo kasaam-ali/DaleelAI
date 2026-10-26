@@ -267,6 +267,51 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Transform and opacity only, so motion/react can replace these later. */
+@keyframes motion-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-scrim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motion-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.motion-rise {
+  animation: motion-rise 240ms var(--ease) both;
+}
+
+.motion-scrim {
+  animation: motion-scrim 240ms var(--ease) both;
+}
+
+.motion-spin {
+  animation: motion-spin 0.9s linear infinite;
+}
+
+mark.chat-hit {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--gold) 45%, var(--field));
+  color: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

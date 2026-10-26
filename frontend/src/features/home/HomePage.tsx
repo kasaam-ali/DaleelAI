@@ -4,6 +4,8 @@ import { useState } from "react"
 import type { CopyKey } from "../../i18n"
 import { redactPii } from "../../lib/pii"
 import Composer from "../chat/Composer"
+import OfflineBanner from "../chat/OfflineBanner"
+import { useOnline } from "../chat/useOnline"
 import Icon, { type IconName } from "../../shell/icons"
 import type { AppView } from "../../shell/AppShell"
 
@@ -39,6 +41,7 @@ export default function HomePage({
   onAsk: (question: string) => void
 }) {
   const [draft, setDraft] = useState("")
+  const online = useOnline()
   const [error, setError] = useState<string | null>(null)
   const preview = redactPii(draft)
   const showPreview = draft.trim().length > 0 && preview !== draft
@@ -56,6 +59,7 @@ export default function HomePage({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
+      {online ? null : <OfflineBanner queuedCount={0} copy={copy} />}
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-8">
         <h2 className="max-w-[18ch] font-statute text-[2.35rem] leading-[1.08] font-medium tracking-tight text-ink">
           {copy("homeTitle")}
@@ -75,6 +79,7 @@ export default function HomePage({
             }}
             onSubmit={submit}
             onStop={() => undefined}
+            muted={!online}
           />
         </div>
         <p className="mt-4 max-w-[58ch] text-base leading-relaxed text-muted">{copy("homePurpose")}</p>

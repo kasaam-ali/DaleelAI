@@ -6,6 +6,8 @@ import { annotatePkr, formatPkr } from "../../lib/money"
 import { safeHref } from "../../lib/safeUrl"
 import type { UiLanguage } from "../../lib/session"
 import type { CopyKey } from "../../i18n"
+import RefusalCard from "./RefusalCard"
+import { refusalKind } from "./refusal"
 import type { Turn } from "./types"
 
 type Copy = (key: CopyKey) => string
@@ -35,8 +37,9 @@ export default function AnswerSlip({
   const library = final && cited ? final.answer_source : "none"
   const verified = Boolean(final?.verified) && cited
   const confidence = final && cited ? final.confidence : "low"
+  const kind = final ? refusalKind(turn.intent, final.answer_source, final.model) : null
   const text = final ? annotatePkr(final.answer) : turn.draft
-  const waiting = !text && !turn.error
+  const waiting = !text && !turn.error && !kind && turn.sources.length === 0 && !turn.toolCard
 
   return (
     <article className="xl:grid xl:grid-cols-[minmax(0,42rem)_17rem] xl:items-start xl:gap-10">
@@ -49,20 +52,49 @@ export default function AnswerSlip({
         </div>
       ) : null}
 
-      {text ? <p className="max-w-[68ch] whitespace-pre-wrap leading-relaxed">{text}</p> : null}
+      {!final && turn.sources.length > 0 ? (
+        <section data-motion-slot="sources-strip" aria-label={copy("sources")} className="mb-4">
+          <p className="text-sm font-medium text-muted">{copy("checkingSources")}</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {turn.sources.map((source, index) => (
+              <div key={`${source.doc_id}-${index}`} className="border border-rule bg-field px-3 py-2 text-sm">
+                <p className="font-medium text-seal">
+                  {source.section ? `${copy("section")} ${source.section}` : source.title}
+                </p>
+                <p className="text-muted">{source.title}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-          {turn.error ? (
-            <p className="mt-4 text-sm text-low" role="alert">
-              {turn.error}
-            </p>
-          ) : null}
+      {text && !kind ? (
+        <p className="max-w-[68ch] whitespace-pre-wrap leading-relaxed">
+          {text}
+          {!final ? <span className="caret" aria-hidden="true" /> : null}
+        </p>
+      ) : null}
+
+      {kind && final ? (
+        <RefusalCard
+          kind={kind}
+          reason={final.answer}
+          authority={final.action_links.find((link) => link.authority)?.authority ?? null}
+          query={final.trace?.search_query ?? null}
+          retrieved={final.trace?.retrieved ?? null}
+          suggestions={final.follow_ups}
+          links={final.action_links}
+          copy={copy}
+          onAsk={onAsk}
+        />
+      ) : null}
 
           {turn.toolCard ? <ToolCard card={turn.toolCard} copy={copy} /> : null}
           {turn.toolNote && !turn.toolCard ? (
             <p className="mt-4 text-sm text-muted">{copy("toolLater")}</p>
           ) : null}
 
-          {final ? (
+          {final && !kind ? (
             <div className="mt-5">
               <p
                 className={
@@ -111,7 +143,7 @@ export default function AnswerSlip({
 
       {final ? (
         <div className="mt-5 border-t border-rule pt-4">
-          {final.follow_ups.length > 0 ? (
+          {!kind && final.follow_ups.length > 0 ? (
             <div className="mt-5">
               <h3 className="text-base font-medium">{copy("related")}</h3>
               <div className="mt-2 flex flex-wrap gap-2">

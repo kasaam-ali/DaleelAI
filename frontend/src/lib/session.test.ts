@@ -9,11 +9,13 @@ import {
   clearLocalHistory,
   readAnswerLanguage,
   readLanguage,
+  readOfflineQueue,
   readProfile,
   readSessionId,
   sanitizeProfile,
   writeAnswerLanguage,
   writeLanguage,
+  writeOfflineQueue,
   writeProfile,
   type StorageLike,
 } from "./session"
@@ -82,6 +84,20 @@ describe("session", () => {
     expect(readAnswerLanguage(store, "chat-1")).toBe("en")
     expect(readAnswerLanguage(store, "chat-2")).toBe("roman_urdu")
     expect(readLanguage(store)).toBe("roman_urdu")
+  })
+
+  it("keeps an offline question until it is sent", () => {
+    const store = memory()
+    expect(readOfflineQueue(store)).toEqual([])
+    writeOfflineQueue(store, [
+      { id: "q-1", text: "Section 149?" },
+      { id: "q-2", text: "  " },
+    ])
+    expect(readOfflineQueue(store)).toEqual([{ id: "q-1", text: "Section 149?" }])
+    writeOfflineQueue(store, [])
+    expect(store.data.has("daleelai.offline_queue")).toBe(false)
+    store.data.set("daleelai.offline_queue", "{")
+    expect(readOfflineQueue(store)).toEqual([])
   })
 
   it("round-trips a profile and ignores broken JSON", () => {

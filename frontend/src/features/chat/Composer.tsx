@@ -16,6 +16,7 @@ export default function Composer({
   onStop,
   placement = "dock",
   fieldId = "question",
+  muted = false,
 }: {
   value: string
   busy: boolean
@@ -27,6 +28,7 @@ export default function Composer({
   onStop: () => void
   placement?: "dock" | "field"
   fieldId?: string
+  muted?: boolean
 }) {
   const field = useRef<HTMLTextAreaElement>(null)
 
@@ -89,7 +91,9 @@ export default function Composer({
             type="submit"
             disabled={!ready}
             aria-label={copy("send")}
-            className="mb-1 inline-flex h-11 min-w-11 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed disabled:opacity-40"
+            className={`mb-1 inline-flex h-11 min-w-11 items-center justify-center bg-seal px-4 text-sm font-medium text-seal-ink disabled:cursor-not-allowed disabled:opacity-40 ${
+              muted ? "opacity-60" : ""
+            }`}
           >
             {copy("send")}
           </button>

@@ -12,7 +12,8 @@ import re
 from collections.abc import Iterable
 
 _FILING_ASK = re.compile(
-    r"\b(deadline|due date|last date|file|filing|return|114|118|akhri|tareekh|tarikh)\b", re.I
+    r"\b(deadline|due date|last date|file|filing|return|114|118|akhri|aakhri|tareekh|tarikh|tareek|"
+    r"kab tak|iris)\b", re.I
 )
 _COMPANY_ASK = re.compile(
     r"\b(compan(y|ies)|pvt|private limited|\(?pvt\)? ltd|limited company|corporate|corporation)\b",

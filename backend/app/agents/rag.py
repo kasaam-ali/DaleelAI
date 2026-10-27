@@ -375,7 +375,7 @@ def statute_note(request: RagRequest) -> str:
     """
     question = request.question
     keys = {topic.key for topic in topics_for_note(question)}
-    if "property" not in keys and "freelancer" not in keys:
+    if not keys & {"property", "freelancer", "surcharge"}:
         return ""
     return cross_reference_note(question, language=request.language)
 

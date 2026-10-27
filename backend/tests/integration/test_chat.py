@@ -568,3 +568,31 @@ def test_explicit_english_overrides_roman_urdu_wording():
     roman_events = parse_sse(roman.text)
     assert roman_events[0][1]["language"] == "roman_urdu"
     assert "income chhupane" in roman_events[-2][1]["answer"]
+
+
+def test_ask03_section_number_goes_to_grounded_qa_and_typed_year_wins():
+    seen = {}
+
+    async def qa(body, routed, tax_year, corpus_date, budget):
+        seen["tax_year"] = tax_year
+        return RagResult(
+            answer="Salary tax is withheld monthly [1].",
+            answer_source="verified",
+            verified=True,
+            replaced=False,
+            model="fake/model",
+        )
+
+    client = make_client(ScriptedLLM(router_payload()), qa=qa)
+    res = client.post(
+        "/api/v1/chat",
+        json={
+            "message": "How is salary tax calculated under section 149 for TY2026?",
+            "tax_year": "TY2027",
+        },
+    )
+    events = parse_sse(res.text)
+    assert events[0][1]["intent"] == "qa"
+    assert events[0][1]["tax_year"] == "TY2026"
+    assert seen["tax_year"] == "TY2026"
+    assert "tool_result" not in [name for name, _ in events]

@@ -56,6 +56,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
     @app.exception_handler(Exception)
     async def unhandled_error(_request: Request, _exc: Exception) -> JSONResponse:
         log.exception("request failed")

@@ -205,7 +205,9 @@ def test_explicit_language_wins_and_auto_detects_each_question():
     assert resolve_reply_language("Mujhe notice mila hai", "en", "en") == "en"
     assert resolve_reply_language("تنخواہ پر ٹیکس", "en", "en") == "en"
     assert resolve_reply_language("What is section 149?", "roman_urdu", "en") == "roman_urdu"
-    assert resolve_reply_language("NTN registration kaise karte hain?", "auto", "en") == "roman_urdu"
+    assert (
+        resolve_reply_language("NTN registration kaise karte hain?", "auto", "en") == "roman_urdu"
+    )
     assert resolve_reply_language("تنخواہ پر ٹیکس", "auto", "en") == "roman_urdu"
     assert resolve_reply_language("What is section 149?", "auto", "en") == "en"
     assert resolve_reply_language("What is section 149?", "en", "en") == "en"

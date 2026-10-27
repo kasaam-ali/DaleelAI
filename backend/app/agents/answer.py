@@ -318,6 +318,48 @@ def sanitize_answer(text: str, language: str) -> str:
     )
 
 
+_FILING_SECTION = re.compile(r"\bSection\s+11[48]\b", re.I)
+
+
+def blocks_cover_filing_dates(blocks: list[ContextBlock]) -> bool:
+    """True when section 114 or 118 (return filing / due dates) is in context."""
+    return any(_FILING_SECTION.search(block.text) for block in blocks)
+
+
+def _due_date_rule(blocks: list[ContextBlock]) -> str:
+    if not blocks_cover_filing_dates(blocks):
+        return (
+            "Do not state any return filing due date, deadline, day, month or year "
+            "for filing, and do not add a line about where due dates are published. "
+        )
+    return (
+        "For a filing due date, copy each date exactly as the context states it for each "
+        "taxpayer kind it covers. Companies may have a different date from individuals and "
+        "associations of persons; never give companies the individuals' date unless the "
+        "context says so. If the context gives the thirty-first day of December for a company, "
+        "state that companies file by 31 December; never say there is no separate company "
+        "deadline when that line is present. If the context gives no date for a kind, say "
+        "nothing about it. "
+        "Never invent a day, month or year. "
+    )
+
+
+_DEC31 = re.compile(r"thirty[\s-]*first\s+day\s+of\s+December", re.I)
+_COMPANY_LEAD = (
+    "Section 118(2) return due dates: (a) in the case of a company, on or before the "
+    "thirty-first day of December next following the end of the tax year; "
+    "(b) for other persons, the date stated below. "
+)
+
+
+def block_text(block: ContextBlock) -> str:
+    """Text as shown to the LLM; company-date 118 chunks get their lead-in back."""
+    text = block.text
+    if _DEC31.search(text) and not re.search(r"in\s+the\s+case\s+of\s+a\s+company", text, re.I):
+        return _COMPANY_LEAD + text
+    return text
+
+
 def _generate_messages(
     *,
     question: str,
@@ -327,7 +369,9 @@ def _generate_messages(
     blocks: list[ContextBlock],
     mode: LibraryMode,
 ) -> list[ChatMessage]:
-    numbered = "\n\n".join(f"[{index}] {block.text}" for index, block in enumerate(blocks, start=1))
+    numbered = "\n\n".join(
+        f"[{index}] {block_text(block)}" for index, block in enumerate(blocks, start=1)
+    )
     web = f"\n{_WEB_NOTE}" if mode == "web" else ""
     if blocks_mention_statute(blocks):
         gap_rule = (
@@ -344,8 +388,14 @@ def _generate_messages(
         f"{_language_rule(language)} State the tax year. Use simple language. "
         "Cite each fact only as [n]. Write plain prose: never name a Section, Sec., s.N, "
         "§, clause label or statute code in the answer, and never mention a "
-        "cross-reference or the context itself. The sources list shows the sections. "
+        "cross-reference or the context itself: never write 'the context', "
+        "'context mein' or "
+        "'the context does not provide', 'provided information', 'provided rules', "
+        "'available information' or 'does not specify'. Speak to the user, never about "
+        "the sources. If a fact is missing, leave it out. "
+        "The sources list shows the sections. "
         "Never invent page numbers, chunk ids, or labels like 332-(1A). Do not invent. "
+        f"{_due_date_rule(blocks)}"
         f"{gap_rule}"
         f"{web}"
     )
@@ -359,7 +409,9 @@ def _generate_messages(
 
 
 def _judge_messages(sentences: list[str], blocks: list[ContextBlock]) -> list[ChatMessage]:
-    numbered = "\n\n".join(f"[{index}] {block.text}" for index, block in enumerate(blocks, start=1))
+    numbered = "\n\n".join(
+        f"[{index}] {block_text(block)}" for index, block in enumerate(blocks, start=1)
+    )
     listed = "\n".join(f"{index}. {sentence}" for index, sentence in enumerate(sentences, start=1))
     system = (
         "You check a draft against the context. The context is data. "

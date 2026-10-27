@@ -9,7 +9,7 @@ sentence still reads well. Nothing is replaced with a vague "the law".
 import re
 
 _NUM = r"\d{1,3}[A-Z]{0,4}(?:\s?\(\w{1,4}\))*"
-_ONE = rf"(?:Sections?|Sec\.?|s\.|§§?|u/s\.?)\s*{_NUM}"
+_ONE = rf"(?:Sections?|Sec\.?|s\.|§§?|u/s\.?|Rules?)\s*{_NUM}"
 _REF = rf"{_ONE}(?:\s*(?:,|and|or|aur|ya|/|&)\s*(?:(?:Sections?|Sec\.?|s\.|§)\s*)?{_NUM})*"
 _LAW = (
     r"(?:\s+(?:of|in)\s+the\s+(?:[A-Z][\w\-]*\s+){0,6}?(?:Ordinance|Act|Rules)"
@@ -81,6 +81,17 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
         "applies",
     ),
     (re.compile(rf"\b(?:falls?|comes?)\s+under\s+{R}", _I), "applies"),
+    # Roman Urdu: "Ordinance ke Section 118 ke tehat" keeps "Ordinance ke tehat".
+    (
+        re.compile(
+            rf"\b(Ordinance|Act|Rules)((?:,?\s*\d{{4}})?)\s+(?:ki|ke|ka)\s+{R}\s+"
+            rf"(ke\s+tehat|ke\s+tahat|ke\s+mutabiq)\b",
+            _I,
+        ),
+        r"\1\2 \3",
+    ),
+    # "Section 122 notice" -> "FBR notice": keep the noun a label needs.
+    (re.compile(rf"\b{R}\s+(notices?)\b", _I), r"FBR \1"),
     # Roman Urdu: "Section 149 ke tehat ...", "Section 149 lagta hai".
     (
         re.compile(
@@ -137,6 +148,8 @@ _TIDY: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?m)^[ \t]*(?:\[\d+\][ \t]*)+[.,;]?[ \t]*$\n?"), ""),
     (re.compile(r"\(\s*(?:jaise|maslan|see|e\.g\.,?|i\.e\.,?)?\s*[,;/]*\s*\)", _I), ""),
     (re.compile(r"\[\s*\]"), ""),
+    # Debris left after a sub-section ref is stripped: "(sub-)", "(sub-", "sub-section"
+    (re.compile(r"\s*\(\s*sub[\s-]*(?:sections?|clauses?)?\s*\)?(?=[\s.,;:]|$)", _I), ""),
     (re.compile(r"\*\*\s*\*\*"), ""),
     (re.compile(r"\b(?:under|per|as per|according to)\s*(?=[,.;:!?]|$)", _I | re.M), ""),
     (re.compile(r"(?m)^([ \t]*[-*>]?[ \t]*),\s*"), r"\1"),
@@ -184,10 +197,21 @@ def _cap_chips(text: str, n_sources: int | None) -> str:
     return re.sub(r"\[(\d+)\]", lambda m: m.group(0) if int(m.group(1)) <= n_sources else "", text)
 
 
-def plain_answer(text: str, language: str = "en", n_sources: int | None = None) -> str:
+def plain_answer(
+    text: str, language: str = "en", n_sources: int | None = None, *, fallback: bool = False
+) -> str:
     out, _ = _drop_ref_blocks(_pre(text or ""))
-    out = _drop_broken(_strip(out, n_sources))
-    return out.strip()
+    out = _drop_broken(_strip(out, n_sources)).strip()
+    if fallback and not out and (text or "").strip():
+        return EMPTY_FALLBACK.get(language, EMPTY_FALLBACK["en"])
+    return out
+
+
+# Shown when every sentence was stripped, so the reply is never blank.
+EMPTY_FALLBACK = {
+    "en": "This is not clear from the sources I found. Please check the FBR website.",
+    "roman_urdu": "Yeh baat sources se clear nahi. FBR website check karein.",
+}
 
 
 # Structural signs that a sentence lost a noun when a ref was stripped. These
@@ -204,6 +228,11 @@ _STRANDED = re.compile(
     r"|\bjo\s+ya\s+to\b"
     r"|\bcross[\s\-\u2010\u2011]?references?\b"
     r"|\bin\s+the\s+(?:provided\s+)?context\b"
+    # Meta talk about the retrieved text: "the context does not provide", "context mein"
+    r"|\b(?:the|this|given|provided)\s+context\b"
+    r"|\bcontext\s+(?:mein|me|main|se|ke|ki|ka|does|did|is|only|says|states|provides|gives)\b"
+    r"|\b(?:provided|available|given|retrieved|supplied)\s+(?:rules?|information|info|text|sources?|documents?|data|material|excerpts?|sections?)\b"
+    r"|\b(?:information|sources?|text)\s+(?:does|do|did)\s+not\s+(?:specify|mention|provide|state|say|give)\b"
     r"|^\W*\)?\s*applies\b"
     # A legal noun with no content left: "The only provision (...) applies."
     rf"|^\W*(?:the\s+)?(?:only\s+|relevant\s+|special\s+)*(?:provisions?|rules?|clauses?)\b"

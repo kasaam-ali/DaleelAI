@@ -110,7 +110,8 @@ TOPICS: tuple[TaxTopic, ...] = (
         "return_filing",
         (
             "Section 114 return of income who must file Section 118 due date "
-            "for furnishing return of income filing deadline"
+            "for furnishing return of income filing deadline individual association of persons "
+            "30th September company 31st December"
         ),
         ("114", "118"),
         (
@@ -126,6 +127,15 @@ TOPICS: tuple[TaxTopic, ...] = (
             "section 114",
             "section 118",
         ),
+    ),
+    TaxTopic(
+        "pension",
+        (
+            "pension received by an employee salary Section 12 pension or annuity "
+            "Second Schedule exemption of pension retirement benefit"
+        ),
+        ("12",),
+        ("pension", "pensioner", "retired", "retirement", "buzurg"),
     ),
     TaxTopic(
         "senior_profit",
@@ -300,9 +310,7 @@ _LLM_REWRITE = (
 def detect_topics(text: str) -> list[TaxTopic]:
     blob = _normalize(text)
     found = [
-        topic
-        for topic in TOPICS
-        if any(_has_trigger(blob, trigger) for trigger in topic.triggers)
+        topic for topic in TOPICS if any(_has_trigger(blob, trigger) for trigger in topic.triggers)
     ]
     keys = {topic.key for topic in found}
     # "profit" on a Behbood / senior-citizen question is not a plot capital gain.
@@ -447,10 +455,28 @@ def cross_reference_note(text: str, *, language: str = "en") -> str:
     return "\n\n".join(parts)
 
 
+COMPANY_FILING_QUERY = (
+    "Section 118 return of income in the case of a company due on or before the "
+    "thirty-first day of December 31st December company filing deadline"
+)
+_COMPANY_DATE = re.compile(r"thirty[- ]first day of december|31(?:st)? december", re.I)
+
+
+def is_company_date_hit(hit: RankedHit) -> bool:
+    return hit_section(hit) == "118" and bool(
+        _COMPANY_DATE.search(str(hit.payload.get("text") or ""))
+    )
+
+
 def rewrite_queries(message: str, search_query: str = "") -> list[str]:
     """One English statutory query per detected topic. Drops raw Roman Urdu."""
     blob = f"{message} {search_query}".strip()
-    queries = [topic.query for topic in detect_topics(blob)]
+    queries: list[str] = []
+    for topic in detect_topics(blob):
+        queries.append(topic.query)
+        if topic.key == "return_filing":
+            # The company clause of s118 loses to the individuals clause on one query.
+            queries.append(COMPANY_FILING_QUERY)
     extra = (search_query or "").strip()
     if extra and extra not in queries and not _is_raw_desi(extra):
         queries.append(extra)

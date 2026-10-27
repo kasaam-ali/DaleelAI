@@ -440,6 +440,9 @@ def _amount(message: str, params: dict) -> int | None:
             continue
         if re.match(r"\s*cc\b", message[match.end() :], re.IGNORECASE):
             continue
+        before = message[max(0, match.start() - 9) : match.start()].lower()
+        if re.search(r"(section|sec\.?|s\.|§|rule|clause)\s*$", before):
+            continue
         value = int(raw)
         if value in (2026, 2027):
             continue

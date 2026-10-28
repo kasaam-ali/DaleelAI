@@ -116,6 +116,11 @@ TOPICS: tuple[TaxTopic, ...] = (
         ("114", "118"),
         (
             "file return",
+            "file a return",
+            "need to file",
+            "have to file",
+            "must i file",
+            "must file",
             "file my return",
             "file my income tax return",
             "file the return",
@@ -239,6 +244,12 @@ TOPICS: tuple[TaxTopic, ...] = (
             "section 155",
             "155",
         ),
+    ),
+    TaxTopic(
+        "surcharge",
+        "Section 4AB surcharge on salary income above Rs 10,000,000 tax year",
+        ("4AB",),
+        ("4ab", "surcharge"),
     ),
     TaxTopic(
         "salary",
@@ -443,6 +454,20 @@ _FREELANCER_NOTE_RU = (
 )
 
 
+_SURCHARGE_NOTE = (
+    "Authoritative cross-reference: Section 4AB surcharge on salary is a TY2026 rule: 9% of tax "
+    "when salary income exceeds Rs 10,000,000. No, it does not apply in TY2027: the salary "
+    "proviso to Section 4AB removes the salary surcharge from TY2027 (Income Tax Circular No. 2 "
+    "of 2026-27). Non-salary income above Rs 10,000,000 still carries a 10% surcharge."
+)
+_SURCHARGE_NOTE_RU = (
+    "Section 4AB ka salary surcharge TY2026 ka rule hai: Rs 10,000,000 se zyada salary par tax "
+    "ka 9%. Nahi, TY2027 mein yeh nahi lagta: Section 4AB ka salary proviso TY2027 se salary "
+    "surcharge khatam karta hai (Income Tax Circular No. 2 of 2026-27). Non-salary income par "
+    "Rs 10,000,000 se upar 10% surcharge ab bhi hai."
+)
+
+
 def _immovable_cue(text: str) -> bool:
     """Plot, land, or a property sale. 'Capital gain' alone is not one."""
     blob = _normalize(text)
@@ -469,6 +494,8 @@ def cross_reference_note(text: str, *, language: str = "en") -> str:
             parts.append(_GAIN_NOTE_RU if roman else _GAIN_NOTE)
     if "remittance" in keys:
         parts.append(_REMITTANCE_NOTE_RU if roman else _REMITTANCE_NOTE)
+    if "surcharge" in keys:
+        parts.append(_SURCHARGE_NOTE_RU if roman else _SURCHARGE_NOTE)
     if "freelancer" in keys:
         parts.append(_FREELANCER_NOTE_RU if roman else _FREELANCER_NOTE)
     if "utility" in keys or {"salary", "rent"} <= keys:

@@ -180,8 +180,15 @@ button.bg-seal {
 }
 
 .composer:focus-within {
+  /* Soft seal border only — do not replace elevation shadows with a thick 4px ring. */
   border-color: var(--seal);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--seal) 18%, transparent);
+  outline: var(--focus-width) solid color-mix(in srgb, var(--seal) 40%, transparent);
+  outline-offset: 1px;
+}
+
+.composer :focus-visible {
+  /* Container already shows focus; avoid a second rectangle on textarea/buttons. */
+  outline: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {

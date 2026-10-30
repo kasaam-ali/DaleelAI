@@ -18,7 +18,7 @@ COPY . .
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 FROM base AS prod
-RUN uv sync --frozen --no-default-groups
+RUN uv sync --frozen --no-group dev
 COPY app/ app/
 COPY config/ config/
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

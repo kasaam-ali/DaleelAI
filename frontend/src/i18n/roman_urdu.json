@@ -547,5 +547,7 @@
   "tcUpdatesTitle": "Updates",
   "tcOpenUpdates": "Updates kholein",
   "tcShown": "{total} mein se {n}",
-  "tcFromListing": "Save ki gayi FBR listing se"
+  "tcFromListing": "Save ki gayi FBR listing se",
+  "siteFooterDisclaimer": "Yeh ek azaad project hai. Pakistan Government ya FBR se affiliated nahi.",
+  "siteFooterCredit": "Kasaam Ali ne banaya"
 }

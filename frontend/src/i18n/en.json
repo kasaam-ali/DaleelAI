@@ -547,5 +547,7 @@
   "tcUpdatesTitle": "Updates",
   "tcOpenUpdates": "Open Updates",
   "tcShown": "{n} of {total}",
-  "tcFromListing": "From the saved FBR listing"
+  "tcFromListing": "From the saved FBR listing",
+  "siteFooterDisclaimer": "DaleelAI is an independent project. It is not affiliated with the Government of Pakistan or the Federal Board of Revenue (FBR).",
+  "siteFooterCredit": "Made by Kasaam Ali"
 }

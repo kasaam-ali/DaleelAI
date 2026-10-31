@@ -141,3 +141,22 @@
   .dsb { transition: none !important; }
   .m-sheet, .m-scrim { animation: none !important; }
 }
+
+/* Site-wide credit footer */
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  border-top: 1px solid var(--rule);
+  padding: 16px 16px 22px;
+  font-family: var(--font-civic);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.site-footer p { margin: 0; }
+.site-footer-disclaimer { color: var(--muted); max-width: 52ch; }
+.site-footer-credit { color: var(--ink); font-weight: 500; white-space: nowrap; }
+@media (min-width: 768px) {
+  .site-footer { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 24px; }
+}

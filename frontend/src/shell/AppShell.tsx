@@ -7,6 +7,7 @@ import type { CopyKey } from "../i18n"
 import type { AppView } from "../lib/hashRoute"
 import { readRail, writeRail, type ClientTaxYear, type Profile, type Theme, type UiLanguage } from "../lib/session"
 import Icon from "./icons"
+import AppFooter from "./AppFooter"
 import Brand from "./Brand"
 import ChatSidebar from "./ChatSidebar"
 import FilingRow from "./FilingRow"
@@ -264,6 +265,7 @@ export default function AppShell({
         <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
           {children}
         </main>
+        <AppFooter variant="site" copy={copy} />
       </div>
       {searchOpen ? (
         <ChatSearchPalette
